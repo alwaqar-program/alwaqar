@@ -10,6 +10,7 @@ export type ApplicantStatus =
   | 'interview_completed'
   | 'accepted'
   | 'rejected'
+  | 'pledged'
   | 'deleted';
 
 export type AgeCategory = 'under_16' | '16_to_35' | 'over_35';
@@ -65,6 +66,7 @@ export const STATUS_AR: Record<ApplicantStatus, string> = {
   interview_completed: 'تمت المقابلة',
   accepted: 'مقبولة',
   rejected: 'مرفوضة',
+  pledged: 'تم الإقرار',
   deleted: 'محذوفة',
 };
 
@@ -85,6 +87,7 @@ export const BRANCH_AR: Record<Branch, string> = {
 export function statusVariant(status: ApplicantStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'accepted':
+    case 'pledged':
       return 'default';
     case 'rejected':
     case 'incomplete':

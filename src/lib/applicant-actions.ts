@@ -122,3 +122,43 @@ export async function restoreApplicant(
   });
   return { error: null };
 }
+
+/**
+ * Public self-pledge: applicant enters her ID, sees her name,
+ * agrees to the pledge text. No auth required.
+ * Returns the matching applicant on success.
+ */
+export async function findApplicantByNationalId(
+  nationalId: string
+): Promise<{ data: Applicant | null; error: string | null }> {
+  const { data, error } = await (supabase as any)
+    .from('applicants')
+    .select('*')
+    .eq('national_id', nationalId.trim())
+    .maybeSingle();
+  if (error) return { data: null, error: error.message };
+  return { data: data as Applicant | null, error: null };
+}
+
+export async function pledgeApplicant(
+  applicantId: string,
+  previousStatus: string
+): Promise<{ error: string | null }> {
+  const { error } = await (supabase as any)
+    .from('applicants')
+    .update({ status: 'pledged' })
+    .eq('id', applicantId);
+  if (error) return { error: error.message };
+
+  // Log without an auth user — actor_email marks it as self-service
+  await (supabase as any).from('applicant_activity_log').insert({
+    applicant_id: applicantId,
+    action: 'status_changed',
+    changes: { status: { old: previousStatus, new: 'pledged' } },
+    notes: 'إقرار ذاتي عبر النموذج العام',
+    actor_id: null,
+    actor_email: 'pledge_form@self',
+  });
+
+  return { error: null };
+}
