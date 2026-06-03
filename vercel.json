@@ -1,4 +1,5 @@
 {
+  "name": "alwaqar",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

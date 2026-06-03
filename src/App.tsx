@@ -1,23 +1,79 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Applicants from './pages/Applicants';
-import ApplicantDetail from './pages/ApplicantDetail';
-import Placeholder from './pages/Placeholder';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import BranchesPage from "./pages/BranchesPage";
+import CirclesPage from "./pages/CirclesPage";
+import TeachersPage from "./pages/TeachersPage";
+import StudentsPage from "./pages/StudentsPage";
+import StudentProfilePage from "./pages/StudentProfilePage";
+import StaffPage from "./pages/StaffPage";
+import RoomsPage from "./pages/RoomsPage";
+import RecitationPage from "./pages/RecitationPage";
+import AttendancePage from "./pages/AttendancePage";
+import ExamsPage from "./pages/ExamsPage";
+import SettingsPage from "./pages/SettingsPage";
+import UsersPage from "./pages/UsersPage";
+import PledgesPage from "./pages/PledgesPage";
+import ViolationsPage from "./pages/ViolationsPage";
+import LeaveRequestsPage from "./pages/LeaveRequestsPage";
+import AppLayout from "./components/layout/AppLayout";
+import NotFound from "./pages/NotFound";
+import logoImg from "@/assets/logo.png";
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/applicants" element={<Applicants />} />
-          <Route path="/applicants/:id" element={<ApplicantDetail />} />
-          <Route path="/students" element={<Placeholder title="الطالبات" />} />
-          <Route path="/settings" element={<Placeholder title="الإعدادات" />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+const queryClient = new QueryClient();
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-3">
+          <img src={logoImg} alt="شعار تمام" className="w-16 h-16 object-contain mx-auto" />
+          <p className="text-muted-foreground text-sm">جارٍ التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  return <AppLayout>{children}</AppLayout>;
 }
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
+            <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />
+            <Route path="/teachers" element={<ProtectedRoute><TeachersPage /></ProtectedRoute>} />
+            <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+            <Route path="/students/:id" element={<ProtectedRoute><StudentProfilePage /></ProtectedRoute>} />
+            <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
+            <Route path="/rooms" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
+            <Route path="/recitation" element={<ProtectedRoute><RecitationPage /></ProtectedRoute>} />
+            <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
+            <Route path="/exams" element={<ProtectedRoute><ExamsPage /></ProtectedRoute>} />
+            <Route path="/pledges" element={<ProtectedRoute><PledgesPage /></ProtectedRoute>} />
+            <Route path="/violations" element={<ProtectedRoute><ViolationsPage /></ProtectedRoute>} />
+            <Route path="/leave-requests" element={<ProtectedRoute><LeaveRequestsPage /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
