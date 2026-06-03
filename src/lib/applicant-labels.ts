@@ -9,7 +9,8 @@ export type ApplicantStatus =
   | 'tilawa_done'
   | 'interview_completed'
   | 'accepted'
-  | 'rejected';
+  | 'rejected'
+  | 'deleted';
 
 export type AgeCategory = 'under_16' | '16_to_35' | 'over_35';
 export type Branch = '5_juz' | '10_juz' | '20_juz' | '30_juz';
@@ -64,6 +65,7 @@ export const STATUS_AR: Record<ApplicantStatus, string> = {
   interview_completed: 'تمت المقابلة',
   accepted: 'مقبولة',
   rejected: 'مرفوضة',
+  deleted: 'محذوفة',
 };
 
 export const AGE_AR: Record<AgeCategory, string> = {
@@ -86,6 +88,7 @@ export function statusVariant(status: ApplicantStatus): 'default' | 'secondary' 
       return 'default';
     case 'rejected':
     case 'incomplete':
+    case 'deleted':
       return 'destructive';
     case 'interview_completed':
     case 'tilawa_done':
@@ -95,3 +98,59 @@ export function statusVariant(status: ApplicantStatus): 'default' | 'secondary' 
       return 'outline';
   }
 }
+
+// Activity log
+export type LogAction = 'created' | 'updated' | 'status_changed' | 'deleted' | 'restored';
+
+export interface ActivityLogEntry {
+  id: string;
+  applicant_id: string;
+  action: LogAction;
+  changes: Record<string, { old: unknown; new: unknown }> | null;
+  notes: string | null;
+  actor_id: string | null;
+  actor_email: string | null;
+  created_at: string;
+}
+
+export const ACTION_AR: Record<LogAction, string> = {
+  created: 'إنشاء',
+  updated: 'تعديل',
+  status_changed: 'تغيير الحالة',
+  deleted: 'حذف',
+  restored: 'استرجاع',
+};
+
+// Human-readable field labels (for displaying changes in the log)
+export const FIELD_AR: Record<string, string> = {
+  full_name: 'الاسم الرباعي',
+  name_en: 'الاسم بالإنجليزية',
+  national_id: 'رقم الهوية',
+  nationality: 'الجنسية',
+  date_of_birth: 'تاريخ الميلاد',
+  age: 'العمر',
+  age_category: 'الفئة العمرية',
+  phone: 'الجوال',
+  guardian_phone: 'جوال ولي الأمر',
+  email: 'البريد الإلكتروني',
+  city: 'المدينة',
+  qualification: 'المؤهل',
+  institute_name: 'المعهد',
+  institute_is_taallam: 'تابع لتعلَّم',
+  nominator: 'اسم المُرشِّحة',
+  memorized_juz_count: 'الأجزاء المحفوظة',
+  from_surah: 'من سورة',
+  to_surah: 'إلى سورة',
+  desired_branch: 'الفرع المراد',
+  curriculum_spec: 'المقرر',
+  previously_joined: 'سبق الالتحاق',
+  previous_branch: 'الفرع السابق',
+  participation_type: 'نوع المشاركة',
+  has_chronic_illness: 'مرض مزمن',
+  illness_type: 'نوع المرض',
+  has_companions: 'مرافقات',
+  companions_details: 'بيانات المرافقات',
+  accompanying_with: 'ترافق مع',
+  notes: 'ملاحظات',
+  status: 'الحالة',
+};

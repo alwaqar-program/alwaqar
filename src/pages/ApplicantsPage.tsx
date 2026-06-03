@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, Search, UserPlus, Filter } from 'lucide-react';
+import { Eye, Search, UserPlus, Filter, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,6 +17,8 @@ import {
   Applicant, ApplicantStatus, AgeCategory, Branch,
   STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
+import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
+import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
 const PAGE_SIZE = 25;
 
@@ -31,6 +33,11 @@ export default function ApplicantsPage() {
   const [ageFilter, setAgeFilter] = useState<AgeCategory | 'all'>('all');
   const [branchFilter, setBranchFilter] = useState<Branch | 'all'>('all');
   const [page, setPage] = useState(1);
+
+  // Dialog state
+  const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Applicant | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Applicant | null>(null);
 
   useEffect(() => {
     loadData();
@@ -56,6 +63,8 @@ export default function ApplicantsPage() {
 
   const filtered = useMemo(() => {
     return data.filter((r) => {
+      // Hide deleted unless filter explicitly selects them
+      if (statusFilter === 'all' && r.status === 'deleted') return false;
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (ageFilter !== 'all' && r.age_category !== ageFilter) return false;
       if (branchFilter !== 'all' && r.desired_branch !== branchFilter) return false;
@@ -67,6 +76,8 @@ export default function ApplicantsPage() {
       return true;
     });
   }, [data, search, statusFilter, ageFilter, branchFilter]);
+
+  const deletedCount = data.filter((r) => r.status === 'deleted').length;
 
   useEffect(() => {
     setPage(1);
@@ -83,7 +94,7 @@ export default function ApplicantsPage() {
           <h1 className="text-2xl lg:text-3xl font-display">المتقدمات</h1>
           <p className="text-sm text-muted-foreground mt-1">إدارة طلبات الانضمام لدورة الوقار</p>
         </div>
-        <Button disabled className="gap-2">
+        <Button onClick={() => setAddOpen(true)} className="gap-2">
           <UserPlus size={18} />
           إضافة متقدمة
         </Button>
@@ -111,7 +122,7 @@ export default function ApplicantsPage() {
                 <SelectValue placeholder="الحالة" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع الحالات</SelectItem>
+                <SelectItem value="all">جميع الحالات (عدا المحذوفة)</SelectItem>
                 {Object.entries(STATUS_AR).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
@@ -145,9 +156,14 @@ export default function ApplicantsPage() {
             </div>
           </div>
 
-          <div className="text-xs text-muted-foreground mt-3 flex items-center gap-2">
+          <div className="text-xs text-muted-foreground mt-3 flex items-center gap-2 flex-wrap">
             <Filter size={12} />
             عرض {filtered.length} من إجمالي {data.length}
+            {deletedCount > 0 && statusFilter === 'all' && (
+              <span className="text-rose-600">
+                ({deletedCount} محذوفة مخفية — استخدم فلتر الحالة لإظهارها)
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -172,12 +188,16 @@ export default function ApplicantsPage() {
                     <TableHead className="text-right">الفرع</TableHead>
                     <TableHead className="text-right">الأجزاء</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right w-[80px]"></TableHead>
+                    <TableHead className="text-right w-[150px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paged.map((r) => (
-                    <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/applicants/${r.id}`)}>
+                    <TableRow
+                      key={r.id}
+                      className={`cursor-pointer ${r.status === 'deleted' ? 'opacity-60' : ''}`}
+                      onClick={() => navigate(`/applicants/${r.id}`)}
+                    >
                       <TableCell className="font-medium">{r.full_name || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.national_id || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.phone || '—'}</TableCell>
@@ -197,15 +217,25 @@ export default function ApplicantsPage() {
                         <Badge variant={statusVariant(r.status)}>{STATUS_AR[r.status]}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/applicants/${r.id}`); }}
-                          className="gap-1"
-                        >
-                          <Eye size={14} />
-                          عرض
-                        </Button>
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/applicants/${r.id}`)} title="عرض">
+                            <Eye size={14} />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditTarget(r)} title="تعديل">
+                            <Pencil size={14} />
+                          </Button>
+                          {r.status !== 'deleted' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteTarget(r)}
+                              title="حذف"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -242,6 +272,28 @@ export default function ApplicantsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <ApplicantFormDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onSaved={() => loadData()}
+      />
+      <ApplicantFormDialog
+        open={!!editTarget}
+        onOpenChange={(o) => !o && setEditTarget(null)}
+        applicant={editTarget ?? undefined}
+        onSaved={() => { loadData(); setEditTarget(null); }}
+      />
+      {deleteTarget && (
+        <DeleteApplicantDialog
+          open={!!deleteTarget}
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          applicantId={deleteTarget.id}
+          applicantName={deleteTarget.full_name ?? '—'}
+          onDeleted={() => { loadData(); setDeleteTarget(null); }}
+        />
+      )}
     </div>
   );
 }

@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import {
   Applicant, STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
+import { restoreApplicant } from '@/lib/applicant-actions';
+import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
+import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
+import ApplicantActivityLog from '@/components/applicants/ApplicantActivityLog';
 
 export default function ApplicantProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -17,23 +21,40 @@ export default function ApplicantProfilePage() {
 
   const [data, setData] = useState<Applicant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [logRefresh, setLogRefresh] = useState(0);
+
+  const reload = useCallback(async () => {
+    if (!id) return;
+    const { data, error } = await (supabase as any)
+      .from('applicants')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      toast({ title: 'تعذّر تحميل البيانات', description: error.message, variant: 'destructive' });
+    } else {
+      setData(data as Applicant);
+    }
+    setLoading(false);
+  }, [id, toast]);
 
   useEffect(() => {
-    if (!id) return;
-    (async () => {
-      const { data, error } = await (supabase as any)
-        .from('applicants')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) {
-        toast({ title: 'تعذّر تحميل البيانات', description: error.message, variant: 'destructive' });
-      } else {
-        setData(data as Applicant);
-      }
-      setLoading(false);
-    })();
-  }, [id, toast]);
+    reload();
+  }, [reload]);
+
+  async function handleRestore() {
+    if (!data) return;
+    const { error } = await restoreApplicant(data.id);
+    if (error) {
+      toast({ title: 'تعذّر الاسترجاع', description: error, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'تم الاسترجاع', description: 'أُعيدت المتقدمة إلى حالة "مسجلة"' });
+    reload();
+    setLogRefresh((k) => k + 1);
+  }
 
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">جارٍ التحميل…</div>;
@@ -49,15 +70,39 @@ export default function ApplicantProfilePage() {
     );
   }
 
+  const isDeleted = data.status === 'deleted';
+
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Header */}
+      {/* Header bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Button variant="ghost" onClick={() => navigate('/applicants')} className="gap-2">
           <ArrowRight size={16} />
           العودة للقائمة
         </Button>
-        <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
+            <Pencil size={14} />
+            تعديل
+          </Button>
+          {isDeleted ? (
+            <Button variant="outline" size="sm" onClick={handleRestore} className="gap-2">
+              <RotateCcw size={14} />
+              استرجاع
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              className="gap-2 text-destructive hover:text-destructive"
+            >
+              <Trash2 size={14} />
+              حذف
+            </Button>
+          )}
+        </div>
       </div>
 
       <div>
@@ -123,7 +168,27 @@ export default function ApplicantProfilePage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Activity Log */}
+        <div className="md:col-span-2">
+          <ApplicantActivityLog applicantId={data.id} refreshKey={logRefresh} />
+        </div>
       </div>
+
+      {/* Dialogs */}
+      <ApplicantFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        applicant={data}
+        onSaved={() => { reload(); setLogRefresh((k) => k + 1); }}
+      />
+      <DeleteApplicantDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        applicantId={data.id}
+        applicantName={data.full_name ?? '—'}
+        onDeleted={() => { reload(); setLogRefresh((k) => k + 1); }}
+      />
     </div>
   );
 }
