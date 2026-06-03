@@ -21,6 +21,8 @@ import UsersPage from "./pages/UsersPage";
 import PledgesPage from "./pages/PledgesPage";
 import ViolationsPage from "./pages/ViolationsPage";
 import LeaveRequestsPage from "./pages/LeaveRequestsPage";
+import ApplicantsPage from "./pages/ApplicantsPage";
+import ApplicantProfilePage from "./pages/ApplicantProfilePage";
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
 import logoImg from "@/assets/logo.png";
@@ -66,6 +68,8 @@ const App = () => (
             <Route path="/pledges" element={<ProtectedRoute><PledgesPage /></ProtectedRoute>} />
             <Route path="/violations" element={<ProtectedRoute><ViolationsPage /></ProtectedRoute>} />
             <Route path="/leave-requests" element={<ProtectedRoute><LeaveRequestsPage /></ProtectedRoute>} />
+            <Route path="/applicants" element={<ProtectedRoute><ApplicantsPage /></ProtectedRoute>} />
+            <Route path="/applicants/:id" element={<ProtectedRoute><ApplicantProfilePage /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

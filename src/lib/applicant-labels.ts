@@ -1,0 +1,97 @@
+export type ApplicantStatus =
+  | 'incomplete'
+  | 'registered'
+  | 'validated'
+  | 'hifz_waiting'
+  | 'hifz_step2'
+  | 'hifz_done'
+  | 'tilawa_step'
+  | 'tilawa_done'
+  | 'interview_completed'
+  | 'accepted'
+  | 'rejected';
+
+export type AgeCategory = 'under_16' | '16_to_35' | 'over_35';
+export type Branch = '5_juz' | '10_juz' | '20_juz' | '30_juz';
+
+export interface Applicant {
+  id: string;
+  submission_id: string | null;
+  submission_number: number | null;
+  full_name: string | null;
+  name_en: string | null;
+  national_id: string | null;
+  nationality: string | null;
+  date_of_birth: string | null;
+  age: number | null;
+  age_category: AgeCategory | null;
+  phone: string | null;
+  guardian_phone: string | null;
+  email: string | null;
+  city: string | null;
+  qualification: string | null;
+  institute_name: string | null;
+  institute_is_taallam: boolean | null;
+  nominator: string | null;
+  memorized_juz_count: number | null;
+  from_surah: string | null;
+  to_surah: string | null;
+  desired_branch: Branch | null;
+  curriculum_spec: string | null;
+  previously_joined: boolean | null;
+  previous_branch: string | null;
+  participation_type: string | null;
+  has_chronic_illness: boolean | null;
+  illness_type: string | null;
+  has_companions: boolean | null;
+  companions_details: string | null;
+  accompanying_with: string | null;
+  notes: string | null;
+  status: ApplicantStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export const STATUS_AR: Record<ApplicantStatus, string> = {
+  incomplete: 'بيانات ناقصة',
+  registered: 'مسجلة',
+  validated: 'تم التحقق',
+  hifz_waiting: 'بانتظار اختبار الحفظ',
+  hifz_step2: 'تقييم الحفظ',
+  hifz_done: 'انتهت من اختبار الحفظ',
+  tilawa_step: 'في اختبار التلاوة',
+  tilawa_done: 'انتهت من التلاوة',
+  interview_completed: 'تمت المقابلة',
+  accepted: 'مقبولة',
+  rejected: 'مرفوضة',
+};
+
+export const AGE_AR: Record<AgeCategory, string> = {
+  under_16: 'أقل من 16',
+  '16_to_35': '16 - 35',
+  over_35: 'أعلى من 35',
+};
+
+export const BRANCH_AR: Record<Branch, string> = {
+  '5_juz': '5 أجزاء',
+  '10_juz': '10 أجزاء',
+  '20_juz': '20 جزء',
+  '30_juz': '30 جزء',
+};
+
+// Maps each status to a shadcn Badge variant
+export function statusVariant(status: ApplicantStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'accepted':
+      return 'default';
+    case 'rejected':
+    case 'incomplete':
+      return 'destructive';
+    case 'interview_completed':
+    case 'tilawa_done':
+    case 'hifz_done':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
+}

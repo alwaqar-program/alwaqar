@@ -21,6 +21,7 @@ import {
   FileSignature,
   AlertTriangle,
   CalendarOff,
+  UserPlus,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'لوحة المعلومات', href: '/', icon: <LayoutDashboard size={20} /> },
+  { label: 'المتقدمات', href: '/applicants', icon: <UserPlus size={20} /> },
   { label: 'التسميع', href: '/recitation', icon: <Mic size={20} /> },
   { label: 'الحضور', href: '/attendance', icon: <ClipboardCheck size={20} /> },
   { label: 'الاختبارات', href: '/exams', icon: <FileCheck size={20} /> },
