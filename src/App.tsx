@@ -24,6 +24,8 @@ import LeaveRequestsPage from "./pages/LeaveRequestsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
 import ApplicantProfilePage from "./pages/ApplicantProfilePage";
 import PledgePage from "./pages/PledgePage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
 import logoImg from "@/assets/logo.png";
@@ -55,6 +57,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/pledge" element={<PledgePage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />

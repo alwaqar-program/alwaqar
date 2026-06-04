@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +66,14 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? '...' : isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول'}
             </Button>
+            {!isSignUp && (
+              <Link
+                to="/forgot-password"
+                className="block text-center text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                نسيت كلمة المرور؟
+              </Link>
+            )}
             <button
               type="button"
               className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"

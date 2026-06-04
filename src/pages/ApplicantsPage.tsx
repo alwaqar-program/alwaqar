@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, Search, UserPlus, Filter, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Search, UserPlus, Filter, Pencil, Trash2, Download } from 'lucide-react';
+import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -21,6 +22,33 @@ import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
 const PAGE_SIZE = 25;
+
+const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
+  { key: 'submission_number', header: 'رقم الطلب' },
+  { key: 'full_name', header: 'الاسم الرباعي' },
+  { key: 'national_id', header: 'رقم الهوية' },
+  { key: 'nationality', header: 'الجنسية' },
+  { key: 'date_of_birth', header: 'تاريخ الميلاد' },
+  { key: 'age', header: 'العمر' },
+  { key: 'age_category', header: 'الفئة العمرية', transform: (v) =>
+    v === 'under_16' ? 'أقل من 16' : v === '16_to_35' ? '16 - 35' : v === 'over_35' ? 'أعلى من 35' : '' },
+  { key: 'phone', header: 'الجوال' },
+  { key: 'guardian_phone', header: 'جوال ولي الأمر' },
+  { key: 'email', header: 'البريد الإلكتروني' },
+  { key: 'city', header: 'المدينة' },
+  { key: 'qualification', header: 'المؤهل' },
+  { key: 'institute_name', header: 'المعهد' },
+  { key: 'memorized_juz_count', header: 'الأجزاء المحفوظة' },
+  { key: 'from_surah', header: 'من سورة' },
+  { key: 'to_surah', header: 'إلى سورة' },
+  { key: 'desired_branch', header: 'الفرع المراد', transform: (v) =>
+    ({ '5_juz': '5 أجزاء', '10_juz': '10 أجزاء', '20_juz': '20 جزء', '30_juz': '30 جزء' } as Record<string, string>)[v] ?? '' },
+  { key: 'previously_joined', header: 'سبق الالتحاق', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
+  { key: 'has_chronic_illness', header: 'مرض مزمن', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
+  { key: 'has_companions', header: 'معها مرافقات', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
+  { key: 'status', header: 'الحالة', transform: (v) => STATUS_AR[v as ApplicantStatus] ?? v },
+  { key: 'notes', header: 'ملاحظات' },
+];
 
 export default function ApplicantsPage() {
   const navigate = useNavigate();
@@ -94,10 +122,21 @@ export default function ApplicantsPage() {
           <h1 className="text-2xl lg:text-3xl font-display">المتقدمات</h1>
           <p className="text-sm text-muted-foreground mt-1">إدارة طلبات الانضمام لدورة الوقار</p>
         </div>
-        <Button onClick={() => setAddOpen(true)} className="gap-2">
-          <UserPlus size={18} />
-          إضافة متقدمة
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => exportToCsv(filtered, APPLICANT_CSV_COLUMNS, 'متقدمات')}
+            disabled={filtered.length === 0}
+            className="gap-2"
+          >
+            <Download size={16} />
+            تصدير CSV ({filtered.length})
+          </Button>
+          <Button onClick={() => setAddOpen(true)} className="gap-2">
+            <UserPlus size={18} />
+            إضافة متقدمة
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
