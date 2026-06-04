@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useLayoutEffect, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,16 @@ type LookupState =
 
 export default function PledgePage() {
   const { toast } = useToast();
+
+  // Set browser tab title only while this page is mounted
+  useLayoutEffect(() => {
+    const previous = document.title;
+    document.title = 'إقرار والتزام الطالبات بالاتفاقية';
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   const [nationalId, setNationalId] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -91,14 +101,14 @@ export default function PledgePage() {
       <main className="flex-1 container mx-auto px-4 py-8 lg:py-12 flex items-start justify-center">
         <Card className="w-full max-w-2xl">
           <CardHeader className="text-center">
-            <CardTitle className="font-display text-2xl">تعهد الالتزام باتفاقية الطالبات</CardTitle>
+            <CardTitle className="font-display text-2xl">إقرار والتزام الطالبات بالاتفاقية</CardTitle>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* القسم: إقرار وإلتزام */}
+              {/* القسم: إقرار والتزام */}
               <div className="space-y-1 border-b pb-2">
-                <h2 className="font-display text-lg">إقرار وإلتزام</h2>
+                <h2 className="font-display text-lg">إقرار والتزام</h2>
                 <p className="text-sm text-muted-foreground">"ويُغني عن التوقيع الخطي"</p>
               </div>
 
