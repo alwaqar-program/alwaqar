@@ -108,6 +108,14 @@ export default function ApplicantProfilePage() {
       <div>
         <h1 className="text-3xl font-display">{data.full_name || '—'}</h1>
         {data.name_en && <p className="text-muted-foreground mt-1">{data.name_en}</p>}
+        {data.registered_at && (
+          <p className="text-xs text-muted-foreground mt-2 tabular-nums">
+            تاريخ التسجيل: {new Date(data.registered_at).toLocaleString('ar-SA', {
+              year: 'numeric', month: 'long', day: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

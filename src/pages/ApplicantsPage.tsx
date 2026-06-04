@@ -47,6 +47,7 @@ const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'has_chronic_illness', header: 'مرض مزمن', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
   { key: 'has_companions', header: 'معها مرافقات', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
   { key: 'status', header: 'الحالة', transform: (v) => STATUS_AR[v as ApplicantStatus] ?? v },
+  { key: 'registered_at', header: 'تاريخ التسجيل', transform: (v) => v ? new Date(v).toISOString().slice(0, 10) : '' },
   { key: 'notes', header: 'ملاحظات' },
 ];
 
@@ -227,6 +228,7 @@ export default function ApplicantsPage() {
                     <TableHead className="text-right">الفرع</TableHead>
                     <TableHead className="text-right">الأجزاء</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">تاريخ التسجيل</TableHead>
                     <TableHead className="text-right w-[150px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -254,6 +256,13 @@ export default function ApplicantsPage() {
                       <TableCell className="tabular-nums text-muted-foreground">{r.memorized_juz_count ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>{STATUS_AR[r.status]}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
+                        {r.registered_at
+                          ? new Date(r.registered_at).toLocaleDateString('ar-SA', {
+                              year: 'numeric', month: 'short', day: 'numeric',
+                            })
+                          : '—'}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

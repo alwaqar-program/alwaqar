@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
 
     const mapped: Record<string, unknown> = {
       submission_id: submissionId,
+      registered_at: submissionTime ?? new Date().toISOString(),
       full_name: fullName ? String(fullName).trim() : null,
       name_en: findByLabel(questions, "الاسم باللغة الانجليزية", "الاسم بالإنجليزية"),
       national_id: nationalId ? String(nationalId).trim() : null,
