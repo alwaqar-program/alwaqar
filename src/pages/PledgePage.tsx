@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
@@ -90,21 +90,16 @@ export default function PledgePage() {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-          <img src={logoImg} alt="شعار تمام" className="w-10 h-10 object-contain" />
-          <div>
-            <h1 className="font-display text-lg leading-tight">نظام الوقار</h1>
-            <p className="text-xs text-muted-foreground">جمعية تعلَّم للقرآن وعلومه</p>
-          </div>
+          <img src={logoImg} alt="شعار تمام" className="w-10 h-10 object-contain shrink-0" />
+          <h1 className="font-display text-lg sm:text-xl leading-tight">
+            إقرار والتزام الطالبات بالاتفاقية
+          </h1>
         </div>
       </header>
 
       <main className="flex-1 container mx-auto px-4 py-8 lg:py-12 flex items-start justify-center">
         <Card className="w-full max-w-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="font-display text-2xl">إقرار والتزام الطالبات بالاتفاقية</CardTitle>
-          </CardHeader>
-
-          <CardContent>
+          <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* القسم: إقرار والتزام */}
               <div className="space-y-1 border-b pb-2">
