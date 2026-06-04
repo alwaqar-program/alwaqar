@@ -10,8 +10,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Shield, UserPlus, Users, KeyRound } from 'lucide-react';
+import { Plus, Shield, UserPlus, Users, KeyRound, Download } from 'lucide-react';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
+import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
+
+const USER_CSV_COLUMNS: CsvColumnDef[] = [
+  { key: 'full_name', header: 'الاسم' },
+  { key: 'role', header: 'الدور (المعرف)' },
+  {
+    key: 'role',
+    header: 'الدور (العربي)',
+    transform: (v) => ({
+      admin: 'مدير النظام',
+      teacher: 'معلمة',
+      student_affairs: 'شؤون طالبات',
+      housing_supervisor: 'مشرفة سكن',
+      observer: 'مراقب',
+    } as Record<string, string>)[v] ?? v,
+  },
+  { key: 'email', header: 'البريد الإلكتروني' },
+  { key: 'created_at', header: 'تاريخ الإضافة', transform: (v) => v ? new Date(v).toLocaleDateString('ar-SA') : '' },
+];
 
 const roleLabels: Record<string, string> = {
   admin: 'مدير النظام',
@@ -145,6 +164,16 @@ export default function UsersPage() {
           <h1 className="text-2xl font-display text-foreground">إدارة المستخدمين والأدوار</h1>
           <p className="text-sm text-muted-foreground mt-1">إضافة مستخدمين جدد وتعيين صلاحياتهم</p>
         </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => exportToCsv(users, USER_CSV_COLUMNS, 'مستخدمون')}
+            disabled={users.length === 0}
+            className="gap-2"
+          >
+            <Download size={16} />
+            تصدير CSV
+          </Button>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -211,6 +240,7 @@ export default function UsersPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
