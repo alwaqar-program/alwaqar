@@ -131,13 +131,20 @@ export async function restoreApplicant(
 export async function findApplicantByNationalId(
   nationalId: string
 ): Promise<{ data: Applicant | null; error: string | null }> {
+  // A national_id may legitimately appear on more than one row because the
+  // original Fillout form let people submit twice (we soft-deleted the older
+  // duplicates, but they still match the WHERE clause). Pick the most recent
+  // ACTIVE row instead of erroring on multiple matches.
   const { data, error } = await (supabase as any)
     .from('applicants')
     .select('*')
     .eq('national_id', nationalId.trim())
-    .maybeSingle();
+    .neq('status', 'deleted')
+    .order('submission_number', { ascending: false, nullsFirst: false })
+    .limit(1);
   if (error) return { data: null, error: error.message };
-  return { data: data as Applicant | null, error: null };
+  const row = Array.isArray(data) && data.length > 0 ? (data[0] as Applicant) : null;
+  return { data: row, error: null };
 }
 
 export async function pledgeApplicant(
