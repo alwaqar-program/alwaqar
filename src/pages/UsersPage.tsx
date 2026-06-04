@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Shield, UserPlus, Users } from 'lucide-react';
+import { Plus, Shield, UserPlus, Users, KeyRound } from 'lucide-react';
+import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
 
 const roleLabels: Record<string, string> = {
   admin: 'مدير النظام',
@@ -42,6 +43,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [resetTarget, setResetTarget] = useState<UserWithRole | null>(null);
 
   const [form, setForm] = useState({
     email: '',
@@ -247,6 +249,7 @@ export default function UsersPage() {
                     <TableHead className="text-right">الاسم</TableHead>
                     <TableHead className="text-right">الدور</TableHead>
                     <TableHead className="text-right">تاريخ الإضافة</TableHead>
+                    <TableHead className="text-right w-[140px]">إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -261,6 +264,18 @@ export default function UsersPage() {
                       <TableCell className="text-muted-foreground text-sm">
                         {new Date(u.created_at).toLocaleDateString('ar-SA')}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setResetTarget(u)}
+                          className="gap-2 text-xs"
+                          title="إعادة تعيين كلمة المرور"
+                        >
+                          <KeyRound size={14} />
+                          إعادة تعيين
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -269,6 +284,16 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reset password dialog */}
+      {resetTarget && (
+        <ResetPasswordDialog
+          open={!!resetTarget}
+          onOpenChange={(o) => !o && setResetTarget(null)}
+          targetUserId={resetTarget.user_id}
+          targetFullName={resetTarget.full_name}
+        />
+      )}
     </div>
   );
 }
