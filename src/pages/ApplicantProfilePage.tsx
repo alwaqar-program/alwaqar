@@ -25,6 +25,37 @@ export default function ApplicantProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [logRefresh, setLogRefresh] = useState(0);
+  const [latestInterviewer, setLatestInterviewer] = useState<string | null>(null);
+
+  // Pull the most recent interview's committee member name (for display under the status badge)
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      const { data: rows } = await (supabase as any)
+        .from('interviews')
+        .select('committee_member_name,committee_member_id')
+        .eq('applicant_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (rows && rows.length > 0) {
+        const r = rows[0];
+        if (r.committee_member_name) {
+          setLatestInterviewer(r.committee_member_name);
+        } else if (r.committee_member_id) {
+          const { data: m } = await (supabase as any)
+            .from('interview_committee')
+            .select('full_name')
+            .eq('id', r.committee_member_id)
+            .maybeSingle();
+          setLatestInterviewer(m?.full_name ?? null);
+        } else {
+          setLatestInterviewer(null);
+        }
+      } else {
+        setLatestInterviewer(null);
+      }
+    })();
+  }, [id, logRefresh]);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -81,8 +112,15 @@ export default function ApplicantProfilePage() {
           <ArrowRight size={16} />
           العودة للقائمة
         </Button>
-        <div className="flex items-center gap-2">
-          <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col items-end">
+            <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
+            {data.status === 'interview_completed' && latestInterviewer && (
+              <span className="text-[10px] text-muted-foreground mt-1">
+                بواسطة: <span className="font-medium">{latestInterviewer}</span>
+              </span>
+            )}
+          </div>
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
             <Pencil size={14} />
             تعديل

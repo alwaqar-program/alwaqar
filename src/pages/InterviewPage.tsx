@@ -187,7 +187,7 @@ export default function InterviewPage() {
         applicant_id: applicantId,
         action: 'status_changed',
         changes: { status: { old: selectedApplicant.status, new: 'interview_completed' } },
-        notes: `إجراء مقابلة من اللجنة (الدرجة ${score}/${maxScore} ${RESULT_AR[result]})`,
+        notes: `إجراء مقابلة بواسطة ${selectedCommittee?.full_name ?? 'عضوة غير محددة'} (الدرجة ${score}/${maxScore} — ${RESULT_AR[result]})`,
         actor_email: 'interview_form@self',
       });
     }
