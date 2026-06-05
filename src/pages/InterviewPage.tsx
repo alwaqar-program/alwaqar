@@ -16,7 +16,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
-import { Search, CheckCircle2, AlertCircle, ChevronsUpDown } from 'lucide-react';
+import { Search, CheckCircle2, AlertCircle, ChevronsUpDown, KeyRound, Eye, EyeOff } from 'lucide-react';
 import {
   Applicant, STATUS_AR, BRANCH_AR,
 } from '@/lib/applicant-labels';
@@ -27,6 +27,9 @@ import {
 } from '@/lib/interview-types';
 import logoImg from '@/assets/logo.png';
 
+// How long an unlocked session is valid before the code is required again.
+const SESSION_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 export default function InterviewPage() {
   const { toast } = useToast();
 
@@ -35,6 +38,22 @@ export default function InterviewPage() {
     document.title = 'مقابلة طالبات الوقار';
     return () => { document.title = prev; };
   }, []);
+
+  // Gate: every fresh load (refresh, new tab) requires the code again.
+  // Session resets automatically after SESSION_DURATION_MS.
+  const [unlocked, setUnlocked] = useState(false);
+
+  useEffect(() => {
+    if (!unlocked) return;
+    const timer = setTimeout(() => {
+      setUnlocked(false);
+      toast({
+        title: 'انتهت الجلسة',
+        description: 'مرّت ساعتان. يرجى إدخال رمز الدخول مرة أخرى.',
+      });
+    }, SESSION_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [unlocked, toast]);
 
   const [committee, setCommittee] = useState<CommitteeMember[]>([]);
   const [applicants, setApplicants] = useState<Pick<Applicant,
@@ -71,6 +90,7 @@ export default function InterviewPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    if (!unlocked) { setLoading(false); return; }
     (async () => {
       const [cRes, aRes, iRes] = await Promise.all([
         (supabase as any)
@@ -100,7 +120,7 @@ export default function InterviewPage() {
       }
       setLoading(false);
     })();
-  }, [toast]);
+  }, [toast, unlocked]);
 
   const selectedApplicant = useMemo(
     () => applicants.find(a => a.id === applicantId) ?? null,
@@ -194,6 +214,10 @@ export default function InterviewPage() {
 
     setDone(true);
     toast({ title: 'تم حفظ المقابلة بنجاح' });
+  }
+
+  if (!unlocked) {
+    return <CodeGate onUnlock={() => setUnlocked(true)} />;
   }
 
   if (loading) {
@@ -547,3 +571,105 @@ function NumberField({ label, value, onChange, hint }: {
 
 // Note: We import Search but didn't use it; keep linter happy.
 void Search;
+
+/* ─────────── Code Gate ─────────── */
+
+function CodeGate({ onUnlock }: { onUnlock: () => void }) {
+  const { toast } = useToast();
+  const [code, setCode] = useState('');
+  const [show, setShow] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('validate-interview-code', {
+        body: { code: trimmed },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.ok) {
+        onUnlock();
+      } else {
+        setError(data?.error ?? 'الرمز غير صحيح');
+      }
+    } catch (err: any) {
+      toast({ title: 'تعذّر التحقق', description: err.message ?? 'حدث خطأ', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col">
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
+          <img src={logoImg} alt="شعار تمام" className="w-10 h-10 object-contain shrink-0" />
+          <h1 className="font-display text-lg sm:text-xl leading-tight">
+            مقابلة طالبات الوقار
+          </h1>
+        </div>
+      </header>
+
+      <main className="flex-1 container mx-auto px-4 py-12 flex items-start justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+              <KeyRound size={22} />
+            </div>
+            <CardTitle className="font-display text-2xl">رمز الدخول</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              أدخلي الرمز الذي زوّدتكِ به الإدارة لبدء المقابلات.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">الرمز</Label>
+                <div className="relative">
+                  <Input
+                    id="code"
+                    type={show ? 'text' : 'password'}
+                    value={code}
+                    onChange={(e) => { setCode(e.target.value); setError(null); }}
+                    autoFocus
+                    dir="ltr"
+                    className="pl-10"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((s) => !s)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md p-3">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={submitting || !code.trim()}>
+                {submitting ? 'جارٍ التحقق…' : 'دخول'}
+              </Button>
+
+              <p className="text-[10px] text-muted-foreground text-center pt-2 border-t">
+                صلاحية الجلسة: ساعتان من بدء الاستخدام، وتنتهي عند تحديث الصفحة.
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
