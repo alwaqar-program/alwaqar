@@ -1,4 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Users, Pencil, Trash2 } from 'lucide-react';
+import { UserPlus, Users, Pencil, Trash2, Eye } from 'lucide-react';
 import { CommitteeMember } from '@/lib/interview-types';
 
 export default function InterviewCommitteePage() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [members, setMembers] = useState<CommitteeMember[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -128,7 +130,11 @@ export default function InterviewCommitteePage() {
               </TableHeader>
               <TableBody>
                 {members.map((m) => (
-                  <TableRow key={m.id}>
+                  <TableRow
+                    key={m.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/interview-committee/${m.id}`)}
+                  >
                     <TableCell className="font-medium">{m.full_name}</TableCell>
                     <TableCell>
                       {m.is_active
@@ -142,7 +148,14 @@ export default function InterviewCommitteePage() {
                       {new Date(m.created_at).toLocaleDateString('ar-SA')}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => navigate(`/interview-committee/${m.id}`)}
+                          title="عرض المقابلات"
+                        >
+                          <Eye size={14} />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => setEditTarget(m)} title="تعديل">
                           <Pencil size={14} />
                         </Button>
