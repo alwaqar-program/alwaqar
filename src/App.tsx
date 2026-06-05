@@ -24,6 +24,8 @@ import LeaveRequestsPage from "./pages/LeaveRequestsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
 import ApplicantProfilePage from "./pages/ApplicantProfilePage";
 import PledgePage from "./pages/PledgePage";
+import InterviewPage from "./pages/InterviewPage";
+import InterviewCommitteePage from "./pages/InterviewCommitteePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AppLayout from "./components/layout/AppLayout";
@@ -60,6 +62,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/pledge" element={<PledgePage />} />
+            <Route path="/interview" element={<InterviewPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
             <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />
@@ -76,6 +79,7 @@ const App = () => (
             <Route path="/leave-requests" element={<ProtectedRoute><LeaveRequestsPage /></ProtectedRoute>} />
             <Route path="/applicants" element={<ProtectedRoute><ApplicantsPage /></ProtectedRoute>} />
             <Route path="/applicants/:id" element={<ProtectedRoute><ApplicantProfilePage /></ProtectedRoute>} />
+            <Route path="/interview-committee" element={<ProtectedRoute><InterviewCommitteePage /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
