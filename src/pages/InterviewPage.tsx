@@ -274,7 +274,7 @@ export default function InterviewPage() {
                         className="w-full justify-between"
                       >
                         {selectedApplicant
-                          ? <span>{selectedApplicant.full_name} <span className="text-muted-foreground tabular-nums">— {selectedApplicant.national_id}</span></span>
+                          ? <span>{selectedApplicant.full_name}</span>
                           : <span className="text-muted-foreground">ابحثي بالاسم أو رقم الهوية…</span>}
                         <ChevronsUpDown size={14} className="ms-2 opacity-50" />
                       </Button>
@@ -288,13 +288,13 @@ export default function InterviewPage() {
                             {applicants.map(a => (
                               <CommandItem
                                 key={a.id}
+                                // value includes the national ID so search by ID still works,
+                                // but we deliberately do NOT render it — this page is public
+                                // and the ID is sensitive info.
                                 value={`${a.full_name} ${a.national_id}`}
                                 onSelect={() => { setApplicantId(a.id); setApplicantSearchOpen(false); }}
                               >
-                                <div className="flex flex-col w-full">
-                                  <span className="font-medium">{a.full_name}</span>
-                                  <span className="text-xs text-muted-foreground tabular-nums">{a.national_id}</span>
-                                </div>
+                                <span className="font-medium">{a.full_name}</span>
                               </CommandItem>
                             ))}
                           </CommandGroup>
