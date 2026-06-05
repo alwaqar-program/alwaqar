@@ -82,7 +82,7 @@ export default function InterviewPage() {
           .from('applicants')
           .select('id,full_name,national_id,phone,age,age_category,memorized_juz_count,from_surah,to_surah,desired_branch,previously_joined,previous_branch,has_companions,companions_details,accompanying_with,status')
           .eq('age_category', '16_to_35')
-          .neq('status', 'deleted')
+          .eq('status', 'pledged')
           .order('full_name'),
       ]);
       if (cRes.error) toast({ title: 'تعذّر تحميل اللجنة', description: cRes.error.message, variant: 'destructive' });
@@ -253,7 +253,7 @@ export default function InterviewPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-display">2. اختاري الطالبة</CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    فئة 16-35 سنة فقط ({applicants.length} طالبة)
+                    الفئة العمرية 16-35 سنة + أقرَّت بالتعهد فقط ({applicants.length} طالبة)
                   </p>
                 </CardHeader>
                 <CardContent>
