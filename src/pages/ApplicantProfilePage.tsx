@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, AlertCircle, Pencil, Trash2, RotateCcw } from 'lucide-react';
+import { ArrowRight, AlertCircle, Pencil, Trash2, RotateCcw, MessagesSquare } from 'lucide-react';
 import {
   Applicant, STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
@@ -113,14 +113,7 @@ export default function ApplicantProfilePage() {
           العودة للقائمة
         </Button>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex flex-col items-end">
-            <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
-            {data.status === 'interview_completed' && latestInterviewer && (
-              <span className="text-[10px] text-muted-foreground mt-1">
-                بواسطة: <span className="font-medium">{latestInterviewer}</span>
-              </span>
-            )}
-          </div>
+          <Badge variant={statusVariant(data.status)}>{STATUS_AR[data.status]}</Badge>
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
             <Pencil size={14} />
             تعديل
@@ -147,6 +140,16 @@ export default function ApplicantProfilePage() {
       <div>
         <h1 className="text-3xl font-display">{data.full_name || '—'}</h1>
         {data.name_en && <p className="text-muted-foreground mt-1">{data.name_en}</p>}
+
+        {data.status === 'interview_completed' && latestInterviewer && (
+          <div className="inline-flex items-center gap-2 mt-3 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary">
+            <MessagesSquare size={16} />
+            <span className="text-sm">
+              أجرت المقابلة: <strong className="font-semibold">{latestInterviewer}</strong>
+            </span>
+          </div>
+        )}
+
         {data.registered_at && (
           <p className="text-xs text-muted-foreground mt-2 tabular-nums">
             تاريخ التسجيل: {new Date(data.registered_at).toLocaleString('ar-SA', {
