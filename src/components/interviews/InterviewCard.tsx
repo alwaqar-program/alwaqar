@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, User, Award } from 'lucide-react';
 import {
   Interview, RESULT_AR, RESULT_COLOR,
-  HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR,
+  HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, getScorePercentage,
 } from '@/lib/interview-types';
 
 interface Props {
@@ -43,6 +43,12 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
               <p className="text-[10px] text-muted-foreground">الدرجة</p>
               <p className="text-xl font-display tabular-nums">
                 {i.score ?? '—'}<span className="text-xs text-muted-foreground">/{i.max_score}</span>
+              </p>
+            </div>
+            <div className="text-end">
+              <p className="text-[10px] text-muted-foreground">النسبة</p>
+              <p className="text-xl font-display tabular-nums">
+                {getScorePercentage(i.score, i.max_score) ?? '—'}<span className="text-xs text-muted-foreground">%</span>
               </p>
             </div>
             {i.result && (

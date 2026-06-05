@@ -15,7 +15,7 @@ import { Search, Filter, MessagesSquare, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Interview, CommitteeMember, ResultGrade,
-  RESULT_AR, RESULT_COLOR,
+  RESULT_AR, RESULT_COLOR, getScorePercentage,
 } from '@/lib/interview-types';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
@@ -38,6 +38,7 @@ const CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'date', header: 'تاريخ المقابلة' },
   { key: 'score', header: 'الدرجة' },
   { key: 'max_score', header: 'الحد الأقصى' },
+  { key: 'score_pct', header: 'النسبة المئوية' },
   { key: 'result_ar', header: 'النتيجة' },
   { key: 'errors_count', header: 'الأخطاء' },
   { key: 'lahn_count', header: 'اللحون' },
@@ -139,6 +140,7 @@ export default function InterviewsListPage() {
       date: new Date(r.created_at).toISOString().slice(0, 16).replace('T', ' '),
       score: r.score,
       max_score: r.max_score,
+      score_pct: getScorePercentage(r.score, r.max_score) ?? '',
       result_ar: r.result ? RESULT_AR[r.result] : '',
       errors_count: r.errors_count,
       lahn_count: r.lahn_count,
@@ -233,6 +235,7 @@ export default function InterviewsListPage() {
                     <TableHead className="text-right">الطالبة</TableHead>
                     <TableHead className="text-right">العضوة</TableHead>
                     <TableHead className="text-right">الدرجة</TableHead>
+                    <TableHead className="text-right">النسبة</TableHead>
                     <TableHead className="text-right">النتيجة</TableHead>
                     <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right"></TableHead>
@@ -254,6 +257,10 @@ export default function InterviewsListPage() {
                       <TableCell className="text-sm">{r.committeeMemberName ?? '—'}</TableCell>
                       <TableCell className="tabular-nums">
                         {r.score ?? '—'}<span className="text-muted-foreground text-xs">/{r.max_score}</span>
+                      </TableCell>
+                      <TableCell className="tabular-nums font-medium">
+                        {getScorePercentage(r.score, r.max_score) ?? '—'}
+                        <span className="text-muted-foreground text-xs">%</span>
                       </TableCell>
                       <TableCell>
                         {r.result

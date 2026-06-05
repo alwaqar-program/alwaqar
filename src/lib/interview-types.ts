@@ -118,3 +118,15 @@ export function getResultGrade(score: number, maxScore: number): ResultGrade {
   if (pct >= 20 / 30) return 'acceptable';
   return 'weak';
 }
+
+/**
+ * النسبة المئوية الموحّدة (للمقارنة العادلة بين كل الفروع):
+ *   مثال: 15/20 = 75% ، 22/30 = 73.33%
+ *
+ * الفائدة: طالبة الـ 5 أجزاء وطالبة الـ 30 جزء يصيران قابلين للمقارنة
+ *         على نفس المقياس بصرف النظر عن حجم نصابهما.
+ */
+export function getScorePercentage(score: number | null, maxScore: number): number | null {
+  if (score == null || maxScore <= 0) return null;
+  return Number(((score / maxScore) * 100).toFixed(1));
+}

@@ -23,7 +23,7 @@ import {
 import {
   CommitteeMember, HousingAnswer, AbayaAnswer, SeriousnessAnswer,
   HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, RESULT_AR, RESULT_COLOR,
-  getMaxScore, calculateScore, getResultGrade,
+  getMaxScore, calculateScore, getResultGrade, getScorePercentage,
 } from '@/lib/interview-types';
 import logoImg from '@/assets/logo.png';
 
@@ -455,11 +455,17 @@ export default function InterviewPage() {
 
                     {/* الحساب التلقائي */}
                     <div className="rounded-lg border bg-muted/30 p-4">
-                      <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="grid grid-cols-3 gap-3 items-end">
                         <div>
-                          <p className="text-xs text-muted-foreground">الدرجة المحسوبة</p>
+                          <p className="text-xs text-muted-foreground">الدرجة الخام</p>
                           <p className="text-3xl font-display tabular-nums mt-1">
                             {score}<span className="text-lg text-muted-foreground">/{maxScore}</span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">النسبة المئوية</p>
+                          <p className="text-3xl font-display tabular-nums mt-1">
+                            {getScorePercentage(score, maxScore)}<span className="text-lg text-muted-foreground">%</span>
                           </p>
                         </div>
                         <div className="text-end">
@@ -469,6 +475,9 @@ export default function InterviewPage() {
                           </Badge>
                         </div>
                       </div>
+                      <p className="text-[10px] text-muted-foreground mt-3 pt-3 border-t">
+                        النسبة المئوية موحَّدة لكل الفروع — تستطيعين مقارنة طالبات 5 أجزاء مع طالبات 30 جزء عبر هذه القيمة.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
