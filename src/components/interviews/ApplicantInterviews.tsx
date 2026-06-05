@@ -61,7 +61,11 @@ export default function ApplicantInterviews({ applicantId }: Props) {
               <InterviewCard
                 key={i.id}
                 interview={i}
-                committeeMemberName={i.committee_member_id ? members[i.committee_member_id]?.full_name : undefined}
+                committeeMemberName={
+                  i.committee_member_name
+                  ?? (i.committee_member_id ? members[i.committee_member_id]?.full_name : undefined)
+                  ?? undefined
+                }
               />
             ))}
           </div>

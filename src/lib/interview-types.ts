@@ -17,6 +17,7 @@ export interface Interview {
   id: string;
   applicant_id: string;
   committee_member_id: string | null;
+  committee_member_name: string | null;
 
   specialization: string | null;
   accepts_shared_housing: HousingAnswer | null;

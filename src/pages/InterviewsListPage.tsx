@@ -80,7 +80,11 @@ export default function InterviewsListPage() {
       const joined: JoinedRow[] = (iRes.data as Interview[]).map((i) => ({
         ...i,
         applicant: apps[i.applicant_id] ?? null,
-        committeeMemberName: i.committee_member_id ? members[i.committee_member_id]?.full_name ?? null : null,
+        // prefer the saved name (preserved even if member is later deleted)
+        // then fall back to the current name via the FK
+        committeeMemberName:
+          i.committee_member_name
+          ?? (i.committee_member_id ? members[i.committee_member_id]?.full_name ?? null : null),
       }));
       setRows(joined);
       setLoading(false);

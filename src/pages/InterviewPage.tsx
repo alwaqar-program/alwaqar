@@ -144,9 +144,11 @@ export default function InterviewPage() {
     if (!applicantId) { toast({ title: 'يرجى اختيار الطالبة', variant: 'destructive' }); return; }
 
     setSubmitting(true);
+    const selectedCommittee = committee.find(c => c.id === committeeId);
     const payload = {
       applicant_id: applicantId,
       committee_member_id: committeeId,
+      committee_member_name: selectedCommittee?.full_name ?? null,
       specialization: specialization.trim() || null,
       accepts_shared_housing: acceptsHousing || null,
       shared_housing_details: housingDetails.trim() || null,
