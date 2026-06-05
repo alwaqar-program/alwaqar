@@ -475,9 +475,6 @@ export default function InterviewPage() {
                           </Badge>
                         </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-3 pt-3 border-t">
-                        النسبة المئوية موحَّدة لكل الفروع — تستطيعين مقارنة طالبات 5 أجزاء مع طالبات 30 جزء عبر هذه القيمة.
-                      </p>
                     </div>
 
                     <div className="space-y-2">
