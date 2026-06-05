@@ -72,7 +72,7 @@ export default function InterviewPage() {
 
   useEffect(() => {
     (async () => {
-      const [cRes, aRes] = await Promise.all([
+      const [cRes, aRes, iRes] = await Promise.all([
         (supabase as any)
           .from('interview_committee')
           .select('*')
@@ -84,11 +84,20 @@ export default function InterviewPage() {
           .eq('age_category', '16_to_35')
           .eq('status', 'pledged')
           .order('full_name'),
+        // exclude anyone who already has at least one interview row
+        (supabase as any).from('interviews').select('applicant_id'),
       ]);
       if (cRes.error) toast({ title: 'تعذّر تحميل اللجنة', description: cRes.error.message, variant: 'destructive' });
       else setCommittee(cRes.data ?? []);
-      if (aRes.error) toast({ title: 'تعذّر تحميل الطالبات', description: aRes.error.message, variant: 'destructive' });
-      else setApplicants(aRes.data ?? []);
+      if (aRes.error) {
+        toast({ title: 'تعذّر تحميل الطالبات', description: aRes.error.message, variant: 'destructive' });
+      } else {
+        const alreadyInterviewed = new Set(
+          ((iRes.data ?? []) as { applicant_id: string }[]).map((r) => r.applicant_id)
+        );
+        const eligible = (aRes.data ?? []).filter((a: any) => !alreadyInterviewed.has(a.id));
+        setApplicants(eligible);
+      }
       setLoading(false);
     })();
   }, [toast]);

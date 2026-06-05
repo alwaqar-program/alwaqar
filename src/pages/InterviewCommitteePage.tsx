@@ -266,7 +266,7 @@ function MemberFormDialog({ open, onOpenChange, member, onSaved }: {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               إلغاء
             </Button>
-            <Button type="submit" disabled={submitting || !fullName.trim()}>
+            <Button type="submit" disabled={submitting}>
               {submitting ? 'جارٍ الحفظ…' : (member ? 'حفظ التعديلات' : 'إضافة')}
             </Button>
           </div>
