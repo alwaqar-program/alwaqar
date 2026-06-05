@@ -13,6 +13,7 @@ import { restoreApplicant } from '@/lib/applicant-actions';
 import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 import ApplicantActivityLog from '@/components/applicants/ApplicantActivityLog';
+import ApplicantInterviews from '@/components/interviews/ApplicantInterviews';
 
 export default function ApplicantProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -176,6 +177,11 @@ export default function ApplicantProfilePage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Interviews */}
+        <div className="md:col-span-2">
+          <ApplicantInterviews applicantId={data.id} />
+        </div>
 
         {/* Activity Log */}
         <div className="md:col-span-2">

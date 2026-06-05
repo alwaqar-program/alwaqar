@@ -38,6 +38,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'لوحة المعلومات', href: '/', icon: <LayoutDashboard size={20} /> },
   { label: 'المتقدمات', href: '/applicants', icon: <UserPlus size={20} /> },
+  { label: 'المقابلات', href: '/interviews', icon: <MessagesSquare size={20} /> },
   { label: 'لجنة المقابلات', href: '/interview-committee', icon: <MessagesSquare size={20} />, roles: ['admin'] },
   { label: 'التسميع', href: '/recitation', icon: <Mic size={20} /> },
   { label: 'الحضور', href: '/attendance', icon: <ClipboardCheck size={20} /> },
