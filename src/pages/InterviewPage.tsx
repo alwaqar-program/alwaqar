@@ -261,9 +261,6 @@ export default function InterviewPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-display">2. اختاري الطالبة</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    الفئة العمرية 16-35 سنة + أقرَّت بالتعهد فقط ({applicants.length} طالبة)
-                  </p>
                 </CardHeader>
                 <CardContent>
                   <Popover open={applicantSearchOpen} onOpenChange={setApplicantSearchOpen}>
