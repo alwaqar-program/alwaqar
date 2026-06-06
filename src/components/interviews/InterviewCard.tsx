@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, Award } from 'lucide-react';
+import { Calendar, User, Award, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 import {
   Interview, RESULT_AR, RESULT_COLOR,
   HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, getScorePercentage,
@@ -9,20 +9,22 @@ import {
 interface Props {
   interview: Interview;
   committeeMemberName?: string;
-  showApplicantName?: string;     // when used in the global list
+  showApplicantName?: string;
 }
 
 export default function InterviewCard({ interview: i, committeeMemberName, showApplicantName }: Props) {
+  const hasTextBlocks = i.strengths || i.weaknesses || i.personal_notes;
+
   return (
     <Card>
-      <CardContent className="pt-5 pb-4 space-y-4">
+      <CardContent className="pt-5 pb-5 space-y-5">
         {/* Header bar */}
         <div className="flex items-start justify-between flex-wrap gap-3 pb-3 border-b">
           <div className="space-y-1">
             {showApplicantName && (
               <p className="font-semibold">{showApplicantName}</p>
             )}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <Calendar size={12} />
                 {new Date(i.created_at).toLocaleString('ar-SA', {
@@ -60,79 +62,146 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
           </div>
         </div>
 
-        {/* Two columns: personal + exam */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase">المقابلة الشخصية</h4>
-            <Field label="التخصص" value={i.specialization} />
-            <Field
+        {/* SECTION: المقابلة الشخصية */}
+        <section>
+          <h4 className="text-xs font-bold text-primary uppercase mb-3 pb-1.5 border-b border-primary/20">
+            المقابلة الشخصية
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+            <Row label="التخصص" value={i.specialization} />
+            <Row
               label="السكن المشترك"
               value={i.accepts_shared_housing ? HOUSING_AR[i.accepts_shared_housing] : null}
             />
             {i.accepts_shared_housing === 'with_companions' && (
               <>
-                <Field label="تفصيل المرافقات" value={i.shared_housing_details} />
-                <Field
+                <Row label="تفصيل المرافقات" value={i.shared_housing_details} />
+                <Row
                   label="مسجلات في رابط المرافقات"
                   value={i.companions_registered === null ? null : i.companions_registered ? 'نعم' : 'لا'}
                 />
               </>
             )}
-            <Field
+            <Row
               label="العباءة واللباس"
               value={i.abaya_status ? ABAYA_AR[i.abaya_status] : null}
             />
-            <Field
+            <Row
               label="الجدية"
               value={i.seriousness ? SERIOUSNESS_AR[i.seriousness] : null}
             />
-            <Field
+            <Row
               label="احترام الضوابط"
               value={i.respects_rules === null ? null : i.respects_rules ? 'نعم' : 'لا'}
             />
+          </div>
+        </section>
+
+        {/* Text blocks: strengths / weaknesses / notes */}
+        {hasTextBlocks && (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {i.strengths && (
-              <Field label="نقاط القوة" value={i.strengths} multiline />
+              <TextBlock
+                label="نقاط القوة"
+                value={i.strengths}
+                icon={<ThumbsUp size={13} />}
+                tone="positive"
+              />
             )}
             {i.weaknesses && (
-              <Field label="نقاط الضعف" value={i.weaknesses} multiline />
+              <TextBlock
+                label="نقاط الضعف"
+                value={i.weaknesses}
+                icon={<ThumbsDown size={13} />}
+                tone="negative"
+              />
             )}
             {i.personal_notes && (
-              <Field label="ملاحظات" value={i.personal_notes} multiline />
+              <TextBlock
+                label="ملاحظات"
+                value={i.personal_notes}
+                icon={<FileText size={13} />}
+                tone="neutral"
+                fullWidth={!(i.strengths && i.weaknesses)}
+              />
             )}
+          </section>
+        )}
+
+        {/* SECTION: اختبار القرآن */}
+        <section className="pt-2">
+          <h4 className="text-xs font-bold text-primary uppercase mb-3 pb-1.5 border-b border-primary/20">
+            اختبار القرآن
+          </h4>
+
+          <Row
+            label="الاستعداد المسبق"
+            value={i.prior_preparation === null ? null : i.prior_preparation ? 'نعم' : 'لا'}
+          />
+
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <Stat label="أخطاء" value={i.errors_count} />
+            <Stat label="لحون" value={i.lahn_count} />
+            <Stat label="استرسال" value={i.continuity_count} />
           </div>
 
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase">اختبار القرآن</h4>
-            <Field
-              label="الاستعداد المسبق"
-              value={i.prior_preparation === null ? null : i.prior_preparation ? 'نعم' : 'لا'}
-            />
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              <Stat label="أخطاء" value={i.errors_count} />
-              <Stat label="لحون" value={i.lahn_count} />
-              <Stat label="استرسال" value={i.continuity_count} />
+          {i.exam_notes && (
+            <div className="mt-3">
+              <TextBlock
+                label="ملاحظات الاختبار"
+                value={i.exam_notes}
+                icon={<FileText size={13} />}
+                tone="neutral"
+                fullWidth
+              />
             </div>
-            {i.exam_notes && (
-              <Field label="ملاحظات الاختبار" value={i.exam_notes} multiline />
-            )}
-          </div>
-        </div>
+          )}
+        </section>
       </CardContent>
     </Card>
   );
 }
 
-function Field({ label, value, multiline = false }: { label: string; value: string | null | undefined; multiline?: boolean }) {
-  if (!value) return (
-    <div className="flex justify-between gap-2">
+/* ────────── Sub-components ────────── */
+
+function Row({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1 border-b border-dashed border-border/60 last:border-b-0">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-muted-foreground">—</span>
+      <span className={`text-sm ${value ? 'font-medium' : 'text-muted-foreground'}`}>
+        {value || '—'}
+      </span>
     </div>
   );
+}
+
+function TextBlock({
+  label, value, icon, tone, fullWidth = false,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: 'positive' | 'negative' | 'neutral';
+  fullWidth?: boolean;
+}) {
+  const toneClass = {
+    positive: 'border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20',
+    negative: 'border-amber-200 bg-amber-50/60 dark:bg-amber-950/20',
+    neutral:  'border-border bg-muted/40',
+  }[tone];
+  const iconColor = {
+    positive: 'text-emerald-600',
+    negative: 'text-amber-600',
+    neutral:  'text-muted-foreground',
+  }[tone];
+
   return (
-    <div className={multiline ? 'space-y-1' : 'flex justify-between gap-2'}>
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className={multiline ? 'block text-sm whitespace-pre-wrap' : 'text-end'}>{value}</span>
+    <div className={`rounded-lg border ${toneClass} p-3 ${fullWidth ? 'md:col-span-2' : ''}`}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={iconColor}>{icon}</span>
+        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      </div>
+      <p className="text-sm whitespace-pre-wrap leading-relaxed">{value}</p>
     </div>
   );
 }
