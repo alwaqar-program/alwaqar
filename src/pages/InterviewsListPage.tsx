@@ -44,6 +44,8 @@ const CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'lahn_count', header: 'اللحون' },
   { key: 'continuity_count', header: 'الاسترسال' },
   { key: 'specialization', header: 'التخصص' },
+  { key: 'strengths', header: 'نقاط القوة' },
+  { key: 'weaknesses', header: 'نقاط الضعف' },
   { key: 'personal_notes', header: 'ملاحظات شخصية' },
   { key: 'exam_notes', header: 'ملاحظات الاختبار' },
 ];
@@ -146,6 +148,8 @@ export default function InterviewsListPage() {
       lahn_count: r.lahn_count,
       continuity_count: r.continuity_count,
       specialization: r.specialization || '',
+      strengths: r.strengths || '',
+      weaknesses: r.weaknesses || '',
       personal_notes: r.personal_notes || '',
       exam_notes: r.exam_notes || '',
     }));

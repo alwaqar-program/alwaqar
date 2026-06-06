@@ -77,6 +77,8 @@ export default function InterviewPage() {
   const [abayaStatus, setAbayaStatus] = useState<AbayaAnswer | ''>('');
   const [seriousness, setSeriousness] = useState<SeriousnessAnswer | ''>('');
   const [respectsRules, setRespectsRules] = useState<'yes' | 'no' | ''>('');
+  const [strengths, setStrengths] = useState('');
+  const [weaknesses, setWeaknesses] = useState('');
   const [personalNotes, setPersonalNotes] = useState('');
 
   // Form: exam
@@ -149,6 +151,8 @@ export default function InterviewPage() {
     setAbayaStatus('');
     setSeriousness('');
     setRespectsRules('');
+    setStrengths('');
+    setWeaknesses('');
     setPersonalNotes('');
     setPriorPreparation('');
     setErrorsCount(0);
@@ -176,6 +180,8 @@ export default function InterviewPage() {
       abaya_status: abayaStatus || null,
       seriousness: seriousness || null,
       respects_rules: respectsRules === '' ? null : respectsRules === 'yes',
+      strengths: strengths.trim() || null,
+      weaknesses: weaknesses.trim() || null,
       personal_notes: personalNotes.trim() || null,
       prior_preparation: priorPreparation === '' ? null : priorPreparation === 'yes',
       errors_count: errorsCount || 0,
@@ -444,6 +450,26 @@ export default function InterviewPage() {
                     <div className="space-y-2">
                       <Label>احترامها للضوابط والتزامها فيها</Label>
                       <YesNoSelect value={respectsRules} onChange={setRespectsRules} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>نقاط القوة</Label>
+                      <Textarea
+                        value={strengths}
+                        onChange={(e) => setStrengths(e.target.value)}
+                        rows={2}
+                        placeholder="ما الذي يميّز هذه الطالبة؟"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>نقاط الضعف</Label>
+                      <Textarea
+                        value={weaknesses}
+                        onChange={(e) => setWeaknesses(e.target.value)}
+                        rows={2}
+                        placeholder="ما الذي يحتاج تطويراً أو متابعة؟"
+                      />
                     </div>
 
                     <div className="space-y-2">

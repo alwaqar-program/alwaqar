@@ -90,6 +90,12 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
               label="احترام الضوابط"
               value={i.respects_rules === null ? null : i.respects_rules ? 'نعم' : 'لا'}
             />
+            {i.strengths && (
+              <Field label="نقاط القوة" value={i.strengths} multiline />
+            )}
+            {i.weaknesses && (
+              <Field label="نقاط الضعف" value={i.weaknesses} multiline />
+            )}
             {i.personal_notes && (
               <Field label="ملاحظات" value={i.personal_notes} multiline />
             )}

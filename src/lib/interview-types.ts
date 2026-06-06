@@ -27,6 +27,8 @@ export interface Interview {
   abaya_status: AbayaAnswer | null;
   seriousness: SeriousnessAnswer | null;
   respects_rules: boolean | null;
+  strengths: string | null;
+  weaknesses: string | null;
   personal_notes: string | null;
 
   prior_preparation: boolean | null;
