@@ -122,7 +122,7 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
                 value={i.personal_notes}
                 icon={<FileText size={13} />}
                 tone="neutral"
-                fullWidth={!(i.strengths && i.weaknesses)}
+                fullWidth
               />
             )}
           </section>
