@@ -57,7 +57,7 @@ export default function PledgePage() {
         setLookup({ kind: 'not_found' });
         return;
       }
-      if (data.status === 'pledged') {
+      if (data.pledged_at) {
         setLookup({ kind: 'already_pledged', applicant: data });
         return;
       }

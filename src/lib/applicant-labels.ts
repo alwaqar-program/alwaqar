@@ -50,6 +50,7 @@ export interface Applicant {
   accompanying_with: string | null;
   notes: string | null;
   status: ApplicantStatus;
+  pledged_at: string | null;
   registered_at: string | null;
   created_at: string;
   updated_at: string;

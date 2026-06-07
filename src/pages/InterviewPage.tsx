@@ -19,7 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Search, CheckCircle2, AlertCircle, ChevronsUpDown, KeyRound, Eye, EyeOff } from 'lucide-react';
 import {
-  Applicant, STATUS_AR, BRANCH_AR,
+  Applicant, BRANCH_AR,
 } from '@/lib/applicant-labels';
 import {
   CommitteeMember, HousingAnswer, AbayaAnswer, SeriousnessAnswer,
@@ -62,7 +62,7 @@ export default function InterviewPage() {
     'id' | 'full_name' | 'national_id' | 'phone' | 'age' | 'age_category' |
     'memorized_juz_count' | 'from_surah' | 'to_surah' | 'desired_branch' |
     'previously_joined' | 'previous_branch' |
-    'has_companions' | 'companions_details' | 'accompanying_with' | 'status'
+    'has_companions' | 'companions_details' | 'accompanying_with' | 'status' | 'pledged_at'
   >[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -107,9 +107,9 @@ export default function InterviewPage() {
           .order('full_name'),
         (supabase as any)
           .from('applicants')
-          .select('id,full_name,national_id,phone,age,age_category,memorized_juz_count,from_surah,to_surah,desired_branch,previously_joined,previous_branch,has_companions,companions_details,accompanying_with,status')
+          .select('id,full_name,national_id,phone,age,age_category,memorized_juz_count,from_surah,to_surah,desired_branch,previously_joined,previous_branch,has_companions,companions_details,accompanying_with,status,pledged_at')
           .eq('age_category', '16_to_35')
-          .eq('status', 'pledged')
+          .in('status', ['registered', 'pledged'])
           .order('full_name'),
         // exclude anyone who already has at least one interview row
         (supabase as any).from('interviews').select('applicant_id'),
@@ -341,7 +341,14 @@ export default function InterviewPage() {
                                 value={`${a.full_name} ${a.national_id}`}
                                 onSelect={() => { setApplicantId(a.id); setApplicantSearchOpen(false); }}
                               >
-                                <span className="font-medium">{a.full_name}</span>
+                                <div className="flex items-center justify-between w-full gap-2">
+                                  <span className="font-medium">{a.full_name}</span>
+                                  {!a.pledged_at && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] shrink-0">
+                                      لم تُقرّ
+                                    </Badge>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -389,9 +396,9 @@ export default function InterviewPage() {
                     <div className="sm:col-span-2">
                       <Label className="text-xs text-muted-foreground">حالة الإقرار بالاتفاقية</Label>
                       <div className="mt-1">
-                        {selectedApplicant.status === 'pledged' || selectedApplicant.status === 'interview_completed' || selectedApplicant.status === 'accepted'
+                        {selectedApplicant.pledged_at
                           ? <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">أقرَّت ✓</Badge>
-                          : <Badge variant="outline" className="bg-amber-50 text-amber-700">لم تُقرّ بعد ({STATUS_AR[selectedApplicant.status]})</Badge>}
+                          : <Badge variant="outline" className="bg-amber-50 text-amber-700">لم تُقرّ بعد</Badge>}
                       </div>
                     </div>
                   </CardContent>

@@ -147,22 +147,39 @@ export async function findApplicantByNationalId(
   return { data: row, error: null };
 }
 
+// Statuses that come BEFORE the interview. Pledging from one of these
+// also advances the workflow status to 'pledged'. From any later status
+// (e.g. interview_completed) the workflow stays untouched — only
+// pledged_at is set so the "didn't pledge" badge disappears.
+const PRE_INTERVIEW_STATUSES = new Set([
+  'registered', 'validated', 'hifz_waiting', 'hifz_step2',
+  'hifz_done', 'tilawa_step', 'tilawa_done', 'incomplete',
+]);
+
 export async function pledgeApplicant(
   applicantId: string,
   previousStatus: string
 ): Promise<{ error: string | null }> {
+  const now = new Date().toISOString();
+  const updates: Record<string, unknown> = { pledged_at: now };
+  const advanceStatus = PRE_INTERVIEW_STATUSES.has(previousStatus);
+  if (advanceStatus) updates.status = 'pledged';
+
   const { error } = await (supabase as any)
     .from('applicants')
-    .update({ status: 'pledged' })
+    .update(updates)
     .eq('id', applicantId);
   if (error) return { error: error.message };
 
-  // Log without an auth user — actor_email marks it as self-service
   await (supabase as any).from('applicant_activity_log').insert({
     applicant_id: applicantId,
-    action: 'status_changed',
-    changes: { status: { old: previousStatus, new: 'pledged' } },
-    notes: 'إقرار ذاتي عبر النموذج العام',
+    action: advanceStatus ? 'status_changed' : 'updated',
+    changes: advanceStatus
+      ? { status: { old: previousStatus, new: 'pledged' } }
+      : { pledged_at: { old: null, new: now } },
+    notes: advanceStatus
+      ? 'إقرار ذاتي عبر النموذج العام'
+      : 'إقرار ذاتي عبر النموذج العام (بعد إجراء المقابلة)',
     actor_id: null,
     actor_email: 'pledge_form@self',
   });
