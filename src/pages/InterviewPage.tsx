@@ -22,7 +22,7 @@ import {
   Applicant, BRANCH_AR,
 } from '@/lib/applicant-labels';
 import {
-  CommitteeMember, HousingAnswer, AbayaAnswer, SeriousnessAnswer,
+  CommitteeMember, Interview, HousingAnswer, AbayaAnswer, SeriousnessAnswer,
   HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, RESULT_AR, RESULT_COLOR,
   getMaxScore, calculateScore, getResultGrade, getScorePercentage,
   PASSAGE_CHANGE_PENALTY,
@@ -96,6 +96,10 @@ export default function InterviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // When the selected applicant already has an interview, edit it instead of inserting
+  const [interviewMap, setInterviewMap] = useState<Map<string, Interview>>(new Map());
+  const [editingInterviewId, setEditingInterviewId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!unlocked) { setLoading(false); return; }
     (async () => {
@@ -109,25 +113,89 @@ export default function InterviewPage() {
           .from('applicants')
           .select('id,full_name,national_id,phone,age,age_category,memorized_juz_count,from_surah,to_surah,desired_branch,previously_joined,previous_branch,has_companions,companions_details,accompanying_with,status,pledged_at')
           .eq('age_category', '16_to_35')
-          .in('status', ['registered', 'pledged'])
+          .in('status', ['registered', 'pledged', 'interview_completed'])
           .order('full_name'),
-        // exclude anyone who already has at least one interview row
-        (supabase as any).from('interviews').select('applicant_id'),
+        // we now keep everyone — interviewed students can be re-opened to edit
+        (supabase as any).from('interviews').select('*').order('created_at', { ascending: false }),
       ]);
       if (cRes.error) toast({ title: 'تعذّر تحميل اللجنة', description: cRes.error.message, variant: 'destructive' });
       else setCommittee(cRes.data ?? []);
       if (aRes.error) {
         toast({ title: 'تعذّر تحميل الطالبات', description: aRes.error.message, variant: 'destructive' });
       } else {
-        const alreadyInterviewed = new Set(
-          ((iRes.data ?? []) as { applicant_id: string }[]).map((r) => r.applicant_id)
-        );
-        const eligible = (aRes.data ?? []).filter((a: any) => !alreadyInterviewed.has(a.id));
-        setApplicants(eligible);
+        setApplicants(aRes.data ?? []);
       }
+      // Map applicant_id → latest interview (interviews are sorted desc by created_at)
+      const m = new Map<string, Interview>();
+      for (const i of (iRes.data ?? []) as Interview[]) {
+        if (!m.has(i.applicant_id)) m.set(i.applicant_id, i);
+      }
+      setInterviewMap(m);
       setLoading(false);
     })();
   }, [toast, unlocked]);
+
+  // When the selected applicant changes: if she already has an interview,
+  // load it into the form for editing; otherwise reset to a clean form.
+  useEffect(() => {
+    if (!applicantId) {
+      setEditingInterviewId(null);
+      return;
+    }
+    const existing = interviewMap.get(applicantId);
+    if (existing) {
+      setEditingInterviewId(existing.id);
+      setCommitteeId(existing.committee_member_id ?? '');
+      setSpecialization(existing.specialization ?? '');
+      setWillAttendFullCourse(
+        existing.will_attend_full_course === null ? '' : (existing.will_attend_full_course ? 'yes' : 'no')
+      );
+      setAcceptsHousing((existing.accepts_shared_housing ?? '') as HousingAnswer | '');
+      setHousingDetails(existing.shared_housing_details ?? '');
+      setCompanionsRegistered(
+        existing.companions_registered === null ? '' : (existing.companions_registered ? 'yes' : 'no')
+      );
+      setCompanionsNotes(existing.companions_notes ?? '');
+      setAbayaStatus((existing.abaya_status ?? '') as AbayaAnswer | '');
+      setSeriousness((existing.seriousness ?? '') as SeriousnessAnswer | '');
+      setRespectsRules(
+        existing.respects_rules === null ? '' : (existing.respects_rules ? 'yes' : 'no')
+      );
+      setStrengths(existing.strengths ?? '');
+      setWeaknesses(existing.weaknesses ?? '');
+      setPersonalNotes(existing.personal_notes ?? '');
+      setPriorPreparation(
+        existing.prior_preparation === null ? '' : (existing.prior_preparation ? 'yes' : 'no')
+      );
+      setRequestedPassageChange(!!existing.requested_passage_change);
+      setErrorsCount(existing.errors_count ?? 0);
+      setLahnCount(existing.lahn_count ?? 0);
+      setContinuityCount(existing.continuity_count ?? 0);
+      setExamNotes(existing.exam_notes ?? '');
+    } else {
+      setEditingInterviewId(null);
+      // Clear the form fields (but keep committeeId — the same member may
+      // be interviewing several students in a row)
+      setSpecialization('');
+      setWillAttendFullCourse('');
+      setAcceptsHousing('');
+      setHousingDetails('');
+      setCompanionsRegistered('');
+      setCompanionsNotes('');
+      setAbayaStatus('');
+      setSeriousness('');
+      setRespectsRules('');
+      setStrengths('');
+      setWeaknesses('');
+      setPersonalNotes('');
+      setPriorPreparation('');
+      setRequestedPassageChange(false);
+      setErrorsCount(0);
+      setLahnCount(0);
+      setContinuityCount(0);
+      setExamNotes('');
+    }
+  }, [applicantId, interviewMap]);
 
   const selectedApplicant = useMemo(
     () => applicants.find(a => a.id === applicantId) ?? null,
@@ -210,7 +278,19 @@ export default function InterviewPage() {
       exam_notes: examNotes.trim() || null,
     };
 
-    const { error } = await (supabase as any).from('interviews').insert(payload);
+    let error: { message: string } | null = null;
+    if (editingInterviewId) {
+      // UPDATE existing interview
+      const res = await (supabase as any)
+        .from('interviews')
+        .update(payload)
+        .eq('id', editingInterviewId);
+      error = res.error ?? null;
+    } else {
+      // INSERT new interview
+      const res = await (supabase as any).from('interviews').insert(payload);
+      error = res.error ?? null;
+    }
     setSubmitting(false);
 
     if (error) {
@@ -218,25 +298,35 @@ export default function InterviewPage() {
       return;
     }
 
-    // Update applicant status to interview_completed (only forward, never backward)
-    const FORWARD_STATUSES = ['registered', 'validated', 'hifz_waiting', 'hifz_step2',
-      'hifz_done', 'tilawa_step', 'tilawa_done', 'pledged'];
-    if (selectedApplicant && FORWARD_STATUSES.includes(selectedApplicant.status)) {
-      await (supabase as any)
-        .from('applicants')
-        .update({ status: 'interview_completed' })
-        .eq('id', applicantId);
+    if (editingInterviewId) {
+      // Log the update
       await (supabase as any).from('applicant_activity_log').insert({
         applicant_id: applicantId,
-        action: 'status_changed',
-        changes: { status: { old: selectedApplicant.status, new: 'interview_completed' } },
-        notes: `إجراء مقابلة بواسطة ${selectedCommittee?.full_name ?? 'عضوة غير محددة'} (الدرجة ${score}/${maxScore} — ${RESULT_AR[result]})`,
+        action: 'updated',
+        notes: `تحديث بيانات المقابلة بواسطة ${selectedCommittee?.full_name ?? 'عضوة غير محددة'} (الدرجة الجديدة ${score}/${maxScore} — ${RESULT_AR[result]})`,
         actor_email: 'interview_form@self',
       });
+    } else {
+      // New interview: move status forward and log
+      const FORWARD_STATUSES = ['registered', 'validated', 'hifz_waiting', 'hifz_step2',
+        'hifz_done', 'tilawa_step', 'tilawa_done', 'pledged'];
+      if (selectedApplicant && FORWARD_STATUSES.includes(selectedApplicant.status)) {
+        await (supabase as any)
+          .from('applicants')
+          .update({ status: 'interview_completed' })
+          .eq('id', applicantId);
+        await (supabase as any).from('applicant_activity_log').insert({
+          applicant_id: applicantId,
+          action: 'status_changed',
+          changes: { status: { old: selectedApplicant.status, new: 'interview_completed' } },
+          notes: `إجراء مقابلة بواسطة ${selectedCommittee?.full_name ?? 'عضوة غير محددة'} (الدرجة ${score}/${maxScore} — ${RESULT_AR[result]})`,
+          actor_email: 'interview_form@self',
+        });
+      }
     }
 
     setDone(true);
-    toast({ title: 'تم حفظ المقابلة بنجاح' });
+    toast({ title: editingInterviewId ? 'تم تحديث المقابلة بنجاح' : 'تم حفظ المقابلة بنجاح' });
   }
 
   if (!unlocked) {
@@ -271,12 +361,14 @@ export default function InterviewPage() {
                 <div className="mx-auto w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
                   <CheckCircle2 size={28} />
                 </div>
-                <h2 className="font-display text-2xl">تم حفظ المقابلة بنجاح</h2>
+                <h2 className="font-display text-2xl">
+                  {editingInterviewId ? 'تم تحديث المقابلة بنجاح' : 'تم حفظ المقابلة بنجاح'}
+                </h2>
                 <p className="text-sm text-muted-foreground">
-                  تم تسجيل مقابلة <strong>{selectedApplicant?.full_name}</strong> ودرجتها{' '}
-                  <strong>{score}/{maxScore}</strong> ({RESULT_AR[result]}).
+                  {editingInterviewId ? 'تم تحديث' : 'تم تسجيل'} مقابلة <strong>{selectedApplicant?.full_name}</strong>{' '}
+                  بدرجة <strong>{score}/{maxScore}</strong> ({RESULT_AR[result]}).
                 </p>
-                <Button variant="outline" onClick={reset}>إجراء مقابلة جديدة</Button>
+                <Button variant="outline" onClick={reset}>إجراء مقابلة أخرى</Button>
               </CardContent>
             </Card>
           ) : (
@@ -332,25 +424,32 @@ export default function InterviewPage() {
                         <CommandList>
                           <CommandEmpty>لا توجد نتائج</CommandEmpty>
                           <CommandGroup>
-                            {applicants.map(a => (
-                              <CommandItem
-                                key={a.id}
-                                // value includes the national ID so search by ID still works,
-                                // but we deliberately do NOT render it — this page is public
-                                // and the ID is sensitive info.
-                                value={`${a.full_name} ${a.national_id}`}
-                                onSelect={() => { setApplicantId(a.id); setApplicantSearchOpen(false); }}
-                              >
-                                <div className="flex items-center justify-between w-full gap-2">
-                                  <span className="font-medium">{a.full_name}</span>
-                                  {!a.pledged_at && (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] shrink-0">
-                                      لم تُقرّ
-                                    </Badge>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            ))}
+                            {applicants.map(a => {
+                              const hasInterview = interviewMap.has(a.id);
+                              return (
+                                <CommandItem
+                                  key={a.id}
+                                  value={`${a.full_name} ${a.national_id}`}
+                                  onSelect={() => { setApplicantId(a.id); setApplicantSearchOpen(false); }}
+                                >
+                                  <div className="flex items-center justify-between w-full gap-2">
+                                    <span className="font-medium">{a.full_name}</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {!a.pledged_at && (
+                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                                          لم تُقرّ
+                                        </Badge>
+                                      )}
+                                      {hasInterview && (
+                                        <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">
+                                          مُقابَلة
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -358,6 +457,19 @@ export default function InterviewPage() {
                   </Popover>
                 </CardContent>
               </Card>
+
+              {/* Edit notice */}
+              {selectedApplicant && editingInterviewId && (
+                <div className="flex items-start gap-2 text-sm text-sky-800 bg-sky-50 border border-sky-200 rounded-md p-3">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <div>
+                    <strong>تعدّلين مقابلة سابقة لهذه الطالبة.</strong>
+                    <p className="text-xs mt-1 opacity-90">
+                      البيانات الحالية مُعبَّأة بنتائج المقابلة الأخيرة. يمكنكِ تعديل أي حقل ثم الضغط على "تحديث المقابلة".
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* 3) بيانات الطالبة (للعرض) */}
               {selectedApplicant && (
@@ -598,7 +710,11 @@ export default function InterviewPage() {
                   className="w-full"
                   disabled={submitting || !committeeId || !applicantId}
                 >
-                  {submitting ? 'جارٍ الحفظ…' : 'حفظ المقابلة'}
+                  {submitting
+                    ? 'جارٍ الحفظ…'
+                    : editingInterviewId
+                      ? 'تحديث المقابلة'
+                      : 'حفظ المقابلة'}
                 </Button>
               )}
             </form>
