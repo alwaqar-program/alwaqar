@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
@@ -85,7 +86,7 @@ export default function InterviewPage() {
 
   // Form: exam
   const [priorPreparation, setPriorPreparation] = useState<'yes' | 'no' | ''>('');
-  const [requestedPassageChange, setRequestedPassageChange] = useState<'yes' | 'no' | ''>('');
+  const [requestedPassageChange, setRequestedPassageChange] = useState<boolean>(false);
   const [errorsCount, setErrorsCount] = useState<number>(0);
   const [lahnCount, setLahnCount] = useState<number>(0);
   const [continuityCount, setContinuityCount] = useState<number>(0);
@@ -143,7 +144,7 @@ export default function InterviewPage() {
       errorsCount || 0,
       lahnCount || 0,
       continuityCount || 0,
-      requestedPassageChange === 'yes',
+      requestedPassageChange,
     ),
     [maxScore, errorsCount, lahnCount, continuityCount, requestedPassageChange]
   );
@@ -166,7 +167,7 @@ export default function InterviewPage() {
     setWeaknesses('');
     setPersonalNotes('');
     setPriorPreparation('');
-    setRequestedPassageChange('');
+    setRequestedPassageChange(false);
     setErrorsCount(0);
     setLahnCount(0);
     setContinuityCount(0);
@@ -198,7 +199,7 @@ export default function InterviewPage() {
       weaknesses: weaknesses.trim() || null,
       personal_notes: personalNotes.trim() || null,
       prior_preparation: priorPreparation === '' ? null : priorPreparation === 'yes',
-      requested_passage_change: requestedPassageChange === '' ? null : requestedPassageChange === 'yes',
+      requested_passage_change: requestedPassageChange,
       errors_count: errorsCount || 0,
       lahn_count: lahnCount || 0,
       continuity_count: continuityCount || 0,
@@ -528,9 +529,15 @@ export default function InterviewPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>طلب تغيير المقطع</Label>
-                      <YesNoSelect value={requestedPassageChange} onChange={setRequestedPassageChange} />
-                      {requestedPassageChange === 'yes' && (
+                      <div className="flex items-center justify-between gap-3 py-2">
+                        <Label htmlFor="passage-change" className="cursor-pointer">طلب تغيير المقطع</Label>
+                        <Switch
+                          id="passage-change"
+                          checked={requestedPassageChange}
+                          onCheckedChange={setRequestedPassageChange}
+                        />
+                      </div>
+                      {requestedPassageChange && (
                         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
                           <AlertCircle size={14} className="mt-0.5 shrink-0" />
                           <span>سيُخصم نصف الدرجة القصوى تلقائياً ({maxScore / 2} درجة)</span>
