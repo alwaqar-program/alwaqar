@@ -85,6 +85,7 @@ export default function InterviewPage() {
 
   // Form: exam
   const [priorPreparation, setPriorPreparation] = useState<'yes' | 'no' | ''>('');
+  const [requestedPassageChange, setRequestedPassageChange] = useState<'yes' | 'no' | ''>('');
   const [errorsCount, setErrorsCount] = useState<number>(0);
   const [lahnCount, setLahnCount] = useState<number>(0);
   const [continuityCount, setContinuityCount] = useState<number>(0);
@@ -137,8 +138,14 @@ export default function InterviewPage() {
   );
 
   const score = useMemo(
-    () => calculateScore(maxScore, errorsCount || 0, lahnCount || 0, continuityCount || 0),
-    [maxScore, errorsCount, lahnCount, continuityCount]
+    () => calculateScore(
+      maxScore,
+      errorsCount || 0,
+      lahnCount || 0,
+      continuityCount || 0,
+      requestedPassageChange === 'yes',
+    ),
+    [maxScore, errorsCount, lahnCount, continuityCount, requestedPassageChange]
   );
 
   const result = useMemo(() => getResultGrade(score, maxScore), [score, maxScore]);
@@ -159,6 +166,7 @@ export default function InterviewPage() {
     setWeaknesses('');
     setPersonalNotes('');
     setPriorPreparation('');
+    setRequestedPassageChange('');
     setErrorsCount(0);
     setLahnCount(0);
     setContinuityCount(0);
@@ -190,6 +198,7 @@ export default function InterviewPage() {
       weaknesses: weaknesses.trim() || null,
       personal_notes: personalNotes.trim() || null,
       prior_preparation: priorPreparation === '' ? null : priorPreparation === 'yes',
+      requested_passage_change: requestedPassageChange === '' ? null : requestedPassageChange === 'yes',
       errors_count: errorsCount || 0,
       lahn_count: lahnCount || 0,
       continuity_count: continuityCount || 0,
@@ -517,10 +526,21 @@ export default function InterviewPage() {
                       <YesNoSelect value={priorPreparation} onChange={setPriorPreparation} />
                     </div>
 
+                    <div className="space-y-2">
+                      <Label>طلب تغيير المقطع</Label>
+                      <YesNoSelect value={requestedPassageChange} onChange={setRequestedPassageChange} />
+                      {requestedPassageChange === 'yes' && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
+                          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                          <span>سيُخصم نصف الدرجة القصوى تلقائياً ({maxScore / 2} درجة)</span>
+                        </p>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <NumberField label="عدد الأخطاء" value={errorsCount} onChange={setErrorsCount} hint="−1 لكل خطأ" />
                       <NumberField label="عدد اللحون" value={lahnCount} onChange={setLahnCount} hint="−½ لكل لحن" />
-                      <NumberField label="عدد الاسترسال" value={continuityCount} onChange={setContinuityCount} hint="−¼ لكل" />
+                      <NumberField label="عدد الترددات" value={continuityCount} onChange={setContinuityCount} hint="−¼ لكل" />
                     </div>
 
                     {/* الحساب التلقائي */}

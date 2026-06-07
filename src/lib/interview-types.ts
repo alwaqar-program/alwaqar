@@ -34,6 +34,7 @@ export interface Interview {
   personal_notes: string | null;
 
   prior_preparation: boolean | null;
+  requested_passage_change: boolean | null;
   errors_count: number;
   lahn_count: number;
   continuity_count: number;
@@ -93,15 +94,17 @@ export function getMaxScore(branch: Branch | null | undefined): number {
 }
 
 /**
- * الدرجة = الحد الأقصى − الأخطاء − اللحون×½ − الاسترسال×¼
+ * الدرجة = الحد الأقصى − الأخطاء − اللحون×½ − الترددات×¼ − (نصف الحد الأقصى إن طلبت تغيير المقطع)
  */
 export function calculateScore(
   maxScore: number,
   errors: number,
   lahn: number,
   continuity: number,
+  requestedPassageChange: boolean = false,
 ): number {
-  const raw = maxScore - errors - lahn * 0.5 - continuity * 0.25;
+  const passageChangeDeduction = requestedPassageChange ? maxScore / 2 : 0;
+  const raw = maxScore - errors - lahn * 0.5 - continuity * 0.25 - passageChangeDeduction;
   return Math.max(0, Number(raw.toFixed(2)));
 }
 

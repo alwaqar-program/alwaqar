@@ -143,11 +143,15 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
             label="الاستعداد المسبق"
             value={i.prior_preparation === null ? null : i.prior_preparation ? 'نعم' : 'لا'}
           />
+          <Row
+            label="طلب تغيير المقطع"
+            value={i.requested_passage_change === null ? null : i.requested_passage_change ? `نعم (−${i.max_score / 2})` : 'لا'}
+          />
 
           <div className="grid grid-cols-3 gap-2 mt-3">
             <Stat label="أخطاء" value={i.errors_count} />
             <Stat label="لحون" value={i.lahn_count} />
-            <Stat label="استرسال" value={i.continuity_count} />
+            <Stat label="ترددات" value={i.continuity_count} />
           </div>
 
           {i.exam_notes && (
