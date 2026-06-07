@@ -440,17 +440,18 @@ export default function InterviewPage() {
                           <Label>هل المرافقات مسجلات في رابط المرافقات؟</Label>
                           <YesNoSelect value={companionsRegistered} onChange={setCompanionsRegistered} />
                         </div>
-                        <div className="space-y-2">
-                          <Label>ملاحظات المرافقات</Label>
-                          <Textarea
-                            value={companionsNotes}
-                            onChange={(e) => setCompanionsNotes(e.target.value)}
-                            rows={2}
-                            placeholder="أي ملاحظة إضافية حول المرافقات…"
-                          />
-                        </div>
                       </>
                     )}
+
+                    <div className="space-y-2">
+                      <Label>ملاحظات المرافقات</Label>
+                      <Textarea
+                        value={companionsNotes}
+                        onChange={(e) => setCompanionsNotes(e.target.value)}
+                        rows={2}
+                        placeholder="أي ملاحظة إضافية حول المرافقات…"
+                      />
+                    </div>
 
                     <div className="space-y-2">
                       <Label>العباءة واللباس</Label>

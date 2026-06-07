@@ -84,8 +84,10 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
                   label="مسجلات في رابط المرافقات"
                   value={i.companions_registered === null ? null : i.companions_registered ? 'نعم' : 'لا'}
                 />
-                <Row label="ملاحظات المرافقات" value={i.companions_notes} />
               </>
+            )}
+            {i.companions_notes && (
+              <Row label="ملاحظات المرافقات" value={i.companions_notes} />
             )}
             <Row
               label="العباءة واللباس"
