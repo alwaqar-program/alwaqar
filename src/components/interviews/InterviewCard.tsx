@@ -4,6 +4,7 @@ import { Calendar, User, Award, ThumbsUp, ThumbsDown, FileText } from 'lucide-re
 import {
   Interview, RESULT_AR, RESULT_COLOR,
   HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, getScorePercentage,
+  PASSAGE_CHANGE_PENALTY,
 } from '@/lib/interview-types';
 
 interface Props {
@@ -147,7 +148,7 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
           />
           <Row
             label="طلب تغيير المقطع"
-            value={i.requested_passage_change === null ? null : i.requested_passage_change ? `نعم (−${i.max_score / 2})` : 'لا'}
+            value={i.requested_passage_change === null ? null : i.requested_passage_change ? `نعم (−${PASSAGE_CHANGE_PENALTY})` : 'لا'}
           />
 
           <div className="grid grid-cols-3 gap-2 mt-3">

@@ -25,6 +25,7 @@ import {
   CommitteeMember, HousingAnswer, AbayaAnswer, SeriousnessAnswer,
   HOUSING_AR, ABAYA_AR, SERIOUSNESS_AR, RESULT_AR, RESULT_COLOR,
   getMaxScore, calculateScore, getResultGrade, getScorePercentage,
+  PASSAGE_CHANGE_PENALTY,
 } from '@/lib/interview-types';
 import logoImg from '@/assets/logo.png';
 
@@ -540,7 +541,7 @@ export default function InterviewPage() {
                       {requestedPassageChange && (
                         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
                           <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                          <span>سيُخصم نصف الدرجة القصوى تلقائياً ({maxScore / 2} درجة)</span>
+                          <span>سيُخصم {PASSAGE_CHANGE_PENALTY} درجات تلقائياً</span>
                         </p>
                       )}
                     </div>

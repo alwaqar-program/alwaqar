@@ -93,8 +93,11 @@ export function getMaxScore(branch: Branch | null | undefined): number {
   return 30;
 }
 
+// خصم ثابت عند طلب تغيير المقطع (5 درجات مهما كان نصاب الفرع)
+export const PASSAGE_CHANGE_PENALTY = 5;
+
 /**
- * الدرجة = الحد الأقصى − الأخطاء − اللحون×½ − الترددات×¼ − (نصف الحد الأقصى إن طلبت تغيير المقطع)
+ * الدرجة = الحد الأقصى − الأخطاء − اللحون×½ − الترددات×¼ − (5 درجات إن طلبت تغيير المقطع)
  */
 export function calculateScore(
   maxScore: number,
@@ -103,7 +106,7 @@ export function calculateScore(
   continuity: number,
   requestedPassageChange: boolean = false,
 ): number {
-  const passageChangeDeduction = requestedPassageChange ? maxScore / 2 : 0;
+  const passageChangeDeduction = requestedPassageChange ? PASSAGE_CHANGE_PENALTY : 0;
   const raw = maxScore - errors - lahn * 0.5 - continuity * 0.25 - passageChangeDeduction;
   return Math.max(0, Number(raw.toFixed(2)));
 }
