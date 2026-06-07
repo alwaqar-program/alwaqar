@@ -71,9 +71,11 @@ export default function InterviewPage() {
 
   // Form: personal
   const [specialization, setSpecialization] = useState('');
+  const [willAttendFullCourse, setWillAttendFullCourse] = useState<'yes' | 'no' | ''>('');
   const [acceptsHousing, setAcceptsHousing] = useState<HousingAnswer | ''>('');
   const [housingDetails, setHousingDetails] = useState('');
   const [companionsRegistered, setCompanionsRegistered] = useState<'yes' | 'no' | ''>('');
+  const [companionsNotes, setCompanionsNotes] = useState('');
   const [abayaStatus, setAbayaStatus] = useState<AbayaAnswer | ''>('');
   const [seriousness, setSeriousness] = useState<SeriousnessAnswer | ''>('');
   const [respectsRules, setRespectsRules] = useState<'yes' | 'no' | ''>('');
@@ -145,9 +147,11 @@ export default function InterviewPage() {
     setCommitteeId('');
     setApplicantId('');
     setSpecialization('');
+    setWillAttendFullCourse('');
     setAcceptsHousing('');
     setHousingDetails('');
     setCompanionsRegistered('');
+    setCompanionsNotes('');
     setAbayaStatus('');
     setSeriousness('');
     setRespectsRules('');
@@ -174,9 +178,11 @@ export default function InterviewPage() {
       committee_member_id: committeeId,
       committee_member_name: selectedCommittee?.full_name ?? null,
       specialization: specialization.trim() || null,
+      will_attend_full_course: willAttendFullCourse === '' ? null : willAttendFullCourse === 'yes',
       accepts_shared_housing: acceptsHousing || null,
       shared_housing_details: housingDetails.trim() || null,
       companions_registered: companionsRegistered === '' ? null : companionsRegistered === 'yes',
+      companions_notes: companionsNotes.trim() || null,
       abaya_status: abayaStatus || null,
       seriousness: seriousness || null,
       respects_rules: respectsRules === '' ? null : respectsRules === 'yes',
@@ -394,6 +400,11 @@ export default function InterviewPage() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label>هل ستحضر كامل أيام الدورة؟</Label>
+                      <YesNoSelect value={willAttendFullCourse} onChange={setWillAttendFullCourse} />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label>هل تقبل السكن المشترك؟</Label>
                       <Select value={acceptsHousing} onValueChange={(v) => setAcceptsHousing(v as HousingAnswer)}>
                         <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
@@ -419,6 +430,15 @@ export default function InterviewPage() {
                         <div className="space-y-2">
                           <Label>هل المرافقات مسجلات في رابط المرافقات؟</Label>
                           <YesNoSelect value={companionsRegistered} onChange={setCompanionsRegistered} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>ملاحظات المرافقات</Label>
+                          <Textarea
+                            value={companionsNotes}
+                            onChange={(e) => setCompanionsNotes(e.target.value)}
+                            rows={2}
+                            placeholder="أي ملاحظة إضافية حول المرافقات…"
+                          />
                         </div>
                       </>
                     )}

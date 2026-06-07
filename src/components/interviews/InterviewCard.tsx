@@ -70,6 +70,10 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
             <Row label="التخصص" value={i.specialization} />
             <Row
+              label="ستحضر كامل الدورة"
+              value={i.will_attend_full_course === null ? null : i.will_attend_full_course ? 'نعم' : 'لا'}
+            />
+            <Row
               label="السكن المشترك"
               value={i.accepts_shared_housing ? HOUSING_AR[i.accepts_shared_housing] : null}
             />
@@ -80,6 +84,7 @@ export default function InterviewCard({ interview: i, committeeMemberName, showA
                   label="مسجلات في رابط المرافقات"
                   value={i.companions_registered === null ? null : i.companions_registered ? 'نعم' : 'لا'}
                 />
+                <Row label="ملاحظات المرافقات" value={i.companions_notes} />
               </>
             )}
             <Row

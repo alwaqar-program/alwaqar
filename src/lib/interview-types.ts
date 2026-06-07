@@ -20,9 +20,11 @@ export interface Interview {
   committee_member_name: string | null;
 
   specialization: string | null;
+  will_attend_full_course: boolean | null;
   accepts_shared_housing: HousingAnswer | null;
   shared_housing_details: string | null;
   companions_registered: boolean | null;
+  companions_notes: string | null;
 
   abaya_status: AbayaAnswer | null;
   seriousness: SeriousnessAnswer | null;
