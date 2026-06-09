@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PaginationBar } from '@/components/ui/pagination-bar';
+import { useScrollRestoration } from '@/lib/use-scroll-restoration';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,8 @@ export default function ApplicantsPage() {
     });
   };
 
+  const { saveScroll, attemptRestore } = useScrollRestoration('applicants');
+
   const [data, setData] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -83,6 +86,11 @@ export default function ApplicantsPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Restore scroll position once the data has been rendered.
+  useEffect(() => {
+    if (!loading) attemptRestore();
+  }, [loading, attemptRestore]);
 
   async function loadData() {
     setLoading(true);
@@ -257,7 +265,7 @@ export default function ApplicantsPage() {
                     <TableRow
                       key={r.id}
                       className={`cursor-pointer ${r.status === 'deleted' ? 'opacity-60' : ''}`}
-                      onClick={() => navigate(`/applicants/${r.id}`)}
+                      onClick={() => { saveScroll(); navigate(`/applicants/${r.id}`); }}
                     >
                       <TableCell className="font-medium">{r.full_name || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.national_id || '—'}</TableCell>
@@ -286,7 +294,7 @@ export default function ApplicantsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" onClick={() => navigate(`/applicants/${r.id}`)} title="عرض">
+                          <Button variant="ghost" size="sm" onClick={() => { saveScroll(); navigate(`/applicants/${r.id}`); }} title="عرض">
                             <Eye size={14} />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setEditTarget(r)} title="تعديل">

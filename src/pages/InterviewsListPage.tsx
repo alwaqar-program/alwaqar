@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PaginationBar } from '@/components/ui/pagination-bar';
+import { useScrollRestoration } from '@/lib/use-scroll-restoration';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,6 +60,7 @@ const PAGE_SIZE = 25;
 export default function InterviewsListPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { saveScroll, attemptRestore } = useScrollRestoration('interviews');
   const [rows, setRows] = useState<JoinedRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -106,6 +108,11 @@ export default function InterviewsListPage() {
       setLoading(false);
     })();
   }, [toast]);
+
+  // Restore scroll once the rows are rendered.
+  useEffect(() => {
+    if (!loading) attemptRestore();
+  }, [loading, attemptRestore]);
 
   const committeeMembers = useMemo(() => {
     const names = new Map<string, string>();
@@ -276,7 +283,7 @@ export default function InterviewsListPage() {
                     <TableRow
                       key={r.id}
                       className="cursor-pointer"
-                      onClick={() => r.applicant && navigate(`/applicants/${r.applicant.id}`)}
+                      onClick={() => { if (r.applicant) { saveScroll(); navigate(`/applicants/${r.applicant.id}`); } }}
                     >
                       <TableCell className="font-medium">
                         {r.applicant?.full_name ?? '(محذوفة)'}
@@ -307,7 +314,7 @@ export default function InterviewsListPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => { e.stopPropagation(); r.applicant && navigate(`/applicants/${r.applicant.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); if (r.applicant) { saveScroll(); navigate(`/applicants/${r.applicant.id}`); } }}
                         >
                           عرض الطالبة
                         </Button>
