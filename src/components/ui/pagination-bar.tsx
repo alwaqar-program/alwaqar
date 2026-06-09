@@ -43,9 +43,9 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
   const pages = getPageNumbers(page, totalPages);
 
   return (
-    <div className="flex items-center justify-center gap-1 py-2 flex-wrap">
-      {/* In RTL containers the first child renders on the right,
-          which is exactly where 'First / Previous' should sit. */}
+    <div className="flex items-center justify-center gap-1 py-2 flex-wrap" dir="ltr">
+      {/* Force LTR so the chevron icons render in their natural direction
+          regardless of the surrounding page's RTL context. */}
       <Button
         variant="ghost"
         size="icon"
@@ -54,7 +54,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(1)}
         aria-label="الصفحة الأولى"
       >
-        <ChevronLast size={16} />
+        <ChevronFirst size={16} />
       </Button>
       <Button
         variant="ghost"
@@ -64,7 +64,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(page - 1)}
         aria-label="السابق"
       >
-        <ChevronRight size={16} />
+        <ChevronLeft size={16} />
       </Button>
 
       {pages.map((p, i) =>
@@ -94,7 +94,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(page + 1)}
         aria-label="التالي"
       >
-        <ChevronLeft size={16} />
+        <ChevronRight size={16} />
       </Button>
       <Button
         variant="ghost"
@@ -104,7 +104,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(totalPages)}
         aria-label="الصفحة الأخيرة"
       >
-        <ChevronFirst size={16} />
+        <ChevronLast size={16} />
       </Button>
     </div>
   );
