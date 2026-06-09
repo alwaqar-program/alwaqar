@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PaginationBar } from '@/components/ui/pagination-bar';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,18 @@ const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
 export default function ApplicantsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  // Pagination state lives in the URL so going back from the detail page
+  // restores the exact page the user was on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const setPage = (newPage: number) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (newPage <= 1) p.delete('page');
+      else p.set('page', String(newPage));
+      return p;
+    });
+  };
 
   const [data, setData] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +74,6 @@ export default function ApplicantsPage() {
   const [statusFilter, setStatusFilter] = useState<ApplicantStatus | 'all'>('all');
   const [ageFilter, setAgeFilter] = useState<AgeCategory | 'all'>('all');
   const [branchFilter, setBranchFilter] = useState<Branch | 'all'>('all');
-  const [page, setPage] = useState(1);
 
   // Dialog state
   const [addOpen, setAddOpen] = useState(false);
@@ -109,7 +121,8 @@ export default function ApplicantsPage() {
   const deletedCount = data.filter((r) => r.status === 'deleted').length;
 
   useEffect(() => {
-    setPage(1);
+    if (page !== 1) setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter, ageFilter, branchFilter]);
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -294,28 +307,8 @@ export default function ApplicantsPage() {
 
           {/* Pagination */}
           {!loading && filtered.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between p-4 border-t">
-              <div className="text-sm text-muted-foreground tabular-nums">
-                صفحة {page} من {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  السابق
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  التالي
-                </Button>
-              </div>
+            <div className="border-t p-2">
+              <PaginationBar page={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
           )}
         </CardContent>

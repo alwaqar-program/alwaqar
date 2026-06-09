@@ -108,7 +108,7 @@ export default function ApplicantProfilePage() {
     <div className="space-y-6 max-w-5xl">
       {/* Header bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <Button variant="ghost" onClick={() => navigate('/applicants')} className="gap-2">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
           <ArrowRight size={16} />
           العودة للقائمة
         </Button>

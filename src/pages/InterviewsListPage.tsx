@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PaginationBar } from '@/components/ui/pagination-bar';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -64,7 +65,16 @@ export default function InterviewsListPage() {
   const [search, setSearch] = useState('');
   const [memberFilter, setMemberFilter] = useState<string>('all');
   const [resultFilter, setResultFilter] = useState<ResultGrade | 'all'>('all');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const setPage = (newPage: number) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (newPage <= 1) p.delete('page');
+      else p.set('page', String(newPage));
+      return p;
+    });
+  };
 
   useEffect(() => {
     (async () => {
@@ -120,7 +130,10 @@ export default function InterviewsListPage() {
     });
   }, [rows, search, memberFilter, resultFilter]);
 
-  useEffect(() => setPage(1), [search, memberFilter, resultFilter]);
+  useEffect(() => {
+    if (page !== 1) setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, memberFilter, resultFilter]);
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -300,18 +313,8 @@ export default function InterviewsListPage() {
           )}
 
           {!loading && filtered.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between p-4 border-t">
-              <div className="text-sm text-muted-foreground tabular-nums">
-                صفحة {page} من {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                  السابق
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                  التالي
-                </Button>
-              </div>
+            <div className="border-t p-2">
+              <PaginationBar page={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
           )}
         </CardContent>

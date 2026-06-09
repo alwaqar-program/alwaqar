@@ -107,7 +107,7 @@ export default function CommitteeMemberProfilePage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <Button variant="ghost" onClick={() => navigate('/interview-committee')} className="gap-2">
+      <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
         <ArrowRight size={16} />
         العودة للقائمة
       </Button>
