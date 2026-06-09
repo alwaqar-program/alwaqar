@@ -9,7 +9,10 @@ export type ApplicantStatus =
   | 'tilawa_done'
   | 'interview_completed'
   | 'accepted'
+  | 'conditionally_accepted'
   | 'rejected'
+  | 'withdrew'
+  | 'waitlist'
   | 'pledged'
   | 'deleted';
 
@@ -50,6 +53,8 @@ export interface Applicant {
   accompanying_with: string | null;
   notes: string | null;
   status: ApplicantStatus;
+  acceptance_reasons: string | null;
+  rejection_reasons: string | null;
   pledged_at: string | null;
   registered_at: string | null;
   created_at: string;
@@ -67,7 +72,10 @@ export const STATUS_AR: Record<ApplicantStatus, string> = {
   tilawa_done: 'انتهت من التلاوة',
   interview_completed: 'تمت المقابلة',
   accepted: 'مقبولة',
+  conditionally_accepted: 'مقبولة بشرط',
   rejected: 'مرفوضة',
+  withdrew: 'منسحبة',
+  waitlist: 'احتياط',
   pledged: 'تم الإقرار',
   deleted: 'محذوفة',
 };
@@ -89,15 +97,18 @@ export const BRANCH_AR: Record<Branch, string> = {
 export function statusVariant(status: ApplicantStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'accepted':
+    case 'conditionally_accepted':
     case 'pledged':
       return 'default';
     case 'rejected':
     case 'incomplete':
     case 'deleted':
+    case 'withdrew':
       return 'destructive';
     case 'interview_completed':
     case 'tilawa_done':
     case 'hifz_done':
+    case 'waitlist':
       return 'secondary';
     default:
       return 'outline';
@@ -158,4 +169,6 @@ export const FIELD_AR: Record<string, string> = {
   accompanying_with: 'ترافق مع',
   notes: 'ملاحظات',
   status: 'الحالة',
+  acceptance_reasons: 'مبررات القبول',
+  rejection_reasons: 'مبررات الرفض',
 };

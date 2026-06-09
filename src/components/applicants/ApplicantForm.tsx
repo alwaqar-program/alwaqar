@@ -49,6 +49,17 @@ export default function ApplicantForm({ initial, onSubmit, onCancel, submitting,
     if (!values.full_name?.trim()) e.full_name = 'الاسم مطلوب';
     if (!values.national_id?.trim()) e.national_id = 'الهوية مطلوبة';
     if (!values.phone?.trim()) e.phone = 'الجوال مطلوب';
+
+    // مبررات القبول مطلوبة عند القبول أو القبول بشرط
+    if ((values.status === 'accepted' || values.status === 'conditionally_accepted')
+        && !values.acceptance_reasons?.trim()) {
+      e.acceptance_reasons = 'مبررات القبول مطلوبة';
+    }
+    // مبررات الرفض مطلوبة عند الرفض
+    if (values.status === 'rejected' && !values.rejection_reasons?.trim()) {
+      e.rejection_reasons = 'مبررات الرفض مطلوبة';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -181,6 +192,29 @@ export default function ApplicantForm({ initial, onSubmit, onCancel, submitting,
               </SelectContent>
             </Select>
           </FormRow>
+
+          {(values.status === 'accepted' || values.status === 'conditionally_accepted') && (
+            <FormRow label="مبررات القبول *" error={errors.acceptance_reasons}>
+              <Textarea
+                value={values.acceptance_reasons ?? ''}
+                onChange={(e) => set('acceptance_reasons', e.target.value)}
+                rows={3}
+                placeholder="السبب الذي دعا للقبول…"
+              />
+            </FormRow>
+          )}
+
+          {values.status === 'rejected' && (
+            <FormRow label="مبررات الرفض *" error={errors.rejection_reasons}>
+              <Textarea
+                value={values.rejection_reasons ?? ''}
+                onChange={(e) => set('rejection_reasons', e.target.value)}
+                rows={3}
+                placeholder="السبب الذي دعا للرفض…"
+              />
+            </FormRow>
+          )}
+
           <FormRow label="ملاحظات">
             <Textarea value={values.notes ?? ''} onChange={(e) => set('notes', e.target.value)} rows={3} />
           </FormRow>

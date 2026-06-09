@@ -150,6 +150,20 @@ export default function ApplicantProfilePage() {
           </div>
         )}
 
+        {/* Acceptance / rejection reasons callout */}
+        {(data.status === 'accepted' || data.status === 'conditionally_accepted') && data.acceptance_reasons && (
+          <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <p className="text-xs font-semibold text-emerald-800 mb-1">مبررات القبول</p>
+            <p className="text-sm text-emerald-900 whitespace-pre-wrap">{data.acceptance_reasons}</p>
+          </div>
+        )}
+        {data.status === 'rejected' && data.rejection_reasons && (
+          <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200">
+            <p className="text-xs font-semibold text-rose-800 mb-1">مبررات الرفض</p>
+            <p className="text-sm text-rose-900 whitespace-pre-wrap">{data.rejection_reasons}</p>
+          </div>
+        )}
+
         {data.registered_at && (
           <p className="text-xs text-muted-foreground mt-2 tabular-nums">
             تاريخ التسجيل: {new Date(data.registered_at).toLocaleString('ar-SA', {
