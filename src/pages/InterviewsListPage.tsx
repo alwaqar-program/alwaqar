@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,7 +130,14 @@ export default function InterviewsListPage() {
     });
   }, [rows, search, memberFilter, resultFilter]);
 
+  // Reset to page 1 only when filters change AFTER the initial mount,
+  // so navigating back from a detail page preserves the saved ?page=N
+  const isInitialMount = useRef(true);
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     if (page !== 1) setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, memberFilter, resultFilter]);
