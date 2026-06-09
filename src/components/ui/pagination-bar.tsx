@@ -54,7 +54,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(1)}
         aria-label="الصفحة الأولى"
       >
-        <ChevronFirst size={16} />
+        <ChevronLast size={16} />
       </Button>
       <Button
         variant="ghost"
@@ -64,7 +64,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(page - 1)}
         aria-label="السابق"
       >
-        <ChevronLeft size={16} />
+        <ChevronRight size={16} />
       </Button>
 
       {pages.map((p, i) =>
@@ -94,7 +94,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(page + 1)}
         aria-label="التالي"
       >
-        <ChevronRight size={16} />
+        <ChevronLeft size={16} />
       </Button>
       <Button
         variant="ghost"
@@ -104,7 +104,7 @@ export function PaginationBar({ page, totalPages, onPageChange }: Props) {
         onClick={() => onPageChange(totalPages)}
         aria-label="الصفحة الأخيرة"
       >
-        <ChevronLast size={16} />
+        <ChevronFirst size={16} />
       </Button>
     </div>
   );
