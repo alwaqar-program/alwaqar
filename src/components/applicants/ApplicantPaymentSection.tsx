@@ -174,19 +174,20 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
           )}
         </dl>
 
-        {applicant.payment_receipt_path && (
-          <Button variant="outline" size="sm" onClick={openReceipt} disabled={receiptLoading} className="gap-2">
-            {receiptLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-            عرض الإيصال
-          </Button>
-        )}
-
-        {state === 'pending_review' && (
-          <div className="flex gap-2 pt-1">
-            <Button onClick={handleVerify} disabled={busy} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              <CheckCircle2 size={15} />
-              اعتماد السداد
-            </Button>
+        {(applicant.payment_receipt_path || state === 'pending_review') && (
+          <div className="flex items-center gap-2 pt-1">
+            {applicant.payment_receipt_path && (
+              <Button variant="outline" size="sm" onClick={openReceipt} disabled={receiptLoading} className="gap-2">
+                {receiptLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                عرض الإيصال
+              </Button>
+            )}
+            {state === 'pending_review' && (
+              <Button onClick={handleVerify} disabled={busy} className="gap-2 bg-emerald-600 hover:bg-emerald-700 ms-auto">
+                <CheckCircle2 size={15} />
+                اعتماد السداد
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
