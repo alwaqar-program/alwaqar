@@ -31,6 +31,43 @@ function stateFromPayment(applicant: Applicant): LookupState {
   return { kind: 'eligible', applicant };
 }
 
+function PaymentSummary({ applicant }: { applicant: Applicant }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/30 border rounded-lg p-3">
+      <div>
+        <div className="text-muted-foreground text-xs mb-0.5">المبلغ المدفوع</div>
+        <div className="font-semibold tabular-nums">
+          {applicant.payment_paid_amount != null ? `${applicant.payment_paid_amount} ريال` : '—'}
+        </div>
+      </div>
+      <div>
+        <div className="text-muted-foreground text-xs mb-0.5">المبلغ المطلوب</div>
+        <div className="font-medium tabular-nums">
+          {applicant.payment_due_amount != null ? `${applicant.payment_due_amount} ريال` : '—'}
+        </div>
+      </div>
+      <div>
+        <div className="text-muted-foreground text-xs mb-0.5">طريقة السداد</div>
+        <div className="font-medium">
+          {applicant.payment_installments_count != null
+            ? `تقسيط على ${applicant.payment_installments_count} دفعات`
+            : 'دفعة واحدة'}
+        </div>
+      </div>
+      <div>
+        <div className="text-muted-foreground text-xs mb-0.5">تاريخ الإرسال</div>
+        <div className="font-medium tabular-nums text-xs leading-5">
+          {applicant.payment_submitted_at
+            ? new Date(applicant.payment_submitted_at).toLocaleDateString('ar-SA', {
+                year: 'numeric', month: 'long', day: 'numeric',
+              })
+            : '—'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const { toast } = useToast();
 
@@ -220,17 +257,23 @@ export default function PaymentPage() {
 
               {/* قيد المراجعة */}
               {lookup.kind === 'pending_review' && (
-                <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
-                  <Clock size={16} className="mt-0.5 shrink-0" />
-                  <span>تم استلام إيصالك وهو قيد المراجعة من إدارة الدورة. لا حاجة لإعادة الإرسال.</span>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
+                    <Clock size={16} className="mt-0.5 shrink-0" />
+                    <span>تم استلام إيصالك وهو قيد المراجعة من إدارة الدورة. لا حاجة لإعادة الإرسال.</span>
+                  </div>
+                  <PaymentSummary applicant={lookup.applicant} />
                 </div>
               )}
 
               {/* تم الاعتماد */}
               {lookup.kind === 'verified' && (
-                <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-                  <span>تم تأكيد سدادك واعتماد تسجيلك في الدورة. نراك على خير بإذن الله.</span>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
+                    <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                    <span>تم تأكيد سدادك واعتماد تسجيلك في الدورة ✓ نراك على خير بإذن الله.</span>
+                  </div>
+                  <PaymentSummary applicant={lookup.applicant} />
                 </div>
               )}
 
