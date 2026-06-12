@@ -3,16 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2, XCircle, FileText, Pencil, Loader2 } from 'lucide-react';
+import { CheckCircle2, FileText, Pencil, Loader2 } from 'lucide-react';
 import { Applicant } from '@/lib/applicant-labels';
 import {
-  getPaymentState, PAYMENT_STATE_AR, verifyPayment, rejectReceipt,
+  getPaymentState, PAYMENT_STATE_AR, verifyPayment,
   updateDueAmount, getReceiptUrl,
 } from '@/lib/payment-actions';
 
@@ -27,8 +22,6 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
 
   const [busy, setBusy] = useState(false);
   const [receiptLoading, setReceiptLoading] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
   const [editingAmount, setEditingAmount] = useState(false);
   const [amountInput, setAmountInput] = useState(
     applicant.payment_due_amount != null ? String(applicant.payment_due_amount) : ''
@@ -62,21 +55,6 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
       return;
     }
     toast({ title: 'تم اعتماد السداد' });
-    onChanged();
-  }
-
-  async function handleReject() {
-    if (!rejectReason.trim()) return;
-    setBusy(true);
-    const { error } = await rejectReceipt(applicant.id, rejectReason.trim());
-    setBusy(false);
-    if (error) {
-      toast({ title: 'تعذّر الرفض', description: error, variant: 'destructive' });
-      return;
-    }
-    toast({ title: 'تم رفض الإيصال', description: 'ستظهر للطالبة رسالة الرفض ويمكنها رفع إيصال جديد' });
-    setRejectOpen(false);
-    setRejectReason('');
     onChanged();
   }
 
@@ -209,50 +187,9 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
               <CheckCircle2 size={15} />
               اعتماد السداد
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setRejectOpen(true)}
-              disabled={busy}
-              className="gap-2 text-destructive hover:text-destructive"
-            >
-              <XCircle size={15} />
-              رفض الإيصال
-            </Button>
           </div>
         )}
       </CardContent>
-
-      {/* حوار الرفض */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>رفض إيصال السداد</DialogTitle>
-            <DialogDescription>
-              سيظهر السبب للطالبة في صفحة السداد وستتمكن من رفع إيصال جديد.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="reject_reason">سبب الرفض</Label>
-            <Textarea
-              id="reject_reason"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="مثال: المبلغ المحوّل أقل من المطلوب / الإيصال غير واضح…"
-              rows={3}
-            />
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>إلغاء</Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={!rejectReason.trim() || busy}
-            >
-              {busy ? 'جارٍ الحفظ…' : 'رفض الإيصال'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
