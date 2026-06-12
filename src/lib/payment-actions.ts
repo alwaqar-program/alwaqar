@@ -50,7 +50,8 @@ export async function findPayableApplicant(
 export async function submitPayment(
   applicantId: string,
   paidAmount: number,
-  file: File
+  file: File,
+  installmentsCount: number | null = null
 ): Promise<{ error: string | null }> {
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const path = `${applicantId}/${Date.now()}.${ext}`;
@@ -68,6 +69,7 @@ export async function submitPayment(
       payment_receipt_path: path,
       payment_submitted_at: now,
       payment_rejection_reason: null,
+      payment_installments_count: installmentsCount,
     })
     .eq('id', applicantId);
   if (error) return { error: error.message };
@@ -76,7 +78,9 @@ export async function submitPayment(
     applicant_id: applicantId,
     action: 'updated',
     changes: { payment_submitted_at: { old: null, new: now } },
-    notes: `تأكيد سداد ذاتي عبر النموذج العام (المبلغ: ${paidAmount})`,
+    notes: installmentsCount
+      ? `تأكيد سداد ذاتي عبر النموذج العام (المبلغ: ${paidAmount} — تقسيط على ${installmentsCount} دفعات)`
+      : `تأكيد سداد ذاتي عبر النموذج العام (المبلغ: ${paidAmount})`,
     actor_id: null,
     actor_email: 'payment_form@self',
   });

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, AlertCircle, Loader2, Copy, Upload, Clock, XCircle } from 'lucide-react';
 import { Applicant, BRANCH_AR, AGE_AR } from '@/lib/applicant-labels';
@@ -44,6 +45,8 @@ export default function PaymentPage() {
   const [nationalId, setNationalId] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [paidAmount, setPaidAmount] = useState('');
+  const [installments, setInstallments] = useState(false);
+  const [installmentsCount, setInstallmentsCount] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [lookup, setLookup] = useState<LookupState>({ kind: 'idle' });
@@ -113,14 +116,20 @@ export default function PaymentPage() {
     (lookup.kind === 'eligible' || lookup.kind === 'receipt_rejected') &&
     confirmed &&
     file !== null &&
-    Number(paidAmount) > 0;
+    Number(paidAmount) > 0 &&
+    (!installments || Number(installmentsCount) >= 2);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit || (lookup.kind !== 'eligible' && lookup.kind !== 'receipt_rejected')) return;
     const applicant = lookup.applicant;
     setSubmitting(true);
-    const { error } = await submitPayment(applicant.id, Number(paidAmount), file!);
+    const { error } = await submitPayment(
+      applicant.id,
+      Number(paidAmount),
+      file!,
+      installments ? Number(installmentsCount) : null
+    );
     setSubmitting(false);
     if (error) {
       toast({ title: 'تعذّر إرسال الإيصال', description: error, variant: 'destructive' });
@@ -326,10 +335,49 @@ export default function PaymentPage() {
                     </span>
                   </label>
 
+                  {/* تقسيط الدفعات */}
+                  <div className="border rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <Label htmlFor="installments" className="cursor-pointer">تقسيط الدفعات</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          فعّلي هذا الخيار إذا كنتِ سترسلين المبلغ على أكثر من دفعة
+                        </p>
+                      </div>
+                      <Switch
+                        id="installments"
+                        checked={installments}
+                        onCheckedChange={(v) => {
+                          setInstallments(v);
+                          if (!v) setInstallmentsCount('');
+                        }}
+                      />
+                    </div>
+                    {installments && (
+                      <div className="space-y-2">
+                        <Label htmlFor="installments_count">عدد الدفعات</Label>
+                        <Input
+                          id="installments_count"
+                          value={installmentsCount}
+                          onChange={(e) => setInstallmentsCount(e.target.value.replace(/\D/g, '').slice(0, 1))}
+                          dir="ltr"
+                          inputMode="numeric"
+                          placeholder="مثال: 2"
+                          className="w-32"
+                        />
+                        {installments && installmentsCount !== '' && Number(installmentsCount) < 2 && (
+                          <p className="text-xs text-destructive">عدد الدفعات يجب أن يكون 2 أو أكثر</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* المبلغ المحول + الإيصال */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="paid_amount">المبلغ المحوَّل (ريال)</Label>
+                      <Label htmlFor="paid_amount">
+                        {installments ? 'مبلغ الدفعة الأولى المحوَّل (ريال)' : 'المبلغ المحوَّل (ريال)'}
+                      </Label>
                       <Input
                         id="paid_amount"
                         value={paidAmount}

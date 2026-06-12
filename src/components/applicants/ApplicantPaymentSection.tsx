@@ -149,6 +149,17 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
             </dd>
           </div>
 
+          {applicant.payment_installments_count != null && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground shrink-0">التقسيط</dt>
+              <dd>
+                <Badge variant="outline" className="font-normal">
+                  على {applicant.payment_installments_count} دفعات
+                </Badge>
+              </dd>
+            </div>
+          )}
+
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground shrink-0">وقت تأكيد السداد</dt>
             <dd className="tabular-nums text-xs">

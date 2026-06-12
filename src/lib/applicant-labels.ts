@@ -64,6 +64,7 @@ export interface Applicant {
   payment_verified_at: string | null;
   payment_verified_by: string | null;
   payment_rejection_reason: string | null;
+  payment_installments_count: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -183,4 +184,5 @@ export const FIELD_AR: Record<string, string> = {
   payment_submitted_at: 'وقت تأكيد السداد',
   payment_verified_at: 'وقت اعتماد السداد',
   payment_rejection_reason: 'سبب رفض الإيصال',
+  payment_installments_count: 'عدد الدفعات',
 };
