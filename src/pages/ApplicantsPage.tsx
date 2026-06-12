@@ -20,7 +20,7 @@ import {
   Applicant, ApplicantStatus, AgeCategory, Branch,
   STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
-import { getPaymentState, PAYMENT_STATE_AR, PaymentState, PAYABLE_STATUSES } from '@/lib/payment-actions';
+import { getPaymentState, PAYMENT_STATE_AR, PaymentState, isPayableStatus } from '@/lib/payment-actions';
 import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
@@ -302,7 +302,7 @@ export default function ApplicantsPage() {
                         <Badge variant={statusVariant(r.status)}>{STATUS_AR[r.status]}</Badge>
                       </TableCell>
                       <TableCell>
-                        {PAYABLE_STATUSES.has(r.status) ? (
+                        {isPayableStatus(r.status) ? (
                           (() => {
                             const ps = getPaymentState(r);
                             if (ps === 'none') return <span className="text-muted-foreground text-xs">—</span>;

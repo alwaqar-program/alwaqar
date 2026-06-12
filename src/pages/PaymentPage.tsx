@@ -174,7 +174,7 @@ export default function PaymentPage() {
               <div className="space-y-1 border-b pb-2">
                 <h2 className="font-display text-lg">سداد رسوم دورة الوقار</h2>
                 <p className="text-sm text-muted-foreground">
-                  خاص بالمقبولات — أدخلي رقم هويتك للتحقق
+                  أدخلي رقم هويتك للتحقق
                 </p>
               </div>
 
@@ -214,7 +214,7 @@ export default function PaymentPage() {
               {lookup.kind === 'not_found' && (
                 <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md p-3">
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  <span>لم نعثر على سجل مقبول بهذا الرقم. تأكدي من رقم الهوية، أو تواصلي مع إدارة الدورة.</span>
+                  <span>لم نعثر على تسجيلكِ. تأكدي من رقم الهوية، أو تواصلي مع إدارة الدورة.</span>
                 </div>
               )}
 

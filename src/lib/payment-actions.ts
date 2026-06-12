@@ -19,14 +19,17 @@ export const PAYMENT_STATE_AR: Record<PaymentState, string> = {
   receipt_rejected: 'إيصال مرفوض',
 };
 
-export const PAYABLE_STATUSES = new Set(['accepted', 'conditionally_accepted']);
+// السداد متاح لجميع الحالات ما عدا المرفوضات والمحذوفات
+export function isPayableStatus(status: string): boolean {
+  return status !== 'rejected' && status !== 'deleted';
+}
 
 // ---------- صفحة الطالبة العامة ----------
 
 /**
  * يبحث برقم الهوية ويعيد السجل فقط إن كانت الحالة تسمح بالسداد
- * (مقبولة / مقبولة بشرط). يعيد null في كل الحالات الأخرى
- * بدون كشف تفاصيل الحالة.
+ * (الجميع عدا المرفوضات والمحذوفات). يعيد null في كل الحالات
+ * الأخرى بدون كشف تفاصيل الحالة.
  */
 export async function findPayableApplicant(
   nationalId: string
@@ -35,7 +38,7 @@ export async function findPayableApplicant(
     .from('applicants')
     .select('*')
     .eq('national_id', nationalId.trim())
-    .in('status', ['accepted', 'conditionally_accepted'])
+    .not('status', 'in', '(rejected,deleted)')
     .order('submission_number', { ascending: false, nullsFirst: false })
     .limit(1);
   if (error) return { data: null, error: error.message };

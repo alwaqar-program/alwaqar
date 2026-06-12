@@ -235,7 +235,7 @@ export default function ApplicantProfilePage() {
         )}
 
         {/* Payment */}
-        {(data.status === 'accepted' || data.status === 'conditionally_accepted') && (
+        {data.status !== 'rejected' && data.status !== 'deleted' && (
           <div className="md:col-span-2">
             <ApplicantPaymentSection
               applicant={data}
