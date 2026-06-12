@@ -276,10 +276,6 @@ export default function PaymentPage() {
                       <img src={alinmaLogo} alt="بنك الإنماء" className="h-8 object-contain" />
                     </div>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground shrink-0">البنك</span>
-                        <span>{BANK_CONFIG.bankName}</span>
-                      </div>
                       <div className="flex justify-between gap-4 items-start">
                         <span className="text-muted-foreground shrink-0">المستفيد</span>
                         <span className="text-left leading-relaxed">{BANK_CONFIG.beneficiary}</span>
