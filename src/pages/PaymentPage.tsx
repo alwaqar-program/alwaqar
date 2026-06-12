@@ -73,7 +73,7 @@ export default function PaymentPage() {
 
   useLayoutEffect(() => {
     const previous = document.title;
-    document.title = 'تأكيد التسجيل وسداد رسوم الدورة';
+    document.title = 'تأكيد التسجيل وسداد رسوم دورة الوقار ١٤';
     return () => {
       document.title = previous;
     };
@@ -209,7 +209,7 @@ export default function PaymentPage() {
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-1 border-b pb-2">
-                <h2 className="font-display text-lg">سداد رسوم دورة الوقار</h2>
+                <h2 className="font-display text-lg">سداد رسوم دورة الوقار ١٤</h2>
                 <p className="text-sm text-muted-foreground">
                   أدخلي رقم هويتك للتحقق
                 </p>
