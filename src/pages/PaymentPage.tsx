@@ -10,6 +10,7 @@ import { Applicant, BRANCH_AR, AGE_AR } from '@/lib/applicant-labels';
 import { findPayableApplicant, submitPayment, getPaymentState, PaymentState } from '@/lib/payment-actions';
 import { BANK_CONFIG, RECEIPT_MAX_SIZE_MB, RECEIPT_ACCEPTED_TYPES } from '@/lib/payment-config';
 import logoImg from '@/assets/logo.png';
+import alinmaLogo from '@/assets/alinma-logo.svg';
 
 type LookupState =
   | { kind: 'idle' }
@@ -128,10 +129,10 @@ export default function PaymentPage() {
     setLookup({ kind: 'submitted_now', applicant });
   }
 
-  async function copyIban() {
+  async function copyValue(value: string, label: string) {
     try {
-      await navigator.clipboard.writeText(BANK_CONFIG.iban);
-      toast({ title: 'تم نسخ الآيبان' });
+      await navigator.clipboard.writeText(value);
+      toast({ title: `تم نسخ ${label}` });
     } catch {
       toast({ title: 'تعذّر النسخ', variant: 'destructive' });
     }
@@ -270,15 +271,33 @@ export default function PaymentPage() {
                   </div>
 
                   <div className="border rounded-lg p-4 space-y-3 bg-card">
-                    <h3 className="font-display text-base">بيانات الحساب البنكي</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-display text-base">بيانات الحساب البنكي</h3>
+                      <img src={alinmaLogo} alt="بنك الإنماء" className="h-8 object-contain" />
+                    </div>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground shrink-0">البنك</span>
                         <span>{BANK_CONFIG.bankName}</span>
                       </div>
-                      <div className="flex justify-between gap-4">
+                      <div className="flex justify-between gap-4 items-start">
                         <span className="text-muted-foreground shrink-0">المستفيد</span>
-                        <span>{BANK_CONFIG.beneficiary}</span>
+                        <span className="text-left leading-relaxed">{BANK_CONFIG.beneficiary}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">رقم الحساب</span>
+                        <div className="flex items-center gap-1">
+                          <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
+                            {BANK_CONFIG.accountNumber}
+                          </code>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            onClick={() => copyValue(BANK_CONFIG.accountNumber, 'رقم الحساب')}
+                            title="نسخ رقم الحساب"
+                          >
+                            <Copy size={14} />
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">الآيبان</span>
@@ -286,7 +305,11 @@ export default function PaymentPage() {
                           <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
                             {BANK_CONFIG.iban}
                           </code>
-                          <Button type="button" variant="ghost" size="sm" onClick={copyIban} title="نسخ الآيبان">
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            onClick={() => copyValue(BANK_CONFIG.iban, 'الآيبان')}
+                            title="نسخ الآيبان"
+                          >
                             <Copy size={14} />
                           </Button>
                         </div>
