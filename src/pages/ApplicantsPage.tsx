@@ -20,6 +20,7 @@ import {
   Applicant, ApplicantStatus, AgeCategory, Branch,
   STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
+import { getPaymentState, PAYMENT_STATE_AR, PaymentState, PAYABLE_STATUSES } from '@/lib/payment-actions';
 import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
@@ -77,6 +78,7 @@ export default function ApplicantsPage() {
   const [statusFilter, setStatusFilter] = useState<ApplicantStatus | 'all'>('all');
   const [ageFilter, setAgeFilter] = useState<AgeCategory | 'all'>('all');
   const [branchFilter, setBranchFilter] = useState<Branch | 'all'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentState | 'all'>('all');
 
   // Dialog state
   const [addOpen, setAddOpen] = useState(false);
@@ -117,6 +119,7 @@ export default function ApplicantsPage() {
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (ageFilter !== 'all' && r.age_category !== ageFilter) return false;
       if (branchFilter !== 'all' && r.desired_branch !== branchFilter) return false;
+      if (paymentFilter !== 'all' && getPaymentState(r) !== paymentFilter) return false;
       if (search) {
         const q = search.trim().toLowerCase();
         const hay = `${r.full_name || ''} ${r.national_id || ''} ${r.phone || ''}`.toLowerCase();
@@ -124,7 +127,7 @@ export default function ApplicantsPage() {
       }
       return true;
     });
-  }, [data, search, statusFilter, ageFilter, branchFilter]);
+  }, [data, search, statusFilter, ageFilter, branchFilter, paymentFilter]);
 
   const deletedCount = data.filter((r) => r.status === 'deleted').length;
 
@@ -138,7 +141,7 @@ export default function ApplicantsPage() {
     }
     if (page !== 1) setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter, ageFilter, branchFilter]);
+  }, [search, statusFilter, ageFilter, branchFilter, paymentFilter]);
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -197,7 +200,7 @@ export default function ApplicantsPage() {
               </SelectContent>
             </Select>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Select value={ageFilter} onValueChange={(v) => setAgeFilter(v as AgeCategory | 'all')}>
                 <SelectTrigger>
                   <SelectValue placeholder="الفئة العمرية" />
@@ -217,6 +220,18 @@ export default function ApplicantsPage() {
                 <SelectContent>
                   <SelectItem value="all">كل الفروع</SelectItem>
                   {Object.entries(BRANCH_AR).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentState | 'all')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="السداد" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل حالات السداد</SelectItem>
+                  {Object.entries(PAYMENT_STATE_AR).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
                 </SelectContent>
@@ -256,6 +271,7 @@ export default function ApplicantsPage() {
                     <TableHead className="text-right">الفرع</TableHead>
                     <TableHead className="text-right">الأجزاء</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">السداد</TableHead>
                     <TableHead className="text-right">تاريخ التسجيل</TableHead>
                     <TableHead className="text-right w-[150px]"></TableHead>
                   </TableRow>
@@ -284,6 +300,21 @@ export default function ApplicantsPage() {
                       <TableCell className="tabular-nums text-muted-foreground">{r.memorized_juz_count ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>{STATUS_AR[r.status]}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {PAYABLE_STATUSES.has(r.status) ? (
+                          (() => {
+                            const ps = getPaymentState(r);
+                            if (ps === 'none') return <span className="text-muted-foreground text-xs">—</span>;
+                            if (ps === 'pending_review')
+                              return <Badge className="bg-amber-500 hover:bg-amber-500 whitespace-nowrap">{PAYMENT_STATE_AR.pending_review}</Badge>;
+                            if (ps === 'verified')
+                              return <Badge className="bg-emerald-600 hover:bg-emerald-600">{PAYMENT_STATE_AR.verified}</Badge>;
+                            return <Badge variant="destructive" className="whitespace-nowrap">{PAYMENT_STATE_AR.receipt_rejected}</Badge>;
+                          })()
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
                         {r.registered_at

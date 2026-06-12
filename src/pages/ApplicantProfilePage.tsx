@@ -14,6 +14,7 @@ import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 import ApplicantActivityLog from '@/components/applicants/ApplicantActivityLog';
 import ApplicantInterviews from '@/components/interviews/ApplicantInterviews';
+import ApplicantPaymentSection from '@/components/applicants/ApplicantPaymentSection';
 
 export default function ApplicantProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -231,6 +232,16 @@ export default function ApplicantProfilePage() {
               <p className="text-sm whitespace-pre-wrap">{data.notes}</p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Payment */}
+        {(data.status === 'accepted' || data.status === 'conditionally_accepted') && (
+          <div className="md:col-span-2">
+            <ApplicantPaymentSection
+              applicant={data}
+              onChanged={() => { reload(); setLogRefresh((k) => k + 1); }}
+            />
+          </div>
         )}
 
         {/* Interviews */}

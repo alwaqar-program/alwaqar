@@ -57,6 +57,13 @@ export interface Applicant {
   rejection_reasons: string | null;
   pledged_at: string | null;
   registered_at: string | null;
+  payment_due_amount: number | null;
+  payment_paid_amount: number | null;
+  payment_receipt_path: string | null;
+  payment_submitted_at: string | null;
+  payment_verified_at: string | null;
+  payment_verified_by: string | null;
+  payment_rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -171,4 +178,9 @@ export const FIELD_AR: Record<string, string> = {
   status: 'الحالة',
   acceptance_reasons: 'مبررات القبول',
   rejection_reasons: 'مبررات الرفض',
+  payment_due_amount: 'المبلغ المطلوب',
+  payment_paid_amount: 'المبلغ المدفوع',
+  payment_submitted_at: 'وقت تأكيد السداد',
+  payment_verified_at: 'وقت اعتماد السداد',
+  payment_rejection_reason: 'سبب رفض الإيصال',
 };
