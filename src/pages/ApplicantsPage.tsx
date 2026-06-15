@@ -50,6 +50,8 @@ const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'has_chronic_illness', header: 'مرض مزمن', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
   { key: 'has_companions', header: 'معها مرافقات', transform: (v) => v === true ? 'نعم' : v === false ? 'لا' : '' },
   { key: 'status', header: 'الحالة', transform: (v) => STATUS_AR[v as ApplicantStatus] ?? v },
+  { key: 'acceptance_reasons', header: 'مبررات القبول' },
+  { key: 'rejection_reasons', header: 'مبررات الرفض' },
   { key: 'registered_at', header: 'تاريخ التسجيل', transform: (v) => v ? new Date(v).toISOString().slice(0, 10) : '' },
   { key: 'notes', header: 'ملاحظات' },
 ];
