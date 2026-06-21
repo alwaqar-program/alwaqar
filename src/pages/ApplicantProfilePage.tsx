@@ -15,6 +15,7 @@ import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog
 import ApplicantActivityLog from '@/components/applicants/ApplicantActivityLog';
 import ApplicantInterviews from '@/components/interviews/ApplicantInterviews';
 import ApplicantPaymentSection from '@/components/applicants/ApplicantPaymentSection';
+import ApplicantRoommateSection from '@/components/applicants/ApplicantRoommateSection';
 
 export default function ApplicantProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -241,6 +242,13 @@ export default function ApplicantProfilePage() {
               applicant={data}
               onChanged={() => { reload(); setLogRefresh((k) => k + 1); }}
             />
+          </div>
+        )}
+
+        {/* Roommate preferences */}
+        {data.status !== 'rejected' && data.status !== 'deleted' && (
+          <div className="md:col-span-2">
+            <ApplicantRoommateSection applicant={data} />
           </div>
         )}
 

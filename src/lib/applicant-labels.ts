@@ -65,6 +65,14 @@ export interface Applicant {
   payment_verified_by: string | null;
   payment_rejection_reason: string | null;
   payment_installments_count: number | null;
+  // تفضيلات السكن المشترك (تُجمع عبر الصفحة العامة /roommates)
+  roommate_wants_specific: boolean | null;
+  roommate_1_applicant_id: string | null;
+  roommate_1_other_name: string | null;
+  roommate_2_applicant_id: string | null;
+  roommate_2_other_name: string | null;
+  roommate_arranged_confirmed: boolean | null;
+  roommate_submitted_at: string | null;
   created_at: string;
   updated_at: string;
 }

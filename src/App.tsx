@@ -24,6 +24,7 @@ import LeaveRequestsPage from "./pages/LeaveRequestsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
 import ApplicantProfilePage from "./pages/ApplicantProfilePage";
 import PledgePage from "./pages/PledgePage";
+import RoommatesPage from "./pages/RoommatesPage";
 import PaymentPage from "./pages/PaymentPage";
 import InterviewPage from "./pages/InterviewPage";
 import InterviewCommitteePage from "./pages/InterviewCommitteePage";
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/pledge" element={<PledgePage />} />
+            <Route path="/roommates" element={<RoommatesPage />} />
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/interview" element={<InterviewPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
