@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PaginationBar } from '@/components/ui/pagination-bar';
 import { useScrollRestoration } from '@/lib/use-scroll-restoration';
@@ -25,6 +25,9 @@ import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
 const PAGE_SIZE = 25;
+
+// Collator for sorting Arabic names alphabetically (أ، ب، ت …).
+const arabicCollator = new Intl.Collator('ar', { sensitivity: 'base', numeric: true });
 
 const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'submission_number', header: 'رقم الطلب' },
@@ -76,11 +79,33 @@ export default function ApplicantsPage() {
 
   const [data, setData] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ApplicantStatus | 'all'>('all');
-  const [ageFilter, setAgeFilter] = useState<AgeCategory | 'all'>('all');
-  const [branchFilter, setBranchFilter] = useState<Branch | 'all'>('all');
-  const [paymentFilter, setPaymentFilter] = useState<PaymentState | 'all'>('all');
+
+  // Filters live in the URL (like `page`) so returning from a detail page
+  // restores the exact filtered view — and therefore its saved scroll
+  // position, since the scroll key is derived from the URL.
+  const search = searchParams.get('q') ?? '';
+  const statusFilter = (searchParams.get('status') as ApplicantStatus | 'all') || 'all';
+  const ageFilter = (searchParams.get('age') as AgeCategory | 'all') || 'all';
+  const branchFilter = (searchParams.get('branch') as Branch | 'all') || 'all';
+  const paymentFilter = (searchParams.get('pay') as PaymentState | 'all') || 'all';
+
+  // Update one filter param and reset back to the first page. Uses `replace`
+  // so typing/filtering doesn't flood the browser history (a single Back
+  // press from a detail page still returns to this filtered view).
+  const setFilterParam = (key: string, value: string) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (!value || value === 'all') p.delete(key);
+      else p.set(key, value);
+      p.delete('page');
+      return p;
+    }, { replace: true });
+  };
+  const setSearch = (v: string) => setFilterParam('q', v);
+  const setStatusFilter = (v: ApplicantStatus | 'all') => setFilterParam('status', v);
+  const setAgeFilter = (v: AgeCategory | 'all') => setFilterParam('age', v);
+  const setBranchFilter = (v: Branch | 'all') => setFilterParam('branch', v);
+  const setPaymentFilter = (v: PaymentState | 'all') => setFilterParam('pay', v);
 
   // Dialog state
   const [addOpen, setAddOpen] = useState(false);
@@ -115,35 +140,33 @@ export default function ApplicantsPage() {
   }
 
   const filtered = useMemo(() => {
-    return data.filter((r) => {
-      // Hide deleted unless filter explicitly selects them
-      if (statusFilter === 'all' && r.status === 'deleted') return false;
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-      if (ageFilter !== 'all' && r.age_category !== ageFilter) return false;
-      if (branchFilter !== 'all' && r.desired_branch !== branchFilter) return false;
-      if (paymentFilter !== 'all' && getPaymentState(r) !== paymentFilter) return false;
-      if (search) {
-        const q = search.trim().toLowerCase();
-        const hay = `${r.full_name || ''} ${r.national_id || ''} ${r.phone || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+    return data
+      .filter((r) => {
+        // Hide deleted unless filter explicitly selects them
+        if (statusFilter === 'all' && r.status === 'deleted') return false;
+        if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+        if (ageFilter !== 'all' && r.age_category !== ageFilter) return false;
+        if (branchFilter !== 'all' && r.desired_branch !== branchFilter) return false;
+        if (paymentFilter !== 'all' && getPaymentState(r) !== paymentFilter) return false;
+        if (search) {
+          const q = search.trim().toLowerCase();
+          const hay = `${r.full_name || ''} ${r.national_id || ''} ${r.phone || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      // Sort by name in Arabic alphabetical order; blank names go last.
+      .sort((a, b) => {
+        const an = (a.full_name || '').trim();
+        const bn = (b.full_name || '').trim();
+        if (!an && !bn) return 0;
+        if (!an) return 1;
+        if (!bn) return -1;
+        return arabicCollator.compare(an, bn);
+      });
   }, [data, search, statusFilter, ageFilter, branchFilter, paymentFilter]);
 
   const deletedCount = data.filter((r) => r.status === 'deleted').length;
-
-  // Reset to page 1 only when filters change AFTER the initial mount,
-  // so navigating back from a detail page preserves the saved ?page=N
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    if (page !== 1) setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter, ageFilter, branchFilter, paymentFilter]);
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
