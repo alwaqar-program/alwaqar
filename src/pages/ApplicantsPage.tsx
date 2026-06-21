@@ -21,6 +21,7 @@ import {
   STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
 } from '@/lib/applicant-labels';
 import { getPaymentState, PAYMENT_STATE_AR, PaymentState, isPayableStatus } from '@/lib/payment-actions';
+import { HousingAnswer } from '@/lib/interview-types';
 import ApplicantFormDialog from '@/components/applicants/ApplicantFormDialog';
 import DeleteApplicantDialog from '@/components/applicants/DeleteApplicantDialog';
 
@@ -28,6 +29,13 @@ const PAGE_SIZE = 25;
 
 // Collator for sorting Arabic names alphabetically (أ، ب، ت …).
 const arabicCollator = new Intl.Collator('ar', { sensitivity: 'base', numeric: true });
+
+// Short labels shown in the السكن المشترك column.
+const HOUSING_SHORT_AR: Record<HousingAnswer, string> = {
+  shared: 'مشترك',           // تقبل السكن المشترك
+  private: 'خاص',            // لا تقبل السكن المشترك
+  with_companions: 'خاص بالوقار', // معها مرافقات
+};
 
 const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'submission_number', header: 'رقم الطلب' },
@@ -79,6 +87,9 @@ export default function ApplicantsPage() {
 
   const [data, setData] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
+  // السكن المشترك is recorded on the interview, not the applicant row, so we
+  // load interviews separately and map the latest answer to each applicant.
+  const [housingByApplicant, setHousingByApplicant] = useState<Record<string, HousingAnswer>>({});
 
   // Filters live in the URL (like `page`) so returning from a detail page
   // restores the exact filtered view — and therefore its saved scroll
@@ -136,6 +147,23 @@ export default function ApplicantsPage() {
     } else {
       setData(data as Applicant[]);
     }
+
+    // Load the shared-housing answer for each applicant from their interview.
+    // Ordered oldest→newest so the last write into the map wins (latest answer).
+    const { data: interviews } = await (supabase as any)
+      .from('interviews')
+      .select('applicant_id, accepts_shared_housing, created_at')
+      .order('created_at', { ascending: true });
+    if (interviews) {
+      const map: Record<string, HousingAnswer> = {};
+      for (const iv of interviews as Array<{ applicant_id: string; accepts_shared_housing: HousingAnswer | null }>) {
+        if (iv.applicant_id && iv.accepts_shared_housing) {
+          map[iv.applicant_id] = iv.accepts_shared_housing;
+        }
+      }
+      setHousingByApplicant(map);
+    }
+
     setLoading(false);
   }
 
@@ -297,7 +325,7 @@ export default function ApplicantsPage() {
                     <TableHead className="text-right">الأجزاء</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right">السداد</TableHead>
-                    <TableHead className="text-right">تاريخ التسجيل</TableHead>
+                    <TableHead className="text-right">السكن المشترك</TableHead>
                     <TableHead className="text-right w-[150px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -341,11 +369,9 @@ export default function ApplicantsPage() {
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
-                        {r.registered_at
-                          ? new Date(r.registered_at).toLocaleDateString('ar-SA', {
-                              year: 'numeric', month: 'short', day: 'numeric',
-                            })
+                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                        {housingByApplicant[r.id]
+                          ? HOUSING_SHORT_AR[housingByApplicant[r.id]]
                           : '—'}
                       </TableCell>
                       <TableCell>
