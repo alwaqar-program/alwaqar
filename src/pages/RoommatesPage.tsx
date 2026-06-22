@@ -380,7 +380,7 @@ export default function RoommatesPage() {
                       {/* ملاحظة بذل المستطاع */}
                       <div className="flex items-start gap-2 text-sm text-sky-800 bg-sky-50 border border-sky-200 rounded-md p-3">
                         <Info size={16} className="mt-0.5 shrink-0" />
-                        <span>سنحرص على تلبية رغبتكِ في السكن قدر الإمكان، بما يتاح من الإمكانات.</span>
+                        <span>سنحرص على تلبية رغبتك في السكن قدر المستطاع، مع التنويه إلى أن ذلك يظل خاضعًا للإمكانات المتاحة.</span>
                       </div>
 
                       {/* إقرار التنسيق المسبق */}
@@ -391,7 +391,7 @@ export default function RoommatesPage() {
                           className="mt-1 shrink-0"
                         />
                         <span className="text-sm leading-loose">
-                          أُقِرّ بأنني تواصلتُ مع من اخترتُهنّ مسبقاً واتفقنا على السكن معاً.
+                          أقرّ بأنني اتفقت مسبقًا مع من اخترتهنّ للإقامة معي في الغرفة المشتركة.
                         </span>
                       </label>
                     </div>

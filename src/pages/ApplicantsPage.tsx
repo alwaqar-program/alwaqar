@@ -196,6 +196,15 @@ export default function ApplicantsPage() {
 
   const deletedCount = data.filter((r) => r.status === 'deleted').length;
 
+  // Statuses that actually occur in the data — the filter dropdown lists only
+  // these (so an empty status never shows). The currently-selected status is
+  // kept even if it has no rows, so the Select never shows a blank value.
+  const presentStatuses = useMemo(() => {
+    const s = new Set<ApplicantStatus>();
+    for (const r of data) if (r.status) s.add(r.status);
+    return s;
+  }, [data]);
+
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -247,9 +256,11 @@ export default function ApplicantsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">جميع الحالات (عدا المحذوفة)</SelectItem>
-                {Object.entries(STATUS_AR).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
+                {Object.entries(STATUS_AR)
+                  .filter(([k]) => presentStatuses.has(k as ApplicantStatus) || statusFilter === k)
+                  .map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
 
