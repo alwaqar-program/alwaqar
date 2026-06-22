@@ -13,6 +13,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
@@ -38,6 +40,18 @@ export default function StaffPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Staff | null>(null);
   const [form, setForm] = useState({ staff_name: '', title: '', national_id: '', phone: '' });
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedStaff = (() => {
+    const acc: Record<string, (s: Staff) => unknown> = {
+      name: (s) => s.staff_name,
+      title: (s) => s.title,
+      phone: (s) => s.phone,
+      active: (s) => s.is_active,
+    };
+    if (!sortKey || !acc[sortKey]) return staff;
+    return sortRows(staff, acc[sortKey], sortDir, sortKey === 'active' ? 'boolean' : 'text');
+  })();
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -135,15 +149,15 @@ export default function StaffPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الاسم</TableHead>
-                <TableHead>المسمى</TableHead>
-                <TableHead>الهاتف</TableHead>
-                <TableHead>الحالة</TableHead>
+                <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="المسمى" sortKey="title" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الهاتف" sortKey="phone" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحالة" sortKey="active" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.map(s => (
+              {sortedStaff.map(s => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.staff_name}</TableCell>
                   <TableCell>{s.title}</TableCell>

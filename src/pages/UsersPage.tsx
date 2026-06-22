@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { toast } from 'sonner';
 import { Plus, Shield, UserPlus, Users, KeyRound, Download } from 'lucide-react';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
@@ -63,6 +65,17 @@ export default function UsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [resetTarget, setResetTarget] = useState<UserWithRole | null>(null);
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedUsers = (() => {
+    const acc: Record<string, (u: UserWithRole) => unknown> = {
+      name: (u) => u.full_name,
+      role: (u) => roleLabels[u.role] || u.role,
+      created: (u) => u.created_at,
+    };
+    if (!sortKey || !acc[sortKey]) return users;
+    return sortRows(users, acc[sortKey], sortDir, sortKey === 'created' ? 'date' : 'text');
+  })();
 
   const [form, setForm] = useState({
     email: '',
@@ -276,14 +289,14 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">الاسم</TableHead>
-                    <TableHead className="text-right">الدور</TableHead>
-                    <TableHead className="text-right">تاريخ الإضافة</TableHead>
+                    <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="الدور" sortKey="role" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="تاريخ الإضافة" sortKey="created" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                     <TableHead className="text-right w-[140px]">إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((u, i) => (
+                  {sortedUsers.map((u, i) => (
                     <TableRow key={`${u.user_id}-${u.role}-${i}`}>
                       <TableCell className="font-medium">{u.full_name}</TableCell>
                       <TableCell>

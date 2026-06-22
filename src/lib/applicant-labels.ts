@@ -65,6 +65,8 @@ export interface Applicant {
   payment_verified_by: string | null;
   payment_rejection_reason: string | null;
   payment_installments_count: number | null;
+  // حالة سداد خاصة تُعيَّن يدوياً: 'waqar' | 'non_waqar' | null
+  payment_special_status: string | null;
   // تفضيلات السكن المشترك (تُجمع عبر الصفحة العامة /roommates)
   roommate_wants_specific: boolean | null;
   roommate_1_applicant_id: string | null;

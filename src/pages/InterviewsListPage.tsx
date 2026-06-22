@@ -13,6 +13,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { Search, Filter, MessagesSquare, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -137,6 +139,21 @@ export default function InterviewsListPage() {
     });
   }, [rows, search, memberFilter, resultFilter]);
 
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (r: JoinedRow) => unknown> = {
+      student: (r) => r.applicant?.full_name,
+      member: (r) => r.committeeMemberName,
+      score: (r) => r.score,
+      percent: (r) => getScorePercentage(r.score, r.max_score),
+      result: (r) => (r.result ? RESULT_AR[r.result] : null),
+      date: (r) => r.created_at,
+    };
+    const types: Record<string, 'number' | 'date'> = { score: 'number', percent: 'number', date: 'date' };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, types[sortKey] ?? 'text');
+  }, [filtered, sortKey, sortDir]);
+
   // Reset to page 1 only when filters change AFTER the initial mount,
   // so navigating back from a detail page preserves the saved ?page=N
   const isInitialMount = useRef(true);
@@ -149,8 +166,8 @@ export default function InterviewsListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, memberFilter, resultFilter]);
 
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
   // Summary stats
   const stats = useMemo(() => {
@@ -269,12 +286,12 @@ export default function InterviewsListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">الطالبة</TableHead>
-                    <TableHead className="text-right">العضوة</TableHead>
-                    <TableHead className="text-right">الدرجة</TableHead>
-                    <TableHead className="text-right">النسبة</TableHead>
-                    <TableHead className="text-right">النتيجة</TableHead>
-                    <TableHead className="text-right">التاريخ</TableHead>
+                    <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="العضوة" sortKey="member" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="الدرجة" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="النسبة" sortKey="percent" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="النتيجة" sortKey="result" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="التاريخ" sortKey="date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                     <TableHead className="text-right"></TableHead>
                   </TableRow>
                 </TableHeader>

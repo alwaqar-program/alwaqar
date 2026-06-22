@@ -12,6 +12,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -70,6 +72,21 @@ export default function ExamsPage() {
     examiner_name: '',
   });
   const [duplicateWarning, setDuplicateWarning] = useState(false);
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedExams = (() => {
+    const acc: Record<string, (e: Exam) => unknown> = {
+      student: (e) => e.students?.full_name,
+      type: (e) => examTypes[e.exam_type],
+      date: (e) => e.date,
+      errors: (e) => e.total_errors,
+      score: (e) => e.total_score,
+      examiner: (e) => e.examiner_name,
+    };
+    const types: Record<string, 'date' | 'number'> = { date: 'date', errors: 'number', score: 'number' };
+    if (!sortKey || !acc[sortKey]) return exams;
+    return sortRows(exams, acc[sortKey], sortDir, types[sortKey] ?? 'text');
+  })();
 
   const fetchData = async () => {
     const [exRes, stRes] = await Promise.all([
@@ -237,16 +254,16 @@ export default function ExamsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>النوع</TableHead>
-                <TableHead>التاريخ</TableHead>
-                <TableHead>الأخطاء</TableHead>
-                <TableHead>الدرجة</TableHead>
-                <TableHead>المختبرة</TableHead>
+                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="النوع" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="التاريخ" sortKey="date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الأخطاء" sortKey="errors" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الدرجة" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="المختبرة" sortKey="examiner" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {exams.map(e => (
+              {sortedExams.map(e => (
                 <TableRow key={e.id}>
                   <TableCell className="font-medium">{e.students?.full_name}</TableCell>
                   <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>

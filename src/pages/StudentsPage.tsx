@@ -21,6 +21,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
@@ -191,6 +193,19 @@ export default function StudentsPage() {
     setDeleting(false);
     setDeleteTarget(null);
   };
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedStudents = useMemo(() => {
+    const acc: Record<string, (s: Student) => unknown> = {
+      name: (s) => s.full_name,
+      circle: (s) => s.circles?.circle_name,
+      branch: (s) => s.circles?.branches?.branch_name,
+      status: (s) => statusLabels[s.admission_status] || s.admission_status,
+      housing: (s) => (s.housing_type === 'internal' ? 'داخلي' : 'خارجي'),
+    };
+    if (!sortKey || !acc[sortKey]) return filteredStudents;
+    return sortRows(filteredStudents, acc[sortKey], sortDir, 'text');
+  }, [filteredStudents, sortKey, sortDir]);
 
   // Options for searchable selects
   const circleOptions = circles.map(c => ({ value: c.id, label: c.circle_name }));
@@ -373,16 +388,16 @@ export default function StudentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">الاسم</TableHead>
-                  <TableHead className="text-right">الحلقة</TableHead>
-                  <TableHead className="text-right">الفرع</TableHead>
-                  <TableHead className="text-right">حالة القبول</TableHead>
-                  <TableHead className="text-right">السكن</TableHead>
+                  <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الفرع" sortKey="branch" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="حالة القبول" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="السكن" sortKey="housing" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map(s => (
+                {sortedStudents.map(s => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/students/${s.id}`)}>
                     <TableCell className="font-medium">{s.full_name}</TableCell>
                     <TableCell>{s.circles?.circle_name || '-'}</TableCell>

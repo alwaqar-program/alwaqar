@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
@@ -84,6 +86,19 @@ export default function ViolationsPage() {
       fetchData();
     }
   };
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (v: any) => unknown> = {
+      student: (v) => v.students?.full_name,
+      type: (v) => v.violation_type,
+      description: (v) => v.description,
+      action: (v) => v.action_taken,
+      date: (v) => v.violation_date,
+    };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, sortKey === 'date' ? 'date' : 'text');
+  }, [filtered, sortKey, sortDir]);
 
   const csvData = filtered.map(v => ({ ...v, student_name: v.students?.full_name }));
 
@@ -177,11 +192,11 @@ export default function ViolationsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>نوع المخالفة</TableHead>
-                <TableHead>الوصف</TableHead>
-                <TableHead>الإجراء</TableHead>
-                <TableHead>التاريخ</TableHead>
+                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="نوع المخالفة" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الوصف" sortKey="description" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الإجراء" sortKey="action" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="التاريخ" sortKey="date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,7 +204,7 @@ export default function ViolationsPage() {
                 <TableRow><TableCell colSpan={5} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">لا توجد مخالفات</TableCell></TableRow>
-              ) : filtered.map(v => (
+              ) : sorted.map(v => (
                 <TableRow key={v.id}>
                   <TableCell className="font-medium">{v.students?.full_name}</TableCell>
                   <TableCell><Badge variant="destructive">{v.violation_type}</Badge></TableCell>

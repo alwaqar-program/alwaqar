@@ -16,6 +16,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
@@ -99,6 +101,21 @@ export default function RoomsPage() {
 
   // Count students per room
   const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedRooms = (() => {
+    const acc: Record<string, (r: Room) => unknown> = {
+      room: (r) => r.room_number,
+      building: (r) => r.building,
+      capacity: (r) => r.capacity,
+      occupancy: (r) => studentCounts[r.id] || 0,
+      supervisor: (r) => r.staff?.staff_name,
+    };
+    const numeric = sortKey === 'capacity' || sortKey === 'occupancy';
+    if (!sortKey || !acc[sortKey]) return rooms;
+    return sortRows(rooms, acc[sortKey], sortDir, numeric ? 'number' : 'text');
+  })();
+
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase
@@ -178,16 +195,16 @@ export default function RoomsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>رقم الغرفة</TableHead>
-                <TableHead>المبنى</TableHead>
-                <TableHead>السعة</TableHead>
-                <TableHead>الإشغال</TableHead>
-                <TableHead>المشرفة</TableHead>
+                <SortableHead label="رقم الغرفة" sortKey="room" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="المبنى" sortKey="building" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="السعة" sortKey="capacity" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الإشغال" sortKey="occupancy" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="المشرفة" sortKey="supervisor" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rooms.map(r => {
+              {sortedRooms.map(r => {
                 const occupied = studentCounts[r.id] || 0;
                 const full = occupied >= r.capacity;
                 return (

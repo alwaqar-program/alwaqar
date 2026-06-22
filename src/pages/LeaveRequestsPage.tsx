@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
@@ -99,6 +101,21 @@ export default function LeaveRequestsPage() {
       fetchData();
     }
   };
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (r: any) => unknown> = {
+      student: (r) => r.students?.full_name,
+      type: (r) => r.leave_type,
+      reason: (r) => r.reason,
+      start: (r) => r.start_date,
+      end: (r) => r.end_date,
+      status: (r) => statusLabels[r.status] || r.status,
+    };
+    const types: Record<string, 'date'> = { start: 'date', end: 'date' };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, types[sortKey] ?? 'text');
+  }, [filtered, sortKey, sortDir]);
 
   const csvData = filtered.map(r => ({ ...r, student_name: r.students?.full_name }));
 
@@ -198,12 +215,12 @@ export default function LeaveRequestsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>نوع الإذن</TableHead>
-                <TableHead>السبب</TableHead>
-                <TableHead>من</TableHead>
-                <TableHead>إلى</TableHead>
-                <TableHead>الحالة</TableHead>
+                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="نوع الإذن" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="السبب" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="من" sortKey="start" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="إلى" sortKey="end" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحالة" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead>إجراء</TableHead>
               </TableRow>
             </TableHeader>
@@ -212,7 +229,7 @@ export default function LeaveRequestsPage() {
                 <TableRow><TableCell colSpan={7} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد طلبات</TableCell></TableRow>
-              ) : filtered.map(r => (
+              ) : sorted.map(r => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.students?.full_name}</TableCell>
                   <TableCell><Badge variant="outline">{r.leave_type}</Badge></TableCell>

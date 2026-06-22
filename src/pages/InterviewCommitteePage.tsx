@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -26,6 +28,19 @@ export default function InterviewCommitteePage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CommitteeMember | null>(null);
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedMembers = (() => {
+    const acc: Record<string, (m: CommitteeMember) => unknown> = {
+      name: (m) => m.full_name,
+      active: (m) => m.is_active,
+      notes: (m) => m.notes,
+      created: (m) => m.created_at,
+    };
+    const types: Record<string, 'boolean' | 'date'> = { active: 'boolean', created: 'date' };
+    if (!sortKey || !acc[sortKey]) return members;
+    return sortRows(members, acc[sortKey], sortDir, types[sortKey] ?? 'text');
+  })();
 
   useEffect(() => { load(); }, []);
 
@@ -121,15 +136,15 @@ export default function InterviewCommitteePage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">الاسم</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">ملاحظات</TableHead>
-                  <TableHead className="text-right">تاريخ الإضافة</TableHead>
+                  <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الحالة" sortKey="active" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="ملاحظات" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="تاريخ الإضافة" sortKey="created" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                   <TableHead className="text-right w-[160px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {members.map((m) => (
+                {sortedMembers.map((m) => (
                   <TableRow
                     key={m.id}
                     className="cursor-pointer"

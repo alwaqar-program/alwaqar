@@ -8,7 +8,7 @@ import { CheckCircle2, FileText, Pencil, Loader2 } from 'lucide-react';
 import { Applicant } from '@/lib/applicant-labels';
 import {
   getPaymentState, PAYMENT_STATE_AR, verifyPayment,
-  updateDueAmount, getReceiptUrl,
+  updateDueAmount, getReceiptUrl, setPaymentSpecialStatus, PaymentSpecialStatus,
 } from '@/lib/payment-actions';
 
 interface Props {
@@ -32,7 +32,21 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
     pending_review: <Badge className="bg-amber-500 hover:bg-amber-500">{PAYMENT_STATE_AR.pending_review}</Badge>,
     verified: <Badge className="bg-emerald-600 hover:bg-emerald-600">{PAYMENT_STATE_AR.verified}</Badge>,
     receipt_rejected: <Badge variant="destructive">{PAYMENT_STATE_AR.receipt_rejected}</Badge>,
+    special_waqar: <Badge className="bg-indigo-600 hover:bg-indigo-600">{PAYMENT_STATE_AR.special_waqar}</Badge>,
+    special_non_waqar: <Badge className="bg-indigo-600 hover:bg-indigo-600">{PAYMENT_STATE_AR.special_non_waqar}</Badge>,
   }[state];
+
+  async function handleSetSpecial(value: PaymentSpecialStatus | null) {
+    setBusy(true);
+    const { error } = await setPaymentSpecialStatus(applicant.id, value, applicant.payment_special_status);
+    setBusy(false);
+    if (error) {
+      toast({ title: 'تعذّر تحديث الحالة', description: error, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'تم تحديث حالة السداد' });
+    onChanged();
+  }
 
   async function openReceipt() {
     if (!applicant.payment_receipt_path) return;
@@ -190,6 +204,34 @@ export default function ApplicantPaymentSection({ applicant, onChanged }: Props)
             )}
           </div>
         )}
+
+        {/* حالة سداد خاصة تُعيَّن يدوياً (لا يوجد مسار تلقائي) */}
+        <div className="border-t pt-3 space-y-2">
+          <p className="text-sm text-muted-foreground">حالة سداد خاصة (تُعيَّن يدوياً)</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={applicant.payment_special_status === 'waqar' ? 'default' : 'outline'}
+              onClick={() => handleSetSpecial('waqar')}
+              disabled={busy}
+            >
+              {PAYMENT_STATE_AR.special_waqar}
+            </Button>
+            <Button
+              size="sm"
+              variant={applicant.payment_special_status === 'non_waqar' ? 'default' : 'outline'}
+              onClick={() => handleSetSpecial('non_waqar')}
+              disabled={busy}
+            >
+              {PAYMENT_STATE_AR.special_non_waqar}
+            </Button>
+            {applicant.payment_special_status && (
+              <Button size="sm" variant="ghost" onClick={() => handleSetSpecial(null)} disabled={busy}>
+                إلغاء الحالة الخاصة
+              </Button>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

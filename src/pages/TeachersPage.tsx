@@ -13,6 +13,8 @@ import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
@@ -40,6 +42,19 @@ export default function TeachersPage() {
   const [editing, setEditing] = useState<Teacher | null>(null);
   const [form, setForm] = useState({ teacher_name: '', national_id: '', phone: '', email: '' });
   const { toast } = useToast();
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sortedTeachers = (() => {
+    const acc: Record<string, (t: Teacher) => unknown> = {
+      name: (t) => t.teacher_name,
+      national_id: (t) => t.national_id,
+      phone: (t) => t.phone,
+      email: (t) => t.email,
+      active: (t) => t.is_active,
+    };
+    if (!sortKey || !acc[sortKey]) return teachers;
+    return sortRows(teachers, acc[sortKey], sortDir, sortKey === 'active' ? 'boolean' : 'text');
+  })();
 
   const fetchData = async () => {
     const { data } = await supabase.from('teachers').select('*').order('created_at');
@@ -142,16 +157,16 @@ export default function TeachersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الاسم</TableHead>
-                <TableHead>رقم الهوية</TableHead>
-                <TableHead>الهاتف</TableHead>
-                <TableHead>البريد</TableHead>
-                <TableHead>الحالة</TableHead>
+                <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="رقم الهوية" sortKey="national_id" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الهاتف" sortKey="phone" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="البريد" sortKey="email" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحالة" sortKey="active" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {teachers.map(t => (
+              {sortedTeachers.map(t => (
                 <TableRow key={t.id} className={!t.is_active ? 'opacity-50' : ''}>
                   <TableCell className="font-medium">{t.teacher_name}</TableCell>
                   <TableCell dir="ltr">{t.national_id || '-'}</TableCell>

@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
@@ -86,6 +88,20 @@ export default function PledgesPage() {
       fetchData();
     }
   };
+
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (p: any) => unknown> = {
+      student: (p) => p.students?.full_name,
+      type: (p) => p.pledge_type,
+      signed: (p) => p.signed,
+      signed_date: (p) => p.signed_date,
+      notes: (p) => p.notes,
+    };
+    const types: Record<string, 'boolean' | 'date'> = { signed: 'boolean', signed_date: 'date' };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, types[sortKey] ?? 'text');
+  }, [filtered, sortKey, sortDir]);
 
   const csvData = filtered.map(p => ({ ...p, student_name: p.students?.full_name }));
 
@@ -186,11 +202,11 @@ export default function PledgesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>نوع التعهد</TableHead>
-                <TableHead>التوقيع</TableHead>
-                <TableHead>تاريخ التوقيع</TableHead>
-                <TableHead>ملاحظات</TableHead>
+                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="نوع التعهد" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="التوقيع" sortKey="signed" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="تاريخ التوقيع" sortKey="signed_date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="ملاحظات" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,7 +214,7 @@ export default function PledgesPage() {
                 <TableRow><TableCell colSpan={5} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">لا توجد تعهدات</TableCell></TableRow>
-              ) : filtered.map(p => (
+              ) : sorted.map(p => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.students?.full_name}</TableCell>
                   <TableCell><Badge variant="outline">{p.pledge_type}</Badge></TableCell>

@@ -16,6 +16,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows, SortType } from '@/lib/use-table-sort';
 import {
   Applicant, ApplicantStatus, AgeCategory, Branch,
   STATUS_AR, AGE_AR, BRANCH_AR, statusVariant,
@@ -194,6 +196,31 @@ export default function ApplicantsPage() {
       });
   }, [data, search, statusFilter, ageFilter, branchFilter, paymentFilter]);
 
+  // Column sorting (URL-persisted). When no column is chosen the default
+  // Arabic-name order from `filtered` is kept.
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const accessors: Record<string, (r: Applicant) => unknown> = {
+      name: (r) => r.full_name,
+      national_id: (r) => r.national_id,
+      phone: (r) => r.phone,
+      city: (r) => r.city,
+      age: (r) => r.age,
+      branch: (r) => (r.desired_branch ? parseInt(r.desired_branch, 10) : null),
+      juz: (r) => r.memorized_juz_count,
+      status: (r) => STATUS_AR[r.status],
+      payment: (r) => PAYMENT_STATE_AR[getPaymentState(r)],
+      housing: (r) => (housingByApplicant[r.id] ? HOUSING_SHORT_AR[housingByApplicant[r.id]] : ''),
+    };
+    const types: Record<string, SortType> = {
+      age: 'number', branch: 'number', juz: 'number',
+    };
+    const acc = accessors[sortKey];
+    if (!acc) return filtered;
+    return sortRows(filtered, acc, sortDir, types[sortKey] ?? 'text');
+  }, [filtered, sortKey, sortDir, housingByApplicant]);
+
   const deletedCount = data.filter((r) => r.status === 'deleted').length;
 
   // Statuses that actually occur in the data — the filter dropdown lists only
@@ -205,8 +232,8 @@ export default function ApplicantsPage() {
     return s;
   }, [data]);
 
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
@@ -327,17 +354,24 @@ export default function ApplicantsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">الاسم</TableHead>
-                    <TableHead className="text-right">الهوية</TableHead>
-                    <TableHead className="text-right">الجوال</TableHead>
-                    <TableHead className="text-right">المدينة</TableHead>
-                    <TableHead className="text-right">الفئة العمرية</TableHead>
-                    <TableHead className="text-right">الفرع</TableHead>
-                    <TableHead className="text-right">الأجزاء</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">السداد</TableHead>
-                    <TableHead className="text-right">السكن المشترك</TableHead>
-                    <TableHead className="text-right w-[150px]"></TableHead>
+                    {(() => {
+                      const sp = { currentKey: sortKey, currentDir: sortDir, onSort: toggleSort };
+                      return (
+                        <>
+                          <SortableHead label="الاسم" sortKey="name" {...sp} />
+                          <SortableHead label="الهوية" sortKey="national_id" {...sp} />
+                          <SortableHead label="الجوال" sortKey="phone" {...sp} />
+                          <SortableHead label="المدينة" sortKey="city" {...sp} />
+                          <SortableHead label="الفئة العمرية" sortKey="age" {...sp} />
+                          <SortableHead label="الفرع" sortKey="branch" {...sp} />
+                          <SortableHead label="الأجزاء" sortKey="juz" {...sp} />
+                          <SortableHead label="الحالة" sortKey="status" {...sp} />
+                          <SortableHead label="السداد" sortKey="payment" {...sp} />
+                          <SortableHead label="السكن المشترك" sortKey="housing" {...sp} />
+                          <TableHead className="text-right w-[150px]"></TableHead>
+                        </>
+                      );
+                    })()}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -374,6 +408,8 @@ export default function ApplicantsPage() {
                               return <Badge className="bg-amber-500 hover:bg-amber-500 whitespace-nowrap">{PAYMENT_STATE_AR.pending_review}</Badge>;
                             if (ps === 'verified')
                               return <Badge className="bg-emerald-600 hover:bg-emerald-600">{PAYMENT_STATE_AR.verified}</Badge>;
+                            if (ps === 'special_waqar' || ps === 'special_non_waqar')
+                              return <Badge className="bg-indigo-600 hover:bg-indigo-600 whitespace-nowrap">{PAYMENT_STATE_AR[ps]}</Badge>;
                             return <Badge variant="destructive" className="whitespace-nowrap">{PAYMENT_STATE_AR.receipt_rejected}</Badge>;
                           })()
                         ) : (

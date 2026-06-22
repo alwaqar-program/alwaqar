@@ -3,9 +3,14 @@ import { Applicant } from './applicant-labels';
 
 // ---------- حالة السداد المشتقة من أعمدة المتقدمة ----------
 
-export type PaymentState = 'none' | 'pending_review' | 'verified' | 'receipt_rejected';
+export type PaymentState =
+  | 'none' | 'pending_review' | 'verified' | 'receipt_rejected'
+  | 'special_waqar' | 'special_non_waqar';
 
 export function getPaymentState(a: Applicant): PaymentState {
+  // الحالة الخاصة (تُعيَّن يدوياً) تتقدّم على الحالة المشتقة
+  if (a.payment_special_status === 'waqar') return 'special_waqar';
+  if (a.payment_special_status === 'non_waqar') return 'special_non_waqar';
   if (a.payment_verified_at) return 'verified';
   if (a.payment_rejection_reason) return 'receipt_rejected';
   if (a.payment_submitted_at) return 'pending_review';
@@ -17,7 +22,11 @@ export const PAYMENT_STATE_AR: Record<PaymentState, string> = {
   pending_review: 'بانتظار التحقق',
   verified: 'مسددة',
   receipt_rejected: 'إيصال مرفوض',
+  special_waqar: 'خاص (تابع للوقار)',
+  special_non_waqar: 'خاص (غير تابع للوقار)',
 };
+
+export type PaymentSpecialStatus = 'waqar' | 'non_waqar';
 
 // السداد متاح لجميع الحالات ما عدا المرفوضات والمحذوفات
 export function isPayableStatus(status: string): boolean {
@@ -164,6 +173,36 @@ export async function updateDueAmount(
     action: 'updated',
     changes: { payment_due_amount: { old: oldAmount, new: newAmount } },
     notes: 'تعديل المبلغ المطلوب',
+    actor_id: actor.actor_id,
+    actor_email: actor.actor_email,
+  });
+  return { error: null };
+}
+
+/**
+ * تعيين/إلغاء حالة السداد الخاصة يدوياً (لا يوجد مسار تلقائي).
+ * value = null يلغي الحالة الخاصة ويعيد السداد لحالته المشتقة.
+ */
+export async function setPaymentSpecialStatus(
+  applicantId: string,
+  value: PaymentSpecialStatus | null,
+  oldValue: string | null
+): Promise<{ error: string | null }> {
+  const actor = await getActor();
+  const { error } = await (supabase as any)
+    .from('applicants')
+    .update({ payment_special_status: value })
+    .eq('id', applicantId);
+  if (error) return { error: error.message };
+
+  await (supabase as any).from('applicant_activity_log').insert({
+    applicant_id: applicantId,
+    action: 'updated',
+    changes: { payment_special_status: { old: oldValue, new: value } },
+    notes:
+      value === 'waqar' ? 'تعيين حالة السداد: خاص (تابع للوقار)'
+      : value === 'non_waqar' ? 'تعيين حالة السداد: خاص (غير تابع للوقار)'
+      : 'إلغاء حالة السداد الخاصة',
     actor_id: actor.actor_id,
     actor_email: actor.actor_email,
   });
