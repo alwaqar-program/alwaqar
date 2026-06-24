@@ -7,6 +7,7 @@ import {
   ActivityLogEntry, ACTION_AR, FIELD_AR, STATUS_AR,
   ApplicantStatus,
 } from '@/lib/applicant-labels';
+import { HousingAnswer, HOUSING_AR } from '@/lib/interview-types';
 
 interface Props {
   applicantId: string;
@@ -128,5 +129,6 @@ function formatVal(field: string, val: unknown): string {
   if (val === null || val === undefined || val === '') return '—';
   if (typeof val === 'boolean') return val ? 'نعم' : 'لا';
   if (field === 'status' && typeof val === 'string') return STATUS_AR[val as ApplicantStatus] ?? val;
+  if (field === 'accepts_shared_housing' && typeof val === 'string') return HOUSING_AR[val as HousingAnswer] ?? val;
   return String(val);
 }

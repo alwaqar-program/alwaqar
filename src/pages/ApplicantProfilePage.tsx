@@ -248,7 +248,10 @@ export default function ApplicantProfilePage() {
         {/* Roommate preferences */}
         {data.status !== 'rejected' && data.status !== 'deleted' && (
           <div className="md:col-span-2">
-            <ApplicantRoommateSection applicant={data} />
+            <ApplicantRoommateSection
+              applicant={data}
+              onChanged={() => { reload(); setLogRefresh((k) => k + 1); }}
+            />
           </div>
         )}
 

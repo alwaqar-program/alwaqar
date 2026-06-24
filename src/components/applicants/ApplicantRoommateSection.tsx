@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -9,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Applicant } from '@/lib/applicant-labels';
 import { HousingAnswer, HOUSING_AR } from '@/lib/interview-types';
+import { updateInterviewHousing } from '@/lib/interview-actions';
 
 const HOUSING_UNSET = 'unset';
 
@@ -18,13 +21,15 @@ const HOUSING_UNSET = 'unset';
  * surfaces the "السكن المشترك" answer recorded on her interview, editable
  * here so staff don't need to reopen the interview form to change it.
  */
-export default function ApplicantRoommateSection({ applicant }: { applicant: Applicant }) {
+export default function ApplicantRoommateSection({ applicant, onChanged }: { applicant: Applicant; onChanged?: () => void }) {
   const { toast } = useToast();
   const [names, setNames] = useState<Record<string, string>>({});
 
   const [housingInterviewId, setHousingInterviewId] = useState<string | null>(null);
   const [housingValue, setHousingValue] = useState<HousingAnswer | null>(null);
   const [housingLoading, setHousingLoading] = useState(true);
+  const [editingHousing, setEditingHousing] = useState(false);
+  const [housingDraft, setHousingDraft] = useState<HousingAnswer | null>(null);
   const [savingHousing, setSavingHousing] = useState(false);
 
   const linkedIds = [applicant.roommate_1_applicant_id, applicant.roommate_2_applicant_id]
@@ -70,44 +75,65 @@ export default function ApplicantRoommateSection({ applicant }: { applicant: App
     return () => { cancelled = true; };
   }, [applicant.id]);
 
-  async function handleHousingChange(v: string) {
+  function startEditHousing() {
+    setHousingDraft(housingValue);
+    setEditingHousing(true);
+  }
+
+  async function handleSaveHousing() {
     if (!housingInterviewId) return;
-    const next = v === HOUSING_UNSET ? null : (v as HousingAnswer);
     setSavingHousing(true);
-    const { error } = await (supabase as any)
-      .from('interviews')
-      .update({ accepts_shared_housing: next })
-      .eq('id', housingInterviewId);
+    const { error } = await updateInterviewHousing(applicant.id, housingInterviewId, housingValue, housingDraft);
     setSavingHousing(false);
     if (error) {
-      toast({ title: 'تعذّر حفظ السكن المشترك', description: error.message, variant: 'destructive' });
+      toast({ title: 'تعذّر حفظ السكن المشترك', description: error, variant: 'destructive' });
       return;
     }
-    setHousingValue(next);
+    toast({ title: 'تم تحديث السكن المشترك' });
+    setHousingValue(housingDraft);
+    setEditingHousing(false);
+    onChanged?.();
   }
 
   const housingField = (
     <div className="flex justify-between items-center gap-4">
       <dt className="text-muted-foreground shrink-0">السكن المشترك</dt>
-      <dd>
+      <dd className="flex items-center gap-2">
         {housingLoading ? (
           <span className="text-muted-foreground text-xs">جارٍ التحميل…</span>
         ) : !housingInterviewId ? (
           <span className="text-muted-foreground text-xs">لم تُجرَ مقابلة بعد</span>
+        ) : editingHousing ? (
+          <>
+            <Select
+              value={housingDraft ?? HOUSING_UNSET}
+              onValueChange={(v) => setHousingDraft(v === HOUSING_UNSET ? null : (v as HousingAnswer))}
+              disabled={savingHousing}
+            >
+              <SelectTrigger className="h-8 w-44"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={HOUSING_UNSET}>غير محدد</SelectItem>
+                {(Object.entries(HOUSING_AR) as [HousingAnswer, string][]).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={handleSaveHousing} disabled={savingHousing}>حفظ</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingHousing(false)} disabled={savingHousing}>إلغاء</Button>
+          </>
         ) : (
-          <Select
-            value={housingValue ?? HOUSING_UNSET}
-            onValueChange={handleHousingChange}
-            disabled={savingHousing}
-          >
-            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={HOUSING_UNSET}>غير محدد</SelectItem>
-              {(Object.entries(HOUSING_AR) as [HousingAnswer, string][]).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <>
+            <span>{housingValue ? HOUSING_AR[housingValue] : 'غير محدد'}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={startEditHousing}
+              title="تعديل السكن المشترك"
+            >
+              <Pencil size={13} />
+            </Button>
+          </>
         )}
       </dd>
     </div>

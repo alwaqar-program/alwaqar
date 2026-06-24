@@ -195,4 +195,5 @@ export const FIELD_AR: Record<string, string> = {
   payment_verified_at: 'وقت اعتماد السداد',
   payment_rejection_reason: 'سبب رفض الإيصال',
   payment_installments_count: 'عدد الدفعات',
+  accepts_shared_housing: 'السكن المشترك',
 };
