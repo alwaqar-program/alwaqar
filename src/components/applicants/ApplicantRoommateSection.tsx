@@ -2,15 +2,30 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Applicant } from '@/lib/applicant-labels';
+import { HousingAnswer, HOUSING_AR } from '@/lib/interview-types';
+
+const HOUSING_UNSET = 'unset';
 
 /**
  * Staff view of the applicant's roommate preferences collected via the public
- * /roommates page. Resolves linked applicant picks to clickable names.
+ * /roommates page. Resolves linked applicant picks to clickable names. Also
+ * surfaces the "السكن المشترك" answer recorded on her interview, editable
+ * here so staff don't need to reopen the interview form to change it.
  */
 export default function ApplicantRoommateSection({ applicant }: { applicant: Applicant }) {
+  const { toast } = useToast();
   const [names, setNames] = useState<Record<string, string>>({});
+
+  const [housingInterviewId, setHousingInterviewId] = useState<string | null>(null);
+  const [housingValue, setHousingValue] = useState<HousingAnswer | null>(null);
+  const [housingLoading, setHousingLoading] = useState(true);
+  const [savingHousing, setSavingHousing] = useState(false);
 
   const linkedIds = [applicant.roommate_1_applicant_id, applicant.roommate_2_applicant_id]
     .filter((x): x is string => !!x);
@@ -34,7 +49,72 @@ export default function ApplicantRoommateSection({ applicant }: { applicant: App
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicant.roommate_1_applicant_id, applicant.roommate_2_applicant_id]);
 
-  // Not submitted yet → quiet placeholder so staff know it's still pending.
+  // Pull the latest interview's housing answer (the field lives on
+  // `interviews`, not on the applicant row).
+  useEffect(() => {
+    let cancelled = false;
+    setHousingLoading(true);
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('interviews')
+        .select('id, accepts_shared_housing')
+        .eq('applicant_id', applicant.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setHousingInterviewId(data?.id ?? null);
+      setHousingValue(data?.accepts_shared_housing ?? null);
+      setHousingLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [applicant.id]);
+
+  async function handleHousingChange(v: string) {
+    if (!housingInterviewId) return;
+    const next = v === HOUSING_UNSET ? null : (v as HousingAnswer);
+    setSavingHousing(true);
+    const { error } = await (supabase as any)
+      .from('interviews')
+      .update({ accepts_shared_housing: next })
+      .eq('id', housingInterviewId);
+    setSavingHousing(false);
+    if (error) {
+      toast({ title: 'تعذّر حفظ السكن المشترك', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setHousingValue(next);
+  }
+
+  const housingField = (
+    <div className="flex justify-between items-center gap-4">
+      <dt className="text-muted-foreground shrink-0">السكن المشترك</dt>
+      <dd>
+        {housingLoading ? (
+          <span className="text-muted-foreground text-xs">جارٍ التحميل…</span>
+        ) : !housingInterviewId ? (
+          <span className="text-muted-foreground text-xs">لم تُجرَ مقابلة بعد</span>
+        ) : (
+          <Select
+            value={housingValue ?? HOUSING_UNSET}
+            onValueChange={handleHousingChange}
+            disabled={savingHousing}
+          >
+            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={HOUSING_UNSET}>غير محدد</SelectItem>
+              {(Object.entries(HOUSING_AR) as [HousingAnswer, string][]).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </dd>
+    </div>
+  );
+
+  // Not submitted yet → quiet placeholder so staff know it's still pending,
+  // but the housing field (independent of the roommate form) still shows.
   if (!applicant.roommate_submitted_at) {
     return (
       <Card>
@@ -42,7 +122,10 @@ export default function ApplicantRoommateSection({ applicant }: { applicant: App
           <CardTitle className="text-lg">زميلات السكن</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">لم تُرسل الطالبة تفضيلات السكن بعد.</p>
+          <dl className="space-y-3 text-sm">
+            {housingField}
+          </dl>
+          <p className="text-sm text-muted-foreground mt-3">لم تُرسل الطالبة تفضيلات السكن بعد.</p>
         </CardContent>
       </Card>
     );
@@ -67,6 +150,8 @@ export default function ApplicantRoommateSection({ applicant }: { applicant: App
       </CardHeader>
       <CardContent>
         <dl className="space-y-3 text-sm">
+          {housingField}
+
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground shrink-0">ترغب بزميلات محددات</dt>
             <dd>
