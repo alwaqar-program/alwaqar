@@ -586,7 +586,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           staff_name: string
-          title: string
+          title: string | null
           updated_at: string
           user_id: string | null
         }
@@ -601,7 +601,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           staff_name: string
-          title: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -616,7 +616,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           staff_name?: string
-          title?: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }

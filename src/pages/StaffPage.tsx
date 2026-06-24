@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +13,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -18,34 +23,59 @@ import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
+// Arabic labels for the staff title (role). Registrations arrive unassigned
+// (null), and an admin picks a role here. More roles can be added later.
+const TITLE_AR: Record<string, string> = {
+  housing_supervisor: 'مشرفة سكن',
+  student_affairs: 'شؤون طالبات',
+  admin_staff: 'إدارية',
+};
+const UNASSIGNED = 'none';
+
 const staffCsvColumns: CsvColumnDef[] = [
   { key: 'staff_name', header: 'الاسم الكامل' },
   { key: 'title', header: 'المسمى الوظيفي' },
   { key: 'national_id', header: 'رقم الهوية' },
   { key: 'phone', header: 'الهاتف' },
+  { key: 'email', header: 'البريد الإلكتروني' },
 ];
 
 interface Staff {
   id: string;
   staff_name: string;
-  title: string;
+  title: string | null;
   national_id: string | null;
   phone: string | null;
+  email: string | null;
+  has_companions: boolean;
+  companions_details: string | null;
+  notes: string | null;
   is_active: boolean;
 }
+
+const EMPTY_FORM = {
+  staff_name: '',
+  title: '',
+  national_id: '',
+  phone: '',
+  email: '',
+  has_companions: false,
+  companions_details: '',
+  notes: '',
+};
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Staff | null>(null);
-  const [form, setForm] = useState({ staff_name: '', title: '', national_id: '', phone: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
   const sortedStaff = (() => {
     const acc: Record<string, (s: Staff) => unknown> = {
       name: (s) => s.staff_name,
-      title: (s) => s.title,
+      title: (s) => (s.title ? TITLE_AR[s.title] ?? s.title : ''),
       phone: (s) => s.phone,
       active: (s) => s.is_active,
     };
@@ -56,7 +86,7 @@ export default function StaffPage() {
 
   const fetchData = async () => {
     const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
-    setStaff(data || []);
+    setStaff((data as Staff[]) || []);
     setLoading(false);
   };
 
@@ -64,22 +94,35 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ staff_name: '', title: '', national_id: '', phone: '' });
+    setForm(EMPTY_FORM);
     setDialogOpen(true);
   };
 
   const openEdit = (s: Staff) => {
     setEditing(s);
-    setForm({ staff_name: s.staff_name, title: s.title, national_id: s.national_id || '', phone: s.phone || '' });
+    setForm({
+      staff_name: s.staff_name,
+      title: s.title || '',
+      national_id: s.national_id || '',
+      phone: s.phone || '',
+      email: s.email || '',
+      has_companions: s.has_companions,
+      companions_details: s.companions_details || '',
+      notes: s.notes || '',
+    });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     const payload = {
       staff_name: form.staff_name,
-      title: form.title,
+      title: form.title || null,
       national_id: form.national_id || null,
       phone: form.phone || null,
+      email: form.email || null,
+      has_companions: form.has_companions,
+      companions_details: form.has_companions ? (form.companions_details || null) : null,
+      notes: form.notes || null,
     };
     if (editing) {
       const { error } = await supabase.from('staff').update(payload).eq('id', editing.id);
@@ -97,19 +140,19 @@ export default function StaffPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display text-foreground">إدارة المنسوبات</h1>
+          <h1 className="text-2xl font-display text-foreground">إدارة المشرفات</h1>
           <p className="text-sm text-muted-foreground mt-1">مشرفات السكن ومسؤولات الشؤون</p>
         </div>
         <div className="flex items-center gap-2">
           <CsvActions data={staff} columns={staffCsvColumns} tableName="staff" filename="staff" onImportComplete={fetchData} />
-          <Button onClick={openCreate}><Plus size={18} /> إضافة منسوبة</Button>
+          <Button onClick={openCreate}><Plus size={18} /> إضافة مشرفة</Button>
         </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">{editing ? 'تعديل بيانات المنسوبة' : 'إضافة منسوبة جديدة'}</DialogTitle>
+            <DialogTitle className="font-display">{editing ? 'تعديل بيانات المشرفة' : 'إضافة مشرفة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
@@ -118,7 +161,16 @@ export default function StaffPage() {
             </div>
             <div className="space-y-2">
               <Label>المسمى الوظيفي</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="مشرفة سكن / مسؤولة شؤون..." />
+              <Select
+                value={form.title || UNASSIGNED}
+                onValueChange={v => setForm(f => ({ ...f, title: v === UNASSIGNED ? '' : v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="غير محدد" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED}>غير محدد</SelectItem>
+                  {Object.entries(TITLE_AR).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -129,6 +181,31 @@ export default function StaffPage() {
                 <Label>الهاتف</Label>
                 <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>البريد الإلكتروني</Label>
+              <Input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} dir="ltr" type="email" />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <Label className="cursor-pointer">هل معها مرافقات؟</Label>
+              <Switch
+                checked={form.has_companions}
+                onCheckedChange={v => setForm(f => ({ ...f, has_companions: v }))}
+              />
+            </div>
+            {form.has_companions && (
+              <div className="space-y-2">
+                <Label>بيانات المرافقين</Label>
+                <Textarea
+                  value={form.companions_details}
+                  onChange={e => setForm(f => ({ ...f, companions_details: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>ملاحظات</Label>
+              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
             <Button onClick={handleSave} className="w-full">{editing ? 'حفظ' : 'إضافة'}</Button>
           </div>
@@ -141,7 +218,7 @@ export default function StaffPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <UserCheck size={40} className="text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">لا توجد منسوبات بعد</p>
+            <p className="text-muted-foreground">لا توجد مشرفات بعد</p>
           </CardContent>
         </Card>
       ) : (
@@ -160,7 +237,15 @@ export default function StaffPage() {
               {sortedStaff.map(s => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.staff_name}</TableCell>
-                  <TableCell>{s.title}</TableCell>
+                  <TableCell>
+                    {s.title ? (
+                      TITLE_AR[s.title] ?? s.title
+                    ) : (
+                      <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        غير محدد
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell dir="ltr">{s.phone || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={s.is_active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>

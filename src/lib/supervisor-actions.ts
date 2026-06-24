@@ -11,10 +11,11 @@ export interface SupervisorRegistrationPayload {
 }
 
 /**
- * Insert a new self-registered housing supervisor (مشرفة سكن) from the
- * public registration form. Writes to the same `staff` table used by the
- * admin Staff page; RLS restricts this anonymous insert to
- * title = 'housing_supervisor' only.
+ * Insert a new self-registered supervisor from the public registration form.
+ * Writes to the same `staff` table used by the admin Staff page, but with NO
+ * title — the row arrives unassigned and an admin assigns the role later.
+ * RLS restricts this anonymous insert to rows with an empty title, so a
+ * visitor can never self-assign a privileged role.
  */
 export async function registerSupervisor(
   payload: SupervisorRegistrationPayload
@@ -24,7 +25,7 @@ export async function registerSupervisor(
     national_id: payload.nationalId.trim(),
     phone: payload.phone.trim(),
     email: payload.email.trim() || null,
-    title: 'housing_supervisor',
+    title: null,
     has_companions: payload.hasCompanions,
     companions_details: payload.hasCompanions ? payload.companionsDetails.trim() || null : null,
     notes: payload.notes.trim() || null,
