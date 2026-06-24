@@ -576,10 +576,14 @@ export type Database = {
       }
       staff: {
         Row: {
+          companions_details: string | null
           created_at: string
+          email: string | null
+          has_companions: boolean
           id: string
           is_active: boolean
           national_id: string | null
+          notes: string | null
           phone: string | null
           staff_name: string
           title: string
@@ -587,10 +591,14 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          companions_details?: string | null
           created_at?: string
+          email?: string | null
+          has_companions?: boolean
           id?: string
           is_active?: boolean
           national_id?: string | null
+          notes?: string | null
           phone?: string | null
           staff_name: string
           title: string
@@ -598,10 +606,14 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          companions_details?: string | null
           created_at?: string
+          email?: string | null
+          has_companions?: boolean
           id?: string
           is_active?: boolean
           national_id?: string | null
+          notes?: string | null
           phone?: string | null
           staff_name?: string
           title?: string
