@@ -22,7 +22,7 @@ export default function RegNumberPage() {
   // Set browser tab title only while this page is mounted
   useLayoutEffect(() => {
     const previous = document.title;
-    document.title = 'رقم التسجيل';
+    document.title = 'رقم المستخدم في نظام إدارة حلقات القرآن الكريم بالمسجد النبوي';
     return () => {
       document.title = previous;
     };
@@ -92,7 +92,7 @@ export default function RegNumberPage() {
         <div className="container mx-auto px-4 py-4 flex items-center gap-3">
           <img src={logoImg} alt="شعار تمام" className="w-10 h-10 object-contain shrink-0" />
           <h1 className="font-display text-lg sm:text-xl leading-tight">
-            رقم التسجيل
+            رقم المستخدم في نظام إدارة حلقات القرآن الكريم بالمسجد النبوي
           </h1>
         </div>
       </header>
