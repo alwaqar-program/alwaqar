@@ -7,9 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -249,24 +247,26 @@ export default function InterviewsListPage() {
               className="pr-9"
             />
           </div>
-          <Select value={memberFilter} onValueChange={setMemberFilter}>
-            <SelectTrigger><SelectValue placeholder="العضوة المُقابِلة" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل العضوات</SelectItem>
-              {committeeMembers.map(([id, name]) => (
-                <SelectItem key={id} value={id}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={resultFilter} onValueChange={(v) => setResultFilter(v as ResultGrade | 'all')}>
-            <SelectTrigger><SelectValue placeholder="النتيجة" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل النتائج</SelectItem>
-              {(Object.entries(RESULT_AR) as [ResultGrade, string][]).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={[
+              { value: 'all', label: 'كل العضوات' },
+              ...committeeMembers.map(([id, name]) => ({ value: id, label: name })),
+            ]}
+            value={memberFilter}
+            onValueChange={(v) => setMemberFilter(v || 'all')}
+            placeholder="العضوة المُقابِلة"
+            searchPlaceholder="ابحث..."
+          />
+          <SearchableSelect
+            options={[
+              { value: 'all', label: 'كل النتائج' },
+              ...(Object.entries(RESULT_AR) as [ResultGrade, string][]).map(([k, v]) => ({ value: k, label: v })),
+            ]}
+            value={resultFilter}
+            onValueChange={(v) => setResultFilter((v || 'all') as ResultGrade | 'all')}
+            placeholder="النتيجة"
+            searchPlaceholder="ابحث..."
+          />
         </CardContent>
         <CardContent className="pt-0 text-xs text-muted-foreground flex items-center gap-2">
           <Filter size={12} />

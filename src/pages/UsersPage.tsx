@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -229,18 +229,19 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>الدور</Label>
-                <Select value={form.role} onValueChange={v => setForm({ ...form, role: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الدور" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">مدير النظام</SelectItem>
-                    <SelectItem value="teacher">معلمة</SelectItem>
-                    <SelectItem value="student_affairs">شؤون طالبات</SelectItem>
-                    <SelectItem value="housing_supervisor">مشرفة سكن</SelectItem>
-                    <SelectItem value="observer">مراقب</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[
+                    { value: 'admin', label: 'مدير النظام' },
+                    { value: 'teacher', label: 'معلمة' },
+                    { value: 'student_affairs', label: 'شؤون طالبات' },
+                    { value: 'housing_supervisor', label: 'مشرفة سكن' },
+                    { value: 'observer', label: 'مراقب' },
+                  ]}
+                  value={form.role}
+                  onValueChange={v => setForm({ ...form, role: v })}
+                  placeholder="اختر الدور"
+                  searchPlaceholder="ابحث..."
+                />
               </div>
               <Button onClick={handleCreate} disabled={creating} className="w-full gap-2">
                 {creating ? 'جارٍ الإنشاء...' : (

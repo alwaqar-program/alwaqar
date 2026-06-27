@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -149,12 +148,13 @@ export default function LeaveRequestsPage() {
                 </div>
                 <div>
                   <Label>نوع الإذن *</Label>
-                  <Select value={form.leave_type} onValueChange={v => setForm({ ...form, leave_type: v })}>
-                    <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
-                    <SelectContent>
-                      {leaveTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={leaveTypes.map(t => ({ value: t, label: t }))}
+                    value={form.leave_type}
+                    onValueChange={v => setForm({ ...form, leave_type: v })}
+                    placeholder="اختر النوع"
+                    searchPlaceholder="ابحث..."
+                  />
                 </div>
                 <div>
                   <Label>السبب</Label>
@@ -190,22 +190,27 @@ export default function LeaveRequestsPage() {
                 <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                {leaveTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الحالات</SelectItem>
-                <SelectItem value="pending">قيد الانتظار</SelectItem>
-                <SelectItem value="approved">مقبول</SelectItem>
-                <SelectItem value="rejected">مرفوض</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              className="w-[160px]"
+              options={[{ value: 'all', label: 'كل الأنواع' }, ...leaveTypes.map(t => ({ value: t, label: t }))]}
+              value={filterType}
+              onValueChange={v => setFilterType(v || 'all')}
+              placeholder="كل الأنواع"
+              searchPlaceholder="ابحث..."
+            />
+            <SearchableSelect
+              className="w-[150px]"
+              options={[
+                { value: 'all', label: 'كل الحالات' },
+                { value: 'pending', label: 'قيد الانتظار' },
+                { value: 'approved', label: 'مقبول' },
+                { value: 'rejected', label: 'مرفوض' },
+              ]}
+              value={filterStatus}
+              onValueChange={v => setFilterStatus(v || 'all')}
+              placeholder="كل الحالات"
+              searchPlaceholder="ابحث..."
+            />
           </div>
         </CardContent>
       </Card>

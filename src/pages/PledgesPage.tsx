@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -135,12 +134,13 @@ export default function PledgesPage() {
                 </div>
                 <div>
                   <Label>نوع التعهد *</Label>
-                  <Select value={form.pledge_type} onValueChange={v => setForm({ ...form, pledge_type: v })}>
-                    <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
-                    <SelectContent>
-                      {pledgeTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={pledgeTypes.map(t => ({ value: t, label: t }))}
+                    value={form.pledge_type}
+                    onValueChange={v => setForm({ ...form, pledge_type: v })}
+                    placeholder="اختر النوع"
+                    searchPlaceholder="ابحث..."
+                  />
                 </div>
                 <div>
                   <Label>نص التعهد</Label>
@@ -177,21 +177,26 @@ export default function PledgesPage() {
                 <Input placeholder="بحث بالاسم أو النوع..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                {pledgeTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterSigned} onValueChange={setFilterSigned}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                <SelectItem value="signed">موقّع</SelectItem>
-                <SelectItem value="unsigned">غير موقّع</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              className="w-[180px]"
+              options={[{ value: 'all', label: 'كل الأنواع' }, ...pledgeTypes.map(t => ({ value: t, label: t }))]}
+              value={filterType}
+              onValueChange={v => setFilterType(v || 'all')}
+              placeholder="كل الأنواع"
+              searchPlaceholder="ابحث..."
+            />
+            <SearchableSelect
+              className="w-[150px]"
+              options={[
+                { value: 'all', label: 'الكل' },
+                { value: 'signed', label: 'موقّع' },
+                { value: 'unsigned', label: 'غير موقّع' },
+              ]}
+              value={filterSigned}
+              onValueChange={v => setFilterSigned(v || 'all')}
+              placeholder="الكل"
+              searchPlaceholder="ابحث..."
+            />
           </div>
         </CardContent>
       </Card>

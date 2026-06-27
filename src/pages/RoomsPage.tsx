@@ -10,9 +10,7 @@ import { Plus, Pencil, DoorOpen } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -168,12 +166,13 @@ export default function RoomsPage() {
               </div>
               <div className="space-y-2">
                 <Label>المشرفة</Label>
-                <Select value={form.supervisor_id} onValueChange={v => setForm(f => ({ ...f, supervisor_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="اختر المشرفة" /></SelectTrigger>
-                  <SelectContent>
-                    {staffList.map(s => <SelectItem key={s.id} value={s.id}>{s.staff_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={staffList.map(s => ({ value: s.id, label: s.staff_name }))}
+                  value={form.supervisor_id}
+                  onValueChange={v => setForm(f => ({ ...f, supervisor_id: v }))}
+                  placeholder="اختر المشرفة"
+                  searchPlaceholder="ابحث عن مشرفة..."
+                />
               </div>
             </div>
             <Button onClick={handleSave} className="w-full">{editing ? 'حفظ' : 'إضافة'}</Button>

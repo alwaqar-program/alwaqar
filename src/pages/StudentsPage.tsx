@@ -16,9 +16,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -282,13 +279,13 @@ export default function StudentsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>نوع السكن</Label>
-                  <Select value={form.housing_type} onValueChange={v => setForm(f => ({ ...f, housing_type: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="internal">داخلي</SelectItem>
-                      <SelectItem value="external">خارجي</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={[{ value: 'internal', label: 'داخلي' }, { value: 'external', label: 'خارجي' }]}
+                    value={form.housing_type}
+                    onValueChange={v => setForm(f => ({ ...f, housing_type: v }))}
+                    placeholder="نوع السكن"
+                    searchPlaceholder="ابحث..."
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -353,16 +350,14 @@ export default function StudentsPage() {
               searchPlaceholder="ابحث عن حالة..."
               allowClear
             />
-            <Select value={filterHousing} onValueChange={v => setFilterHousing(v === 'all' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="كل أنواع السكن" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل أنواع السكن</SelectItem>
-                <SelectItem value="internal">داخلي</SelectItem>
-                <SelectItem value="external">خارجي</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[{ value: 'internal', label: 'داخلي' }, { value: 'external', label: 'خارجي' }]}
+              value={filterHousing}
+              onValueChange={setFilterHousing}
+              placeholder="كل أنواع السكن"
+              searchPlaceholder="ابحث..."
+              allowClear
+            />
           </div>
         </CardContent>
       </Card>

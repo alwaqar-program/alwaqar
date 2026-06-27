@@ -4,9 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClipboardCheck, Save, Download, Upload } from 'lucide-react';
@@ -166,22 +164,23 @@ export default function AttendancePage() {
           <div className="flex flex-wrap gap-4">
             <div className="space-y-2 min-w-[200px]">
               <Label>الحلقة</Label>
-              <Select value={selectedCircle} onValueChange={setSelectedCircle}>
-                <SelectTrigger><SelectValue placeholder="اختر الحلقة" /></SelectTrigger>
-                <SelectContent>
-                  {circles.map(c => <SelectItem key={c.id} value={c.id}>{c.circle_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={circles.map(c => ({ value: c.id, label: c.circle_name }))}
+                value={selectedCircle}
+                onValueChange={setSelectedCircle}
+                placeholder="اختر الحلقة"
+                searchPlaceholder="ابحث عن حلقة..."
+              />
             </div>
             <div className="space-y-2 min-w-[150px]">
               <Label>الفترة</Label>
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="morning">صباحي</SelectItem>
-                  <SelectItem value="evening">مسائي</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={[{ value: 'morning', label: 'صباحي' }, { value: 'evening', label: 'مسائي' }]}
+                value={period}
+                onValueChange={setPeriod}
+                placeholder="الفترة"
+                searchPlaceholder="ابحث..."
+              />
             </div>
             <div className="space-y-2">
               <Label>التاريخ</Label>
@@ -228,12 +227,14 @@ export default function AttendancePage() {
                     </div>
                     {entry.status === 'late' && !isExisting && (
                       <div className="flex gap-2 pt-1">
-                        <Select value={entry.late_reason} onValueChange={v => updateEntry(s.id, 'late_reason', v)}>
-                          <SelectTrigger className="h-8 text-xs w-32"><SelectValue placeholder="السبب" /></SelectTrigger>
-                          <SelectContent>
-                            {lateReasons.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          className="h-8 text-xs w-32"
+                          options={lateReasons.map(r => ({ value: r.value, label: r.label }))}
+                          value={entry.late_reason}
+                          onValueChange={v => updateEntry(s.id, 'late_reason', v)}
+                          placeholder="السبب"
+                          searchPlaceholder="ابحث..."
+                        />
                         {entry.late_reason === 'other' && (
                           <Input
                             className="h-8 text-xs"

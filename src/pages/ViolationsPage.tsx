@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -132,12 +131,13 @@ export default function ViolationsPage() {
                 </div>
                 <div>
                   <Label>نوع المخالفة *</Label>
-                  <Select value={form.violation_type} onValueChange={v => setForm({ ...form, violation_type: v })}>
-                    <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
-                    <SelectContent>
-                      {violationTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={violationTypes.map(t => ({ value: t, label: t }))}
+                    value={form.violation_type}
+                    onValueChange={v => setForm({ ...form, violation_type: v })}
+                    placeholder="اختر النوع"
+                    searchPlaceholder="ابحث..."
+                  />
                 </div>
                 <div>
                   <Label>وصف المخالفة</Label>
@@ -145,12 +145,13 @@ export default function ViolationsPage() {
                 </div>
                 <div>
                   <Label>الإجراء المتخذ</Label>
-                  <Select value={form.action_taken} onValueChange={v => setForm({ ...form, action_taken: v })}>
-                    <SelectTrigger><SelectValue placeholder="اختر الإجراء" /></SelectTrigger>
-                    <SelectContent>
-                      {actionTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={actionTypes.map(t => ({ value: t, label: t }))}
+                    value={form.action_taken}
+                    onValueChange={v => setForm({ ...form, action_taken: v })}
+                    placeholder="اختر الإجراء"
+                    searchPlaceholder="ابحث..."
+                  />
                 </div>
                 <div>
                   <Label>تاريخ المخالفة</Label>
@@ -176,13 +177,14 @@ export default function ViolationsPage() {
                 <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                {violationTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              className="w-[180px]"
+              options={[{ value: 'all', label: 'كل الأنواع' }, ...violationTypes.map(t => ({ value: t, label: t }))]}
+              value={filterType}
+              onValueChange={v => setFilterType(v || 'all')}
+              placeholder="كل الأنواع"
+              searchPlaceholder="ابحث..."
+            />
           </div>
         </CardContent>
       </Card>

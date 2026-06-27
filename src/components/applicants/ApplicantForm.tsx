@@ -5,9 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Applicant, ApplicantStatus, AgeCategory, Branch,
   STATUS_AR, AGE_AR, BRANCH_AR,
@@ -93,12 +91,14 @@ export default function ApplicantForm({ initial, onSubmit, onCancel, submitting,
             <Input type="number" min={0} value={values.age ?? ''} onChange={(e) => set('age', e.target.value ? Number(e.target.value) : null)} />
           </FormRow>
           <FormRow label="الفئة العمرية">
-            <Select value={values.age_category ?? ''} onValueChange={(v) => set('age_category', (v || null) as AgeCategory | null)}>
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(AGE_AR).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              value={values.age_category ?? ''}
+              onValueChange={(v) => set('age_category', (v || null) as AgeCategory | null)}
+              placeholder="—"
+              searchPlaceholder="ابحث..."
+              allowClear
+            />
           </FormRow>
         </Section>
 
@@ -142,12 +142,14 @@ export default function ApplicantForm({ initial, onSubmit, onCancel, submitting,
             </FormRow>
           </div>
           <FormRow label="الفرع المراد">
-            <Select value={values.desired_branch ?? ''} onValueChange={(v) => set('desired_branch', (v || null) as Branch | null)}>
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(BRANCH_AR).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              value={values.desired_branch ?? ''}
+              onValueChange={(v) => set('desired_branch', (v || null) as Branch | null)}
+              placeholder="—"
+              searchPlaceholder="ابحث عن فرع..."
+              allowClear
+            />
           </FormRow>
           <FormRow label="المقرر المحدد">
             <Input value={values.curriculum_spec ?? ''} onChange={(e) => set('curriculum_spec', e.target.value)} />
@@ -183,14 +185,15 @@ export default function ApplicantForm({ initial, onSubmit, onCancel, submitting,
 
         <Section title="الحالة والملاحظات" full>
           <FormRow label="الحالة">
-            <Select value={values.status ?? 'registered'} onValueChange={(v) => set('status', v as ApplicantStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_AR)
-                  .filter(([k]) => k !== 'deleted')
-                  .map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={Object.entries(STATUS_AR)
+                .filter(([k]) => k !== 'deleted')
+                .map(([k, v]) => ({ value: k, label: v as string }))}
+              value={values.status ?? 'registered'}
+              onValueChange={(v) => set('status', (v || 'registered') as ApplicantStatus)}
+              placeholder="الحالة"
+              searchPlaceholder="ابحث..."
+            />
           </FormRow>
 
           {(values.status === 'accepted' || values.status === 'conditionally_accepted') && (

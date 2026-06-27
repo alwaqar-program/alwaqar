@@ -6,9 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -386,14 +384,13 @@ export default function InterviewPage() {
                       لا توجد عضوات نشطات. تواصلي مع الإدارة لإضافتكِ.
                     </p>
                   ) : (
-                    <Select value={committeeId} onValueChange={setCommitteeId}>
-                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        {committee.map(m => (
-                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      options={committee.map(m => ({ value: m.id, label: m.full_name }))}
+                      value={committeeId}
+                      onValueChange={setCommitteeId}
+                      placeholder="—"
+                      searchPlaceholder="ابحث..."
+                    />
                   )}
                 </CardContent>
               </Card>
@@ -536,14 +533,13 @@ export default function InterviewPage() {
 
                     <div className="space-y-2">
                       <Label>هل تقبل السكن المشترك؟</Label>
-                      <Select value={acceptsHousing} onValueChange={(v) => setAcceptsHousing(v as HousingAnswer)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          {(Object.entries(HOUSING_AR) as [HousingAnswer, string][]).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={(Object.entries(HOUSING_AR) as [HousingAnswer, string][]).map(([k, v]) => ({ value: k, label: v }))}
+                        value={acceptsHousing}
+                        onValueChange={(v) => setAcceptsHousing(v as HousingAnswer)}
+                        placeholder="—"
+                        searchPlaceholder="ابحث..."
+                      />
                     </div>
 
                     {acceptsHousing === 'with_companions' && (
@@ -576,26 +572,24 @@ export default function InterviewPage() {
 
                     <div className="space-y-2">
                       <Label>العباءة واللباس</Label>
-                      <Select value={abayaStatus} onValueChange={(v) => setAbayaStatus(v as AbayaAnswer)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          {(Object.entries(ABAYA_AR) as [AbayaAnswer, string][]).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={(Object.entries(ABAYA_AR) as [AbayaAnswer, string][]).map(([k, v]) => ({ value: k, label: v }))}
+                        value={abayaStatus}
+                        onValueChange={(v) => setAbayaStatus(v as AbayaAnswer)}
+                        placeholder="—"
+                        searchPlaceholder="ابحث..."
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <Label>الجدية</Label>
-                      <Select value={seriousness} onValueChange={(v) => setSeriousness(v as SeriousnessAnswer)}>
-                        <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          {(Object.entries(SERIOUSNESS_AR) as [SeriousnessAnswer, string][]).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={(Object.entries(SERIOUSNESS_AR) as [SeriousnessAnswer, string][]).map(([k, v]) => ({ value: k, label: v }))}
+                        value={seriousness}
+                        onValueChange={(v) => setSeriousness(v as SeriousnessAnswer)}
+                        placeholder="—"
+                        searchPlaceholder="ابحث..."
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -736,13 +730,13 @@ function ReadField({ label, value, mono = false }: { label: string; value: strin
 
 function YesNoSelect({ value, onChange }: { value: 'yes' | 'no' | ''; onChange: (v: 'yes' | 'no' | '') => void }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as 'yes' | 'no')}>
-      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-      <SelectContent>
-        <SelectItem value="yes">نعم</SelectItem>
-        <SelectItem value="no">لا</SelectItem>
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      options={[{ value: 'yes', label: 'نعم' }, { value: 'no', label: 'لا' }]}
+      value={value}
+      onValueChange={(v) => onChange(v as 'yes' | 'no' | '')}
+      placeholder="—"
+      searchPlaceholder="ابحث..."
+    />
   );
 }
 

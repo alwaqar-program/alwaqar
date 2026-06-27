@@ -13,13 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CsvActions } from '@/components/CsvActions';
@@ -122,22 +116,23 @@ export default function CirclesPage() {
               </div>
               <div className="space-y-2">
                 <Label>الفرع</Label>
-                <Select value={form.branch_id} onValueChange={v => setForm(f => ({ ...f, branch_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
-                  <SelectContent>
-                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.branch_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={branches.map(b => ({ value: b.id, label: b.branch_name }))}
+                  value={form.branch_id}
+                  onValueChange={v => setForm(f => ({ ...f, branch_id: v }))}
+                  placeholder="اختر الفرع"
+                  searchPlaceholder="ابحث عن فرع..."
+                />
               </div>
               <div className="space-y-2">
                 <Label>الفترة</Label>
-                <Select value={form.period} onValueChange={v => setForm(f => ({ ...f, period: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="morning">صباحي</SelectItem>
-                    <SelectItem value="evening">مسائي</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[{ value: 'morning', label: 'صباحي' }, { value: 'evening', label: 'مسائي' }]}
+                  value={form.period}
+                  onValueChange={v => setForm(f => ({ ...f, period: v }))}
+                  placeholder="الفترة"
+                  searchPlaceholder="ابحث..."
+                />
               </div>
               <Button onClick={handleSave} className="w-full">{editing ? 'حفظ' : 'إضافة'}</Button>
             </div>

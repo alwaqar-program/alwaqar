@@ -6,9 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -180,21 +178,23 @@ export default function ExamsPage() {
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label>الطالبة</Label>
-              <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر الطالبة" /></SelectTrigger>
-                <SelectContent>
-                  {students.map(s => <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={students.map(s => ({ value: s.id, label: s.full_name }))}
+                value={form.student_id}
+                onValueChange={v => setForm(f => ({ ...f, student_id: v }))}
+                placeholder="اختر الطالبة"
+                searchPlaceholder="ابحث عن طالبة..."
+              />
             </div>
             <div className="space-y-2">
               <Label>نوع الاختبار</Label>
-              <Select value={form.exam_type} onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(examTypes).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={Object.entries(examTypes).map(([k, v]) => ({ value: k, label: v as string }))}
+                value={form.exam_type}
+                onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}
+                placeholder="نوع الاختبار"
+                searchPlaceholder="ابحث..."
+              />
             </div>
 
             {duplicateWarning && (

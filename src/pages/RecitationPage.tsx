@@ -7,9 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { BookOpen, Check, X, AlertCircle, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
@@ -150,6 +148,22 @@ export default function RecitationPage() {
     return mushafPages.filter(p => branchJuz.includes(p.juz_number));
   }, [mushafPages, branchJuz, showAllMushaf]);
 
+  const pageOptions = useMemo(
+    () => filteredPages.map(p => ({
+      value: String(p.page_number),
+      label: `ص${p.page_number} — ${p.surah_name} (ج${p.juz_number})`,
+    })),
+    [filteredPages]
+  );
+
+  const circleOptions = useMemo(
+    () => circles.map(c => ({
+      value: c.id,
+      label: `${c.circle_name} — ${c.branches?.branch_name ?? ''}`,
+    })),
+    [circles]
+  );
+
   // Check if student recited today
   const hasRecitedToday = (studentId: string) =>
     todayRecitations.some(r => r.student_id === studentId);
@@ -270,18 +284,14 @@ export default function RecitationPage() {
           <CardTitle className="text-base">اختيار الحلقة</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={selectedCircle} onValueChange={v => { setSelectedCircle(v); setSelectedStudent(''); }}>
-            <SelectTrigger className="max-w-sm">
-              <SelectValue placeholder="اختر الحلقة" />
-            </SelectTrigger>
-            <SelectContent>
-              {circles.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.circle_name} — {c.branches?.branch_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            className="max-w-sm"
+            options={circleOptions}
+            value={selectedCircle}
+            onValueChange={v => { setSelectedCircle(v); setSelectedStudent(''); }}
+            placeholder="اختر الحلقة"
+            searchPlaceholder="ابحث عن حلقة..."
+          />
         </CardContent>
       </Card>
 
@@ -358,33 +368,23 @@ export default function RecitationPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>من صفحة</Label>
-                <Select value={fromPage} onValueChange={setFromPage}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الصفحة" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {filteredPages.map(p => (
-                      <SelectItem key={`from-${p.page_number}`} value={String(p.page_number)}>
-                        ص{p.page_number} — {p.surah_name} (ج{p.juz_number})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={pageOptions}
+                  value={fromPage}
+                  onValueChange={setFromPage}
+                  placeholder="اختر الصفحة"
+                  searchPlaceholder="ابحث عن صفحة أو سورة..."
+                />
               </div>
               <div className="space-y-2">
                 <Label>إلى صفحة</Label>
-                <Select value={toPage} onValueChange={setToPage}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الصفحة" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {filteredPages.map(p => (
-                      <SelectItem key={`to-${p.page_number}`} value={String(p.page_number)}>
-                        ص{p.page_number} — {p.surah_name} (ج{p.juz_number})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={pageOptions}
+                  value={toPage}
+                  onValueChange={setToPage}
+                  placeholder="اختر الصفحة"
+                  searchPlaceholder="ابحث عن صفحة أو سورة..."
+                />
               </div>
             </div>
 

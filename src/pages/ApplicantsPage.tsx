@@ -10,9 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, Search, UserPlus, Filter, Pencil, Trash2, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -277,56 +275,52 @@ export default function ApplicantsPage() {
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as ApplicantStatus | 'all')}>
-              <SelectTrigger>
-                <SelectValue placeholder="الحالة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">جميع الحالات (عدا المحذوفة)</SelectItem>
-                {Object.entries(STATUS_AR)
+            <SearchableSelect
+              options={[
+                { value: 'all', label: 'جميع الحالات (عدا المحذوفة)' },
+                ...Object.entries(STATUS_AR)
                   .filter(([k]) => presentStatuses.has(k as ApplicantStatus) || statusFilter === k)
-                  .map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+                  .map(([k, v]) => ({ value: k, label: v as string })),
+              ]}
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter((v || 'all') as ApplicantStatus | 'all')}
+              placeholder="الحالة"
+              searchPlaceholder="ابحث..."
+            />
 
             <div className="grid grid-cols-3 gap-2">
-              <Select value={ageFilter} onValueChange={(v) => setAgeFilter(v as AgeCategory | 'all')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="الفئة العمرية" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الأعمار</SelectItem>
-                  {Object.entries(AGE_AR).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={[
+                  { value: 'all', label: 'كل الأعمار' },
+                  ...Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string })),
+                ]}
+                value={ageFilter}
+                onValueChange={(v) => setAgeFilter((v || 'all') as AgeCategory | 'all')}
+                placeholder="الفئة العمرية"
+                searchPlaceholder="ابحث..."
+              />
 
-              <Select value={branchFilter} onValueChange={(v) => setBranchFilter(v as Branch | 'all')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="الفرع" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الفروع</SelectItem>
-                  {Object.entries(BRANCH_AR).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={[
+                  { value: 'all', label: 'كل الفروع' },
+                  ...Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string })),
+                ]}
+                value={branchFilter}
+                onValueChange={(v) => setBranchFilter((v || 'all') as Branch | 'all')}
+                placeholder="الفرع"
+                searchPlaceholder="ابحث..."
+              />
 
-              <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as PaymentState | 'all')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="السداد" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل حالات السداد</SelectItem>
-                  {Object.entries(PAYMENT_STATE_AR).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={[
+                  { value: 'all', label: 'كل حالات السداد' },
+                  ...Object.entries(PAYMENT_STATE_AR).map(([k, v]) => ({ value: k, label: v as string })),
+                ]}
+                value={paymentFilter}
+                onValueChange={(v) => setPaymentFilter((v || 'all') as PaymentState | 'all')}
+                placeholder="السداد"
+                searchPlaceholder="ابحث..."
+              />
             </div>
           </div>
 
