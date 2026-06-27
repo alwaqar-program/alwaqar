@@ -161,7 +161,7 @@ export const FIELD_AR: Record<string, string> = {
   full_name: 'الاسم الرباعي',
   name_en: 'الاسم بالإنجليزية',
   national_id: 'رقم الهوية',
-  registration_number: 'رقم التسجيل',
+  registration_number: 'رقم المستخدم',
   nationality: 'الجنسية',
   date_of_birth: 'تاريخ الميلاد',
   age: 'العمر',

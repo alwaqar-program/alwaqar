@@ -72,7 +72,7 @@ export default function RegNumberPage() {
     );
     setSubmitting(false);
     if (error) {
-      toast({ title: 'تعذّر حفظ رقم التسجيل', description: error, variant: 'destructive' });
+      toast({ title: 'تعذّر حفظ رقم المستخدم', description: error, variant: 'destructive' });
       return;
     }
     setLookup({
@@ -101,11 +101,11 @@ export default function RegNumberPage() {
         <Card className="w-full max-w-2xl">
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* القسم: رقم التسجيل */}
+              {/* القسم: رقم المستخدم */}
               <div className="space-y-1 border-b pb-2">
-                <h2 className="font-display text-lg">إدخال رقم التسجيل</h2>
+                <h2 className="font-display text-lg">إدخال رقم المستخدم</h2>
                 <p className="text-sm text-muted-foreground">
-                  أدخلي رقم الهوية، ثم اكتبي رقم التسجيل المكوّن من 7 أرقام.
+                  أدخلي رقم الهوية، ثم اكتبي رقم المستخدم المكوّن من 7 أرقام.
                 </p>
               </div>
 
@@ -149,10 +149,10 @@ export default function RegNumberPage() {
                 </div>
               )}
 
-              {/* حقل رقم التسجيل */}
+              {/* حقل رقم المستخدم */}
               {(lookup.kind === 'found' || lookup.kind === 'saved_now') && (
                 <div className="space-y-2">
-                  <Label htmlFor="registration_number">رقم التسجيل</Label>
+                  <Label htmlFor="registration_number">رقم المستخدم</Label>
                   <Input
                     id="registration_number"
                     value={regNumber}
@@ -175,7 +175,7 @@ export default function RegNumberPage() {
               {lookup.kind === 'saved_now' && (
                 <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
                   <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-                  <span>تم حفظ رقم التسجيل بنجاح. شكراً لكِ.</span>
+                  <span>تم حفظ رقم المستخدم بنجاح. شكراً لكِ.</span>
                 </div>
               )}
 
@@ -184,7 +184,7 @@ export default function RegNumberPage() {
                 className="w-full"
                 disabled={lookup.kind !== 'found' || regNumber.length !== 7 || submitting}
               >
-                {submitting ? 'جارٍ الحفظ…' : 'حفظ رقم التسجيل'}
+                {submitting ? 'جارٍ الحفظ…' : 'حفظ رقم المستخدم'}
               </Button>
             </form>
           </CardContent>

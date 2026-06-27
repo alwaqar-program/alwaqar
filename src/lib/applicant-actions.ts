@@ -180,8 +180,8 @@ export async function saveRegistrationNumber(
     action: 'updated',
     changes: { registration_number: { old: prev, new: next } },
     notes: prev
-      ? 'تحديث رقم التسجيل عبر النموذج العام'
-      : 'إدخال رقم التسجيل عبر النموذج العام',
+      ? 'تحديث رقم المستخدم عبر النموذج العام'
+      : 'إدخال رقم المستخدم عبر النموذج العام',
     actor_id: null,
     actor_email: 'reg_form@self',
   });
