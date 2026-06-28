@@ -265,8 +265,8 @@ export default function ApplicantsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-            <div className="relative lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-56 shrink-0">
               <Search
                 size={16}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
@@ -280,51 +280,54 @@ export default function ApplicantsPage() {
             </div>
 
             <MultiSearchableSelect
+              className="w-[160px]"
               options={Object.entries(STATUS_AR)
                 .filter(([k]) => presentStatuses.has(k as ApplicantStatus) || statusValues.includes(k))
                 .map(([k, v]) => ({ value: k, label: v as string }))}
               values={statusValues}
               onValuesChange={setStatusValues}
-              placeholder="جميع الحالات (عدا المحذوفة)"
+              placeholder="كل الحالات"
               searchPlaceholder="ابحث..."
             />
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <MultiSearchableSelect
-                options={Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
-                values={ageValues}
-                onValuesChange={setAgeValues}
-                placeholder="كل الأعمار"
-                searchPlaceholder="ابحث..."
-              />
+            <MultiSearchableSelect
+              className="w-[140px]"
+              options={Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={ageValues}
+              onValuesChange={setAgeValues}
+              placeholder="كل الأعمار"
+              searchPlaceholder="ابحث..."
+            />
 
-              <MultiSearchableSelect
-                options={Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string }))}
-                values={branchValues}
-                onValuesChange={setBranchValues}
-                placeholder="كل الفروع"
-                searchPlaceholder="ابحث..."
-              />
+            <MultiSearchableSelect
+              className="w-[130px]"
+              options={Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={branchValues}
+              onValuesChange={setBranchValues}
+              placeholder="كل الفروع"
+              searchPlaceholder="ابحث..."
+            />
 
-              <MultiSearchableSelect
-                options={Object.entries(PAYMENT_STATE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
-                values={payValues}
-                onValuesChange={setPayValues}
-                placeholder="كل حالات السداد"
-                searchPlaceholder="ابحث..."
-              />
+            <MultiSearchableSelect
+              className="w-[160px]"
+              options={Object.entries(PAYMENT_STATE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={payValues}
+              onValuesChange={setPayValues}
+              placeholder="كل حالات السداد"
+              searchPlaceholder="ابحث..."
+            />
 
-              <MultiSearchableSelect
-                options={[
-                  { value: 'filled', label: 'أدخلت رقم المستخدم' },
-                  { value: 'empty', label: 'لم تُدخل رقم المستخدم' },
-                ]}
-                values={regValues}
-                onValuesChange={setRegValues}
-                placeholder="رقم المستخدم"
-                searchPlaceholder="ابحث..."
-              />
-            </div>
+            <MultiSearchableSelect
+              className="w-[170px]"
+              options={[
+                { value: 'filled', label: 'أدخلت رقم المستخدم' },
+                { value: 'empty', label: 'لم تُدخل رقم المستخدم' },
+              ]}
+              values={regValues}
+              onValuesChange={setRegValues}
+              placeholder="رقم المستخدم"
+              searchPlaceholder="ابحث..."
+            />
           </div>
 
           <div className="text-xs text-muted-foreground mt-3 flex items-center gap-2 flex-wrap">
