@@ -42,6 +42,7 @@ const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'submission_number', header: 'رقم الطلب' },
   { key: 'full_name', header: 'الاسم الرباعي' },
   { key: 'national_id', header: 'رقم الهوية' },
+  { key: 'registration_number', header: 'رقم المستخدم' },
   { key: 'nationality', header: 'الجنسية' },
   { key: 'date_of_birth', header: 'تاريخ الميلاد' },
   { key: 'age', header: 'العمر' },
@@ -100,6 +101,7 @@ export default function ApplicantsPage() {
   const [ageValues, setAgeValues] = useUrlMultiFilter('age');
   const [branchValues, setBranchValues] = useUrlMultiFilter('branch');
   const [payValues, setPayValues] = useUrlMultiFilter('pay');
+  const [regValues, setRegValues] = useUrlMultiFilter('reg');
 
   // Update one filter param and reset back to the first page. Uses `replace`
   // so typing/filtering doesn't flood the browser history (a single Back
@@ -173,6 +175,10 @@ export default function ApplicantsPage() {
         if (ageValues.length > 0 && !ageValues.includes(r.age_category ?? '')) return false;
         if (branchValues.length > 0 && !branchValues.includes(r.desired_branch ?? '')) return false;
         if (payValues.length > 0 && !payValues.includes(getPaymentState(r))) return false;
+        if (regValues.length > 0) {
+          const hasReg = !!r.registration_number && r.registration_number.trim() !== '';
+          if (!regValues.includes(hasReg ? 'filled' : 'empty')) return false;
+        }
         if (search) {
           const q = search.trim().toLowerCase();
           const hay = `${r.full_name || ''} ${r.national_id || ''} ${r.phone || ''}`.toLowerCase();
@@ -189,7 +195,7 @@ export default function ApplicantsPage() {
         if (!bn) return -1;
         return arabicCollator.compare(an, bn);
       });
-  }, [data, search, statusValues, ageValues, branchValues, payValues]);
+  }, [data, search, statusValues, ageValues, branchValues, payValues, regValues]);
 
   // Column sorting (URL-persisted). When no column is chosen the default
   // Arabic-name order from `filtered` is kept.
@@ -199,6 +205,7 @@ export default function ApplicantsPage() {
     const accessors: Record<string, (r: Applicant) => unknown> = {
       name: (r) => r.full_name,
       national_id: (r) => r.national_id,
+      reg: (r) => r.registration_number,
       phone: (r) => r.phone,
       city: (r) => r.city,
       age: (r) => r.age,
@@ -282,7 +289,7 @@ export default function ApplicantsPage() {
               searchPlaceholder="ابحث..."
             />
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
               <MultiSearchableSelect
                 options={Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
                 values={ageValues}
@@ -304,6 +311,17 @@ export default function ApplicantsPage() {
                 values={payValues}
                 onValuesChange={setPayValues}
                 placeholder="كل حالات السداد"
+                searchPlaceholder="ابحث..."
+              />
+
+              <MultiSearchableSelect
+                options={[
+                  { value: 'filled', label: 'أدخلت رقم المستخدم' },
+                  { value: 'empty', label: 'لم تُدخل رقم المستخدم' },
+                ]}
+                values={regValues}
+                onValuesChange={setRegValues}
+                placeholder="رقم المستخدم"
                 searchPlaceholder="ابحث..."
               />
             </div>
@@ -339,6 +357,7 @@ export default function ApplicantsPage() {
                         <>
                           <SortableHead label="الاسم" sortKey="name" {...sp} />
                           <SortableHead label="الهوية" sortKey="national_id" {...sp} />
+                          <SortableHead label="رقم المستخدم" sortKey="reg" {...sp} />
                           <SortableHead label="الجوال" sortKey="phone" {...sp} />
                           <SortableHead label="المدينة" sortKey="city" {...sp} />
                           <SortableHead label="الفئة العمرية" sortKey="age" {...sp} />
@@ -362,6 +381,7 @@ export default function ApplicantsPage() {
                     >
                       <TableCell className="font-medium">{r.full_name || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.national_id || '—'}</TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">{r.registration_number || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.phone || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{r.city || '—'}</TableCell>
                       <TableCell>
