@@ -3,12 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, AlertCircle, Loader2, Copy, Upload, Clock, XCircle } from 'lucide-react';
 import { Applicant, BRANCH_AR, AGE_AR } from '@/lib/applicant-labels';
-import { findPayableApplicant, submitPayment, getPaymentState, PaymentState } from '@/lib/payment-actions';
+import {
+  findPayableApplicant, submitPayment, getPaymentState, PaymentState,
+  PaymentInstallment, getInstallments, submitNextInstallment, resubmitInstallment,
+  installmentStatus, InstallmentStatus, INSTALLMENT_STATUS_AR,
+  isInstallmentPlan, verifiedTotal, submittedTotal, isFullyPaid,
+} from '@/lib/payment-actions';
 import { BANK_CONFIG, RECEIPT_MAX_SIZE_MB, RECEIPT_ACCEPTED_TYPES } from '@/lib/payment-config';
 import logoImg from '@/assets/logo.png';
 import alinmaLogo from '@/assets/alinma-logo.svg';
@@ -29,6 +35,98 @@ function stateFromPayment(applicant: Applicant): LookupState {
   if (ps === 'receipt_rejected') return { kind: 'receipt_rejected', applicant };
   if (ps === 'pending_review') return { kind: 'pending_review', applicant };
   return { kind: 'eligible', applicant };
+}
+
+/** يتحقق من نوع وحجم الإيصال، ويعيد رسالة خطأ أو null عند القبول. */
+function validateReceiptFile(f: File): string | null {
+  if (!RECEIPT_ACCEPTED_TYPES.includes(f.type)) {
+    return 'يُقبل فقط: صورة JPG أو PNG أو ملف PDF';
+  }
+  if (f.size > RECEIPT_MAX_SIZE_MB * 1024 * 1024) {
+    return `الحد الأقصى ${RECEIPT_MAX_SIZE_MB} ميجابايت`;
+  }
+  return null;
+}
+
+async function copyToClipboard(value: string, label: string, toast: ReturnType<typeof useToast>['toast']) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast({ title: `تم نسخ ${label}` });
+  } catch {
+    toast({ title: 'تعذّر النسخ', variant: 'destructive' });
+  }
+}
+
+function BankDetails({ onCopy }: { onCopy: (value: string, label: string) => void }) {
+  return (
+    <div className="border rounded-lg p-4 space-y-3 bg-card">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-display text-base">بيانات الحساب البنكي</h3>
+        <img src={alinmaLogo} alt="بنك الإنماء" className="h-8 object-contain" />
+      </div>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between gap-4 items-start">
+          <span className="text-muted-foreground shrink-0">المستفيد</span>
+          <span className="text-left leading-relaxed">{BANK_CONFIG.beneficiary}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground shrink-0">رقم الحساب</span>
+          <div className="flex items-center gap-1">
+            <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
+              {BANK_CONFIG.accountNumber}
+            </code>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onCopy(BANK_CONFIG.accountNumber, 'رقم الحساب')} title="نسخ رقم الحساب">
+              <Copy size={14} />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground shrink-0">الآيبان</span>
+          <div className="flex items-center gap-1">
+            <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
+              {BANK_CONFIG.iban}
+            </code>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onCopy(BANK_CONFIG.iban, 'الآيبان')} title="نسخ الآيبان">
+              <Copy size={14} />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_BADGE: Record<InstallmentStatus, JSX.Element> = {
+  pending: <Badge className="bg-amber-500 hover:bg-amber-500">{INSTALLMENT_STATUS_AR.pending}</Badge>,
+  verified: <Badge className="bg-emerald-600 hover:bg-emerald-600">{INSTALLMENT_STATUS_AR.verified}</Badge>,
+  rejected: <Badge variant="destructive">{INSTALLMENT_STATUS_AR.rejected}</Badge>,
+};
+
+interface NormalizedPayment {
+  number: number;
+  amount: number | null;
+  status: InstallmentStatus;
+  rejection_reason: string | null;
+}
+
+function normalizePayments(a: Applicant, installments: PaymentInstallment[]): NormalizedPayment[] {
+  const firstStatus: InstallmentStatus =
+    a.payment_verified_at ? 'verified'
+    : a.payment_rejection_reason ? 'rejected'
+    : 'pending';
+  const first: NormalizedPayment = {
+    number: 1,
+    amount: a.payment_paid_amount,
+    status: firstStatus,
+    rejection_reason: a.payment_rejection_reason,
+  };
+  const rest = installments.map((i) => ({
+    number: i.payment_number,
+    amount: i.amount,
+    status: installmentStatus(i),
+    rejection_reason: i.rejection_reason,
+  }));
+  return [first, ...rest];
 }
 
 function PaymentSummary({ applicant }: { applicant: Applicant }) {
@@ -68,6 +166,167 @@ function PaymentSummary({ applicant }: { applicant: Applicant }) {
   );
 }
 
+/**
+ * تدفّق التقسيط على الصفحة العامة: قائمة الدفعات وحالاتها، وإعادة رفع أي دفعة
+ * مرفوضة، ونموذج إضافة الدفعة التالية ما دام هناك مبلغ متبقٍّ.
+ */
+function InstallmentFlow({
+  applicant, installments, onChanged,
+}: {
+  applicant: Applicant;
+  installments: PaymentInstallment[];
+  onChanged: () => void;
+}) {
+  const { toast } = useToast();
+  const payments = normalizePayments(applicant, installments);
+  const due = applicant.payment_due_amount;
+  const verified = verifiedTotal(applicant, installments);
+  const submitted = submittedTotal(applicant, installments);
+  const remaining = due != null ? Math.max(0, due - submitted) : null;
+  const fullyPaid = isFullyPaid(applicant, installments);
+  const rejected = installments.find((i) => installmentStatus(i) === 'rejected') ?? null;
+  const nextNumber = installments.length + 2;
+
+  const [amount, setAmount] = useState(remaining != null && remaining > 0 ? String(remaining) : '');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function pickFile(f: File | null) {
+    if (!f) { setFile(null); return; }
+    const err = validateReceiptFile(f);
+    if (err) {
+      toast({ title: 'تعذّر قبول الملف', description: err, variant: 'destructive' });
+      if (fileRef.current) fileRef.current.value = '';
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const amt = Number(amount);
+    if (!(amt > 0) || !file) return;
+    setBusy(true);
+    const { error } = rejected
+      ? await resubmitInstallment(rejected.id, applicant.id, rejected.payment_number, amt, file)
+      : await submitNextInstallment(applicant.id, nextNumber, amt, file);
+    setBusy(false);
+    if (error) {
+      toast({ title: 'تعذّر إرسال الإيصال', description: error, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'تم استلام الدفعة', description: 'ستراجعها إدارة الدورة قريباً بإذن الله' });
+    setAmount('');
+    setFile(null);
+    if (fileRef.current) fileRef.current.value = '';
+    onChanged();
+  }
+
+  const canSubmit = Number(amount) > 0 && file !== null && !busy;
+  const showAddForm = !fullyPaid && (rejected !== null || remaining == null || remaining > 0);
+
+  return (
+    <div className="space-y-5">
+      {fullyPaid ? (
+        <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
+          <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+          <span>تم اعتماد سدادك بالكامل ✓ نراك على خير بإذن الله.</span>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2 text-sm text-sky-800 bg-sky-50 border border-sky-200 rounded-md p-3">
+          <Clock size={16} className="mt-0.5 shrink-0" />
+          <span>أنتِ على خطة تقسيط. يمكنكِ إرسال دفعتك التالية في أي وقت من هنا.</span>
+        </div>
+      )}
+
+      {/* ملخّص المبالغ */}
+      <div className="grid grid-cols-3 gap-3 text-sm bg-muted/30 border rounded-lg p-3">
+        <div>
+          <div className="text-muted-foreground text-xs mb-0.5">المبلغ المطلوب</div>
+          <div className="font-semibold tabular-nums">{due != null ? `${due} ريال` : 'يُحدد لاحقاً'}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs mb-0.5">المعتمد حتى الآن</div>
+          <div className="font-medium tabular-nums text-emerald-700">{verified} ريال</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs mb-0.5">المتبقّي</div>
+          <div className="font-medium tabular-nums">{remaining != null ? `${remaining} ريال` : '—'}</div>
+        </div>
+      </div>
+
+      {/* قائمة الدفعات */}
+      <div className="border rounded-lg divide-y">
+        {payments.map((p) => (
+          <div key={p.number} className="flex items-center justify-between gap-3 p-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">الدفعة رقم {p.number}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {p.amount != null ? `${p.amount} ريال` : '—'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {p.status === 'rejected' && p.rejection_reason && (
+                <span className="text-xs text-destructive">{p.rejection_reason}</span>
+              )}
+              {STATUS_BADGE[p.status]}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleSubmit} className="space-y-4 border rounded-lg p-4">
+          <h3 className="font-display text-base">
+            {rejected ? `إعادة رفع إيصال الدفعة رقم ${rejected.payment_number}` : `إرسال الدفعة رقم ${nextNumber}`}
+          </h3>
+
+          <BankDetails onCopy={(v, l) => copyToClipboard(v, l, toast)} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="inst_amount">المبلغ المحوَّل (ريال)</Label>
+              <Input
+                id="inst_amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                dir="ltr"
+                inputMode="decimal"
+                placeholder="0"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inst_receipt">إيصال التحويل</Label>
+              <Input
+                id="inst_receipt"
+                type="file"
+                ref={fileRef}
+                accept={RECEIPT_ACCEPTED_TYPES.join(',')}
+                onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                صورة JPG/PNG أو PDF — بحد أقصى {RECEIPT_MAX_SIZE_MB} ميجابايت
+              </p>
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full gap-2" disabled={!canSubmit}>
+            {busy ? (
+              <><Loader2 size={16} className="animate-spin" /> جارٍ الإرسال…</>
+            ) : (
+              <><Upload size={16} /> إرسال الإيصال</>
+            )}
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const { toast } = useToast();
 
@@ -87,6 +346,8 @@ export default function PaymentPage() {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [lookup, setLookup] = useState<LookupState>({ kind: 'idle' });
+  const [paidInstallments, setPaidInstallments] = useState<PaymentInstallment[]>([]);
+  const [instRefresh, setInstRefresh] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // تحقق تلقائي عند اكتمال 10 أرقام
@@ -121,27 +382,33 @@ export default function PaymentPage() {
     return () => { cancelled = true; };
   }, [nationalId, toast]);
 
+  const applicant =
+    lookup.kind === 'eligible' || lookup.kind === 'pending_review' ||
+    lookup.kind === 'verified' || lookup.kind === 'receipt_rejected' ||
+    lookup.kind === 'submitted_now'
+      ? lookup.applicant
+      : null;
+  const applicantId = applicant?.id ?? null;
+
+  // الدفعات الإضافية (للتقسيط)
+  useEffect(() => {
+    if (!applicantId) { setPaidInstallments([]); return; }
+    let cancelled = false;
+    (async () => {
+      const rows = await getInstallments(applicantId);
+      if (!cancelled) setPaidInstallments(rows);
+    })();
+    return () => { cancelled = true; };
+  }, [applicantId, instRefresh]);
+
   function handleFileChange(f: File | null) {
     if (!f) {
       setFile(null);
       return;
     }
-    if (!RECEIPT_ACCEPTED_TYPES.includes(f.type)) {
-      toast({
-        title: 'نوع الملف غير مدعوم',
-        description: 'يُقبل فقط: صورة JPG أو PNG أو ملف PDF',
-        variant: 'destructive',
-      });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setFile(null);
-      return;
-    }
-    if (f.size > RECEIPT_MAX_SIZE_MB * 1024 * 1024) {
-      toast({
-        title: 'حجم الملف كبير',
-        description: `الحد الأقصى ${RECEIPT_MAX_SIZE_MB} ميجابايت`,
-        variant: 'destructive',
-      });
+    const err = validateReceiptFile(f);
+    if (err) {
+      toast({ title: 'تعذّر قبول الملف', description: err, variant: 'destructive' });
       if (fileInputRef.current) fileInputRef.current.value = '';
       setFile(null);
       return;
@@ -159,10 +426,10 @@ export default function PaymentPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit || (lookup.kind !== 'eligible' && lookup.kind !== 'receipt_rejected')) return;
-    const applicant = lookup.applicant;
+    const current = lookup.applicant;
     setSubmitting(true);
     const { error } = await submitPayment(
-      applicant.id,
+      current.id,
       Number(paidAmount),
       file!,
       installments ? Number(installmentsCount) : null
@@ -172,26 +439,29 @@ export default function PaymentPage() {
       toast({ title: 'تعذّر إرسال الإيصال', description: error, variant: 'destructive' });
       return;
     }
-    setLookup({ kind: 'submitted_now', applicant });
+    setLookup({
+      kind: 'submitted_now',
+      applicant: {
+        ...current,
+        payment_paid_amount: Number(paidAmount),
+        payment_submitted_at: new Date().toISOString(),
+        payment_rejection_reason: null,
+        payment_installments_count: installments ? Number(installmentsCount) : null,
+      },
+    });
   }
 
-  async function copyValue(value: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast({ title: `تم نسخ ${label}` });
-    } catch {
-      toast({ title: 'تعذّر النسخ', variant: 'destructive' });
-    }
+  function copyValue(value: string, label: string) {
+    copyToClipboard(value, label, toast);
   }
-
-  const applicant =
-    lookup.kind === 'eligible' || lookup.kind === 'pending_review' ||
-    lookup.kind === 'verified' || lookup.kind === 'receipt_rejected' ||
-    lookup.kind === 'submitted_now'
-      ? lookup.applicant
-      : null;
 
   const showForm = lookup.kind === 'eligible' || lookup.kind === 'receipt_rejected';
+
+  // خطة تقسيط وقد أُرسلت الدفعة الأولى → اعرض تدفّق الدفعات الإضافية.
+  const showInstallmentFlow =
+    applicant != null &&
+    isInstallmentPlan(applicant) &&
+    (lookup.kind === 'pending_review' || lookup.kind === 'verified' || lookup.kind === 'submitted_now');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 flex flex-col">
@@ -255,8 +525,17 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* قيد المراجعة */}
-              {lookup.kind === 'pending_review' && (
+              {/* تدفّق التقسيط (الدفعة الأولى أُرسلت بالفعل) */}
+              {showInstallmentFlow && applicant && (
+                <InstallmentFlow
+                  applicant={applicant}
+                  installments={paidInstallments}
+                  onChanged={() => setInstRefresh((k) => k + 1)}
+                />
+              )}
+
+              {/* قيد المراجعة (دفعة واحدة) */}
+              {lookup.kind === 'pending_review' && !showInstallmentFlow && (
                 <div className="space-y-3">
                   <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
                     <Clock size={16} className="mt-0.5 shrink-0" />
@@ -266,8 +545,8 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* تم الاعتماد */}
-              {lookup.kind === 'verified' && (
+              {/* تم الاعتماد (دفعة واحدة) */}
+              {lookup.kind === 'verified' && !showInstallmentFlow && (
                 <div className="space-y-3">
                   <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
                     <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
@@ -277,8 +556,8 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* تم الإرسال الآن */}
-              {lookup.kind === 'submitted_now' && (
+              {/* تم الإرسال الآن (دفعة واحدة) */}
+              {lookup.kind === 'submitted_now' && !showInstallmentFlow && (
                 <div className="flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
                   <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
                   <span>تم استلام إيصالك بنجاح. ستراجعه إدارة الدورة ويُعتمد سدادك قريباً بإذن الله.</span>
@@ -296,7 +575,7 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* بيانات الطالبة + المبلغ + الحساب */}
+              {/* بيانات الطالبة + المبلغ + الحساب (الدفعة الأولى) */}
               {showForm && applicant && (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm bg-muted/30 border rounded-lg p-3">
@@ -322,48 +601,7 @@ export default function PaymentPage() {
                     </div>
                   </div>
 
-                  <div className="border rounded-lg p-4 space-y-3 bg-card">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-display text-base">بيانات الحساب البنكي</h3>
-                      <img src={alinmaLogo} alt="بنك الإنماء" className="h-8 object-contain" />
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between gap-4 items-start">
-                        <span className="text-muted-foreground shrink-0">المستفيد</span>
-                        <span className="text-left leading-relaxed">{BANK_CONFIG.beneficiary}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">رقم الحساب</span>
-                        <div className="flex items-center gap-1">
-                          <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
-                            {BANK_CONFIG.accountNumber}
-                          </code>
-                          <Button
-                            type="button" variant="ghost" size="sm"
-                            onClick={() => copyValue(BANK_CONFIG.accountNumber, 'رقم الحساب')}
-                            title="نسخ رقم الحساب"
-                          >
-                            <Copy size={14} />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">الآيبان</span>
-                        <div className="flex items-center gap-1">
-                          <code dir="ltr" className="text-xs sm:text-sm bg-muted px-2 py-1 rounded tabular-nums">
-                            {BANK_CONFIG.iban}
-                          </code>
-                          <Button
-                            type="button" variant="ghost" size="sm"
-                            onClick={() => copyValue(BANK_CONFIG.iban, 'الآيبان')}
-                            title="نسخ الآيبان"
-                          >
-                            <Copy size={14} />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <BankDetails onCopy={copyValue} />
 
                   {/* إقرار التسجيل */}
                   <label className="flex items-start gap-3 cursor-pointer p-3 border rounded-lg hover:bg-muted/30 transition-colors">
@@ -411,6 +649,9 @@ export default function PaymentPage() {
                         {installments && installmentsCount !== '' && Number(installmentsCount) < 2 && (
                           <p className="text-xs text-destructive">عدد الدفعات يجب أن يكون 2 أو أكثر</p>
                         )}
+                        <p className="text-xs text-muted-foreground">
+                          ستتمكنين من إرسال بقية الدفعات لاحقاً من هذه الصفحة بإدخال رقم هويتك.
+                        </p>
                       </div>
                     )}
                   </div>
