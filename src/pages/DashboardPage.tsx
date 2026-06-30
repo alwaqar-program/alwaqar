@@ -7,6 +7,7 @@ import {
   BookOpen, GraduationCap, Users, Mic, TrendingUp,
   BookMarked, ClipboardList, Layers, Percent,
 } from 'lucide-react';
+import DailyFollowUp from '@/components/DailyFollowUp';
 
 const gradeColors: Record<string, string> = {
   'ممتاز': 'bg-success/10 text-success',
@@ -282,6 +283,9 @@ export default function DashboardPage() {
         metrics={cumulative}
         loading={loading}
       />
+
+      {/* Daily follow-up: who hasn't recited / has no attendance, and why */}
+      <DailyFollowUp />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Recitations */}
