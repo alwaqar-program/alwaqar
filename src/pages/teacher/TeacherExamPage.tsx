@@ -1,0 +1,119 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useToast } from '@/hooks/use-toast';
+import { AlertCircle, FileCheck } from 'lucide-react';
+import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
+
+const examTypes: Record<string, string> = { weekly_1: 'الأسبوعي ١', weekly_2: 'الأسبوعي ٢', final: 'النهائي' };
+const examConfig: Record<string, { max: number; sections: number }> = {
+  weekly_1: { max: 20, sections: 2 }, weekly_2: { max: 20, sections: 2 }, final: { max: 40, sections: 4 },
+};
+const examScore = (max: number, errors: number, changes: number) => Math.max(0, max - 0.25 * errors - 2 * changes);
+
+function ExamForm({ session }: { session: TeacherSession }) {
+  const { toast } = useToast();
+  const { circle, students, loadingStudents, teacher } = session;
+
+  const empty = { student_id: '', exam_type: 'weekly_1', e1: 0, e2: 0, e3: 0, e4: 0, changes: 0 };
+  const [form, setForm] = useState(empty);
+  const [existing, setExisting] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (students.length === 0) { setExisting(new Set()); return; }
+    supabase.from('exams').select('student_id, exam_type').eq('is_deleted', false)
+      .in('student_id', students.map(s => s.id))
+      .then(({ data }) => setExisting(new Set((data || []).map(e => `${e.student_id}-${e.exam_type}`))));
+  }, [students]);
+
+  const cfg = examConfig[form.exam_type];
+  const totalErrors = form.e1 + form.e2 + (cfg.sections >= 3 ? form.e3 : 0) + (cfg.sections >= 4 ? form.e4 : 0);
+  const score = examScore(cfg.max, totalErrors, form.changes);
+  const isDup = !!form.student_id && existing.has(`${form.student_id}-${form.exam_type}`);
+
+  const save = async () => {
+    if (!form.student_id) { toast({ title: 'خطأ', description: 'اختاري الطالبة', variant: 'destructive' }); return; }
+    if (isDup) { toast({ title: 'خطأ', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
+    setSaving(true);
+    const { error } = await supabase.from('exams').insert({
+      student_id: form.student_id, exam_type: form.exam_type,
+      errors_section_1: form.e1, errors_section_2: form.e2,
+      errors_section_3: cfg.sections >= 3 ? form.e3 : 0,
+      errors_section_4: cfg.sections >= 4 ? form.e4 : 0,
+      segment_changes: form.changes, examiner_name: teacher.teacher_name,
+      // total_errors, total_score, max_score are computed by the database
+    });
+    if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    else {
+      toast({ title: 'تم تسجيل الاختبار' });
+      setExisting(prev => new Set(prev).add(`${form.student_id}-${form.exam_type}`));
+      setForm(empty);
+    }
+    setSaving(false);
+  };
+
+  if (loadingStudents) return <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">جارٍ تحميل الطالبات…</CardContent></Card>;
+  if (students.length === 0) return (
+    <Card className="border-dashed"><CardContent className="flex flex-col items-center py-10 text-center">
+      <FileCheck size={36} className="text-muted-foreground/30 mb-2" />
+      <p className="text-muted-foreground text-sm">لا توجد طالبات مسجلات في «{circle.circle_name}»</p>
+    </CardContent></Card>
+  );
+
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs">الطالبة</Label>
+          <SearchableSelect options={students.map(s => ({ value: s.id, label: s.full_name }))}
+            value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}
+            placeholder="اختاري الطالبة" searchPlaceholder="ابحث…" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">نوع الاختبار</Label>
+          <SearchableSelect options={Object.entries(examConfig).map(([k]) => ({ value: k, label: `${examTypes[k]} (من ${examConfig[k].max})` }))}
+            value={form.exam_type} onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}
+            placeholder="النوع" searchPlaceholder="ابحث…" />
+        </div>
+        {isDup && (
+          <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
+            <AlertCircle size={16} /> سجّلت هذه الطالبة هذا الاختبار مسبقاً
+          </div>
+        )}
+        <div className={`grid gap-3 ${cfg.sections >= 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
+          <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 1</Label>
+            <Input type="number" min={0} value={form.e1} onChange={e => setForm(f => ({ ...f, e1: parseInt(e.target.value) || 0 }))} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 2</Label>
+            <Input type="number" min={0} value={form.e2} onChange={e => setForm(f => ({ ...f, e2: parseInt(e.target.value) || 0 }))} /></div>
+          {cfg.sections >= 3 && <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 3</Label>
+            <Input type="number" min={0} value={form.e3} onChange={e => setForm(f => ({ ...f, e3: parseInt(e.target.value) || 0 }))} /></div>}
+          {cfg.sections >= 4 && <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 4</Label>
+            <Input type="number" min={0} value={form.e4} onChange={e => setForm(f => ({ ...f, e4: parseInt(e.target.value) || 0 }))} /></div>}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">تغيير المقطع (خصم درجتين لكل مرة)</Label>
+          <Input type="number" min={0} value={form.changes} onChange={e => setForm(f => ({ ...f, changes: parseInt(e.target.value) || 0 }))} />
+        </div>
+        <div className="bg-muted/50 p-3 rounded-lg grid grid-cols-2 gap-3 text-sm">
+          <div><span className="text-muted-foreground">مجموع الأخطاء:</span> <span className="font-bold mr-1">{totalErrors}</span></div>
+          <div><span className="text-muted-foreground">الدرجة:</span> <span className="font-bold mr-1">{score} / {cfg.max}</span></div>
+        </div>
+        <Button onClick={save} disabled={saving || isDup} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ الاختبار'}</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function TeacherExamPage() {
+  return (
+    <TeacherGate title="تسجيل الاختبار" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك">
+      {session => <ExamForm session={session} />}
+    </TeacherGate>
+  );
+}
