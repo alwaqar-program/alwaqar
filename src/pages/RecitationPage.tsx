@@ -45,6 +45,7 @@ interface MushafPage {
 
 interface TodayRecitation {
   student_id: string;
+  period: string;
   to_page: number | null;
   to_surah: string | null;
   error_count: number;
@@ -59,10 +60,12 @@ export default function RecitationPage() {
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [branchJuz, setBranchJuz] = useState<number[]>([]);
   const [todayRecitations, setTodayRecitations] = useState<TodayRecitation[]>([]);
-  const [todayAttendance, setTodayAttendance] = useState<Record<string, string>>({});
+  const [todayAtt, setTodayAtt] = useState<{ student_id: string; status: string; period: string }[]>([]);
 
   const [selectedCircle, setSelectedCircle] = useState('');
   const [selectedStudent, setSelectedStudent] = useState('');
+  // Period is chosen per recitation session (a circle runs both صباحي and مسائي).
+  const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
   const [showAllMushaf, setShowAllMushaf] = useState(false);
   const [fromPage, setFromPage] = useState('');
   const [toPage, setToPage] = useState('');
@@ -120,24 +123,22 @@ export default function RecitationPage() {
         setBranchJuz((juzData || []).map(j => j.juz_number));
       }
 
-      // Today's recitations for this circle
+      // Today's recitations for this circle (both periods; filtered client-side)
       const { data: recData } = await supabase
         .from('recitation_log')
-        .select('student_id, to_page, to_surah, error_count, pages_recited, grade')
+        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade')
         .eq('circle_id', selectedCircle)
         .eq('date', today)
         .eq('is_deleted', false);
       setTodayRecitations(recData || []);
 
-      // Today's attendance
+      // Today's attendance (both periods; filtered client-side)
       const { data: attData } = await supabase
         .from('attendance')
-        .select('student_id, status')
+        .select('student_id, status, period')
         .eq('date', today)
         .in('student_id', (studData || []).map(s => s.id));
-      const attMap: Record<string, string> = {};
-      (attData || []).forEach(a => { attMap[a.student_id] = a.status; });
-      setTodayAttendance(attMap);
+      setTodayAtt(attData || []);
     };
     load();
   }, [selectedCircle, circles, today]);
@@ -164,17 +165,17 @@ export default function RecitationPage() {
     [circles]
   );
 
-  // Check if student recited today
+  // Check if student recited in the selected period today
   const hasRecitedToday = (studentId: string) =>
-    todayRecitations.some(r => r.student_id === studentId);
+    todayRecitations.some(r => r.student_id === studentId && r.period === period);
 
-  // Get student's last recitation today
+  // Get student's recitations in the selected period today
   const getStudentTodayInfo = (studentId: string) =>
-    todayRecitations.filter(r => r.student_id === studentId);
+    todayRecitations.filter(r => r.student_id === studentId && r.period === period);
 
-  // Check if student is absent
+  // Check if student is absent in the selected period
   const isAbsent = (studentId: string) =>
-    todayAttendance[studentId] === 'absent';
+    todayAtt.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
 
   // Validation: from <= to
   const fromSort = mushafPages.find(p => p.page_number === parseInt(fromPage))?.sort_order || 0;
@@ -222,7 +223,7 @@ export default function RecitationPage() {
       teacher_id: teacherId,
       circle_id: selectedCircle,
       date: today,
-      period: 'morning',
+      period,
       from_page: parseInt(fromPage),
       to_page: parseInt(toPage),
       from_surah: fromInfo?.surah_name,
@@ -240,7 +241,7 @@ export default function RecitationPage() {
       // Refresh today's recitations
       const { data: recData } = await supabase
         .from('recitation_log')
-        .select('student_id, to_page, to_surah, error_count, pages_recited, grade')
+        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade')
         .eq('circle_id', selectedCircle)
         .eq('date', today)
         .eq('is_deleted', false);
@@ -283,15 +284,28 @@ export default function RecitationPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">اختيار الحلقة</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap items-center gap-4">
           <SearchableSelect
-            className="max-w-sm"
+            className="max-w-sm flex-1 min-w-[220px]"
             options={circleOptions}
             value={selectedCircle}
             onValueChange={v => { setSelectedCircle(v); setSelectedStudent(''); }}
             placeholder="اختر الحلقة"
             searchPlaceholder="ابحث عن حلقة..."
           />
+          {/* Period is chosen here, not on the circle (each circle runs both) */}
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm shrink-0">
+            {(['morning', 'evening'] as const).map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => { setPeriod(p); setSelectedStudent(''); }}
+                className={`px-4 py-2 transition-colors ${period === p ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              >
+                {p === 'morning' ? 'الفترة الصباحية' : 'الفترة المسائية'}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

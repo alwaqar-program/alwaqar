@@ -21,14 +21,12 @@ import { CsvColumnDef } from '@/lib/csv-utils';
 
 const circleCsvColumns: CsvColumnDef[] = [
   { key: 'circle_name', header: 'اسم الحلقة' },
-  { key: 'period', header: 'الفترة', transform: v => v === 'morning' ? 'صباحي' : 'مسائي', importTransform: v => v === 'صباحي' ? 'morning' : 'evening' },
 ];
 
 interface Circle {
   id: string;
   circle_name: string;
   branch_id: string;
-  period: string;
   is_active: boolean;
   branches?: { branch_name: string } | null;
 }
@@ -44,7 +42,7 @@ export default function CirclesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
-  const [form, setForm] = useState({ circle_name: '', branch_id: '', period: 'morning' as string });
+  const [form, setForm] = useState({ circle_name: '', branch_id: '' });
   const { toast } = useToast();
 
   const fetch = async () => {
@@ -61,18 +59,21 @@ export default function CirclesPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ circle_name: '', branch_id: branches[0]?.id || '', period: 'morning' });
+    setForm({ circle_name: '', branch_id: branches[0]?.id || '' });
     setDialogOpen(true);
   };
 
   const openEdit = (c: Circle) => {
     setEditing(c);
-    setForm({ circle_name: c.circle_name, branch_id: c.branch_id, period: c.period });
+    setForm({ circle_name: c.circle_name, branch_id: c.branch_id });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: form.period };
+    // `period` is vestigial: a circle runs both periods, the period is chosen at
+    // recitation/attendance time. Sent only to satisfy the legacy NOT NULL column
+    // until 19_tasmee_exams.sql makes it nullable.
+    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning' };
     if (editing) {
       const { error } = await supabase.from('circles').update(payload).eq('id', editing.id);
       if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
@@ -89,8 +90,6 @@ export default function CirclesPage() {
     await supabase.from('circles').update({ is_active: !c.is_active }).eq('id', c.id);
     fetch();
   };
-
-  const periodLabel = (p: string) => p === 'morning' ? 'صباحي' : 'مسائي';
 
   return (
     <div className="space-y-6">
@@ -124,16 +123,9 @@ export default function CirclesPage() {
                   searchPlaceholder="ابحث عن فرع..."
                 />
               </div>
-              <div className="space-y-2">
-                <Label>الفترة</Label>
-                <SearchableSelect
-                  options={[{ value: 'morning', label: 'صباحي' }, { value: 'evening', label: 'مسائي' }]}
-                  value={form.period}
-                  onValueChange={v => setForm(f => ({ ...f, period: v }))}
-                  placeholder="الفترة"
-                  searchPlaceholder="ابحث..."
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                الحلقة تعمل في الفترتين الصباحية والمسائية؛ تُحدَّد الفترة عند تسجيل التسميع أو الحضور.
+              </p>
               <Button onClick={handleSave} className="w-full">{editing ? 'حفظ' : 'إضافة'}</Button>
             </div>
           </DialogContent>
@@ -169,7 +161,7 @@ export default function CirclesPage() {
               </CardHeader>
               <CardContent className="flex items-center gap-2">
                 <Badge variant="secondary">{c.branches?.branch_name}</Badge>
-                <Badge variant="outline">{periodLabel(c.period)}</Badge>
+                <Badge variant="outline">صباحي ومسائي</Badge>
               </CardContent>
             </Card>
           ))}
