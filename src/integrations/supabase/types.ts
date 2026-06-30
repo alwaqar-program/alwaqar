@@ -224,11 +224,14 @@ export type Database = {
           errors_section_1: number | null
           errors_section_2: number | null
           errors_section_3: number | null
+          errors_section_4: number | null
           exam_type: string
           examiner_name: string | null
           id: string
           is_deleted: boolean | null
+          max_score: number | null
           notes: string | null
+          segment_changes: number | null
           student_id: string
           total_errors: number | null
           total_score: number | null
@@ -239,11 +242,14 @@ export type Database = {
           errors_section_1?: number | null
           errors_section_2?: number | null
           errors_section_3?: number | null
+          errors_section_4?: number | null
           exam_type: string
           examiner_name?: string | null
           id?: string
           is_deleted?: boolean | null
+          max_score?: number | null
           notes?: string | null
+          segment_changes?: number | null
           student_id: string
           total_errors?: number | null
           total_score?: number | null
@@ -254,11 +260,14 @@ export type Database = {
           errors_section_1?: number | null
           errors_section_2?: number | null
           errors_section_3?: number | null
+          errors_section_4?: number | null
           exam_type?: string
           examiner_name?: string | null
           id?: string
           is_deleted?: boolean | null
+          max_score?: number | null
           notes?: string | null
+          segment_changes?: number | null
           student_id?: string
           total_errors?: number | null
           total_score?: number | null
@@ -451,11 +460,15 @@ export type Database = {
           grade: string | null
           id: string
           is_deleted: boolean | null
+          hifz_confirmed: boolean | null
           is_extra_memorization: boolean | null
           pages_recited: number | null
           period: string
-          student_id: string
+          reciter_id: string | null
+          score: number | null
+          student_id: string | null
           teacher_id: string
+          thabit_confirmed: boolean | null
           to_page: number | null
           to_sort_order: number | null
           to_surah: string | null
@@ -473,13 +486,17 @@ export type Database = {
           from_surah?: string | null
           from_verse?: number | null
           grade?: string | null
+          hifz_confirmed?: boolean | null
           id?: string
           is_deleted?: boolean | null
           is_extra_memorization?: boolean | null
           pages_recited?: number | null
           period: string
-          student_id: string
+          reciter_id?: string | null
+          score?: number | null
+          student_id?: string | null
           teacher_id: string
+          thabit_confirmed?: boolean | null
           to_page?: number | null
           to_sort_order?: number | null
           to_surah?: string | null
@@ -497,13 +514,17 @@ export type Database = {
           from_surah?: string | null
           from_verse?: number | null
           grade?: string | null
+          hifz_confirmed?: boolean | null
           id?: string
           is_deleted?: boolean | null
           is_extra_memorization?: boolean | null
           pages_recited?: number | null
           period?: string
-          student_id?: string
+          reciter_id?: string | null
+          score?: number | null
+          student_id?: string | null
           teacher_id?: string
+          thabit_confirmed?: boolean | null
           to_page?: number | null
           to_sort_order?: number | null
           to_surah?: string | null

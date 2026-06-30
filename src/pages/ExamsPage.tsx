@@ -19,12 +19,37 @@ import { FileCheck, Plus, AlertCircle } from 'lucide-react';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
+const examTypes: Record<string, string> = {
+  weekly_1: 'الأسبوعي ١',
+  weekly_2: 'الأسبوعي ٢',
+  final: 'النهائي',
+  // legacy types (kept so old rows still render)
+  quarter: 'ربع',
+  half: 'نصف',
+  complete: 'ختم',
+};
+
+// Each exam type implies a max score and a number of error sections (مقاطع).
+const examConfig: Record<string, { max: number; sections: number }> = {
+  weekly_1: { max: 20, sections: 2 },
+  weekly_2: { max: 20, sections: 2 },
+  final: { max: 40, sections: 4 },
+};
+// Types offered when creating a new exam.
+const newExamTypes = ['weekly_1', 'weekly_2', 'final'] as const;
+
+// الدرجة = الحد الأقصى − 0.25×الأخطاء − 2×تغيير المقطع (بحد أدنى صفر).
+const examScore = (max: number, errors: number, changes: number) =>
+  Math.max(0, max - 0.25 * errors - 2 * changes);
+
 const examCsvColumns: CsvColumnDef[] = [
   { key: 'students', header: 'الطالبة', transform: v => v?.full_name || '' },
-  { key: 'exam_type', header: 'النوع', transform: v => ({ quarter: 'ربع', half: 'نصف', complete: 'ختم' }[v as string] || v) },
+  { key: 'exam_type', header: 'النوع', transform: v => examTypes[v as string] || v },
   { key: 'date', header: 'التاريخ' },
   { key: 'total_errors', header: 'الأخطاء' },
+  { key: 'segment_changes', header: 'تغيير المقطع' },
   { key: 'total_score', header: 'الدرجة' },
+  { key: 'max_score', header: 'الحد الأقصى' },
   { key: 'examiner_name', header: 'المختبرة' },
 ];
 
@@ -41,17 +66,14 @@ interface Exam {
   errors_section_1: number | null;
   errors_section_2: number | null;
   errors_section_3: number | null;
+  errors_section_4: number | null;
+  segment_changes: number | null;
   total_errors: number | null;
   total_score: number | null;
+  max_score: number | null;
   examiner_name: string | null;
   students?: { full_name: string } | null;
 }
-
-const examTypes: Record<string, string> = {
-  quarter: 'ربع',
-  half: 'نصف',
-  complete: 'ختم',
-};
 
 export default function ExamsPage() {
   const { toast } = useToast();
@@ -61,14 +83,17 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true);
   const [existingExams, setExistingExams] = useState<Set<string>>(new Set());
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     student_id: '',
-    exam_type: 'quarter',
+    exam_type: 'weekly_1' as string,
     errors_section_1: 0,
     errors_section_2: 0,
     errors_section_3: 0,
+    errors_section_4: 0,
+    segment_changes: 0,
     examiner_name: '',
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
@@ -110,13 +135,21 @@ export default function ExamsPage() {
     }
   }, [form.student_id, form.exam_type, existingExams]);
 
-  const totalErrors = form.errors_section_1 + form.errors_section_2 + form.errors_section_3;
-  const totalScore = Math.max(0, 100 - totalErrors * 2);
+  const cfg = examConfig[form.exam_type] ?? { max: 100, sections: 3 };
+  const totalErrors =
+    form.errors_section_1 +
+    form.errors_section_2 +
+    (cfg.sections >= 3 ? form.errors_section_3 : 0) +
+    (cfg.sections >= 4 ? form.errors_section_4 : 0);
+  const totalScore = examScore(cfg.max, totalErrors, form.segment_changes);
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-success';
-    if (score >= 70) return 'text-info';
-    if (score >= 50) return 'text-warning';
+  // Colour by ratio of score to its max (so /20 and /40 scale the same).
+  const getScoreColor = (score: number | null, max: number | null) => {
+    if (!score || !max) return 'text-destructive';
+    const pct = (score / max) * 100;
+    if (pct >= 90) return 'text-success';
+    if (pct >= 70) return 'text-info';
+    if (pct >= 50) return 'text-warning';
     return 'text-destructive';
   };
 
@@ -135,8 +168,11 @@ export default function ExamsPage() {
       exam_type: form.exam_type,
       errors_section_1: form.errors_section_1,
       errors_section_2: form.errors_section_2,
-      errors_section_3: form.errors_section_3,
+      errors_section_3: cfg.sections >= 3 ? form.errors_section_3 : 0,
+      errors_section_4: cfg.sections >= 4 ? form.errors_section_4 : 0,
+      segment_changes: form.segment_changes,
       examiner_name: form.examiner_name || null,
+      // total_errors, total_score, max_score are computed by the database.
     });
 
     if (error) {
@@ -162,7 +198,7 @@ export default function ExamsPage() {
         <div className="flex items-center gap-2">
           <CsvActions data={exams} columns={examCsvColumns} tableName="exams" filename="exams" onImportComplete={fetchData} />
           <Button onClick={() => {
-            setForm({ student_id: '', exam_type: 'quarter', errors_section_1: 0, errors_section_2: 0, errors_section_3: 0, examiner_name: '' });
+            setForm(emptyForm);
             setDialogOpen(true);
           }}>
             <Plus size={18} /> تسجيل اختبار
@@ -189,7 +225,7 @@ export default function ExamsPage() {
             <div className="space-y-2">
               <Label>نوع الاختبار</Label>
               <SearchableSelect
-                options={Object.entries(examTypes).map(([k, v]) => ({ value: k, label: v as string }))}
+                options={newExamTypes.map(k => ({ value: k, label: `${examTypes[k]} (من ${examConfig[k].max})` }))}
                 value={form.exam_type}
                 onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}
                 placeholder="نوع الاختبار"
@@ -204,19 +240,32 @@ export default function ExamsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${cfg.sections >= 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
               <div className="space-y-2">
-                <Label className="text-xs">أخطاء القسم 1</Label>
+                <Label className="text-xs">أخطاء المقطع 1</Label>
                 <Input type="number" min={0} value={form.errors_section_1} onChange={e => setForm(f => ({ ...f, errors_section_1: parseInt(e.target.value) || 0 }))} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">أخطاء القسم 2</Label>
+                <Label className="text-xs">أخطاء المقطع 2</Label>
                 <Input type="number" min={0} value={form.errors_section_2} onChange={e => setForm(f => ({ ...f, errors_section_2: parseInt(e.target.value) || 0 }))} />
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs">أخطاء القسم 3</Label>
-                <Input type="number" min={0} value={form.errors_section_3} onChange={e => setForm(f => ({ ...f, errors_section_3: parseInt(e.target.value) || 0 }))} />
-              </div>
+              {cfg.sections >= 3 && (
+                <div className="space-y-2">
+                  <Label className="text-xs">أخطاء المقطع 3</Label>
+                  <Input type="number" min={0} value={form.errors_section_3} onChange={e => setForm(f => ({ ...f, errors_section_3: parseInt(e.target.value) || 0 }))} />
+                </div>
+              )}
+              {cfg.sections >= 4 && (
+                <div className="space-y-2">
+                  <Label className="text-xs">أخطاء المقطع 4</Label>
+                  <Input type="number" min={0} value={form.errors_section_4} onChange={e => setForm(f => ({ ...f, errors_section_4: parseInt(e.target.value) || 0 }))} />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">تغيير المقطع (خصم درجتين لكل مرة)</Label>
+              <Input type="number" min={0} value={form.segment_changes} onChange={e => setForm(f => ({ ...f, segment_changes: parseInt(e.target.value) || 0 }))} />
             </div>
 
             <div className="bg-muted/50 p-3 rounded-lg grid grid-cols-2 gap-3 text-sm">
@@ -226,7 +275,7 @@ export default function ExamsPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">الدرجة:</span>
-                <span className={`font-bold mr-2 ${getScoreColor(totalScore)}`}>{totalScore}%</span>
+                <span className={`font-bold mr-2 ${getScoreColor(totalScore, cfg.max)}`}>{totalScore} / {cfg.max}</span>
               </div>
             </div>
 
@@ -269,8 +318,9 @@ export default function ExamsPage() {
                   <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
                   <TableCell dir="ltr">{e.date}</TableCell>
                   <TableCell>{e.total_errors}</TableCell>
-                  <TableCell className={getScoreColor(e.total_score || 0)}>
-                    <span className="font-bold">{e.total_score}%</span>
+                  <TableCell className={getScoreColor(e.total_score, e.max_score)}>
+                    <span className="font-bold">{e.total_score}</span>
+                    <span className="text-xs text-muted-foreground"> / {e.max_score}</span>
                   </TableCell>
                   <TableCell>{e.examiner_name || '-'}</TableCell>
                 </TableRow>

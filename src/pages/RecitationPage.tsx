@@ -19,9 +19,15 @@ const recitationCsvColumns: CsvColumnDef[] = [
   { key: 'to_surah', header: 'إلى سورة' },
   { key: 'pages_recited', header: 'عدد الصفحات' },
   { key: 'error_count', header: 'الأخطاء' },
+  { key: 'score', header: 'الدرجة /20' },
   { key: 'grade', header: 'التقدير' },
   { key: 'date', header: 'التاريخ' },
 ];
+
+type Period = 'morning' | 'evening';
+
+// درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ.
+const recitationScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
 
 interface Circle {
   id: string;
@@ -51,6 +57,7 @@ interface TodayRecitation {
   error_count: number;
   pages_recited: number | null;
   grade: string | null;
+  score: number | null;
 }
 
 export default function RecitationPage() {
@@ -65,12 +72,14 @@ export default function RecitationPage() {
   const [selectedCircle, setSelectedCircle] = useState('');
   const [selectedStudent, setSelectedStudent] = useState('');
   // Period is chosen per recitation session (a circle runs both صباحي and مسائي).
-  const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
+  const [period, setPeriod] = useState<Period>('morning');
   const [showAllMushaf, setShowAllMushaf] = useState(false);
   const [fromPage, setFromPage] = useState('');
   const [toPage, setToPage] = useState('');
   const [errorCount, setErrorCount] = useState(0);
   const [isExtra, setIsExtra] = useState(false);
+  const [thabitConfirmed, setThabitConfirmed] = useState(false);
+  const [hifzConfirmed, setHifzConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
@@ -126,7 +135,7 @@ export default function RecitationPage() {
       // Today's recitations for this circle (both periods; filtered client-side)
       const { data: recData } = await supabase
         .from('recitation_log')
-        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade')
+        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade, score')
         .eq('circle_id', selectedCircle)
         .eq('date', today)
         .eq('is_deleted', false);
@@ -182,12 +191,12 @@ export default function RecitationPage() {
   const toSort = mushafPages.find(p => p.page_number === parseInt(toPage))?.sort_order || 0;
   const isOrderValid = !fromPage || !toPage || fromSort <= toSort;
 
-  // Grade calculation
+  // Grade calculation — must mirror the recitation_log.grade generated column.
+  // أخطاء 0-2 ممتاز · 3-4 جيد جدًا · 5-6 جيد · 7+ ضعيف
   const getGrade = (errors: number) => {
-    if (errors === 0) return { text: 'ممتاز', color: 'text-success' };
-    if (errors <= 2) return { text: 'جيد جداً', color: 'text-info' };
-    if (errors <= 4) return { text: 'جيد', color: 'text-accent' };
-    if (errors <= 6) return { text: 'مقبول', color: 'text-warning' };
+    if (errors <= 2) return { text: 'ممتاز', color: 'text-success' };
+    if (errors <= 4) return { text: 'جيد جدًا', color: 'text-info' };
+    if (errors <= 6) return { text: 'جيد', color: 'text-accent' };
     return { text: 'ضعيف', color: 'text-destructive' };
   };
 
@@ -231,7 +240,10 @@ export default function RecitationPage() {
       from_sort_order: fromInfo?.sort_order,
       to_sort_order: toInfo?.sort_order,
       is_extra_memorization: isExtra,
+      thabit_confirmed: thabitConfirmed,
+      hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
+      // grade + score (/20) are computed by the database (generated columns).
     });
 
     if (error) {
@@ -241,7 +253,7 @@ export default function RecitationPage() {
       // Refresh today's recitations
       const { data: recData } = await supabase
         .from('recitation_log')
-        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade')
+        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade, score')
         .eq('circle_id', selectedCircle)
         .eq('date', today)
         .eq('is_deleted', false);
@@ -251,6 +263,8 @@ export default function RecitationPage() {
       setToPage('');
       setErrorCount(0);
       setIsExtra(false);
+      setThabitConfirmed(false);
+      setHifzConfirmed(false);
       setSelectedStudent('');
     }
     setSaving(false);
@@ -428,7 +442,26 @@ export default function RecitationPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="thabit"
+                  checked={thabitConfirmed}
+                  onCheckedChange={(v) => setThabitConfirmed(!!v)}
+                />
+                <Label htmlFor="thabit" className="text-sm">نصاب التثبيت (سرد ذاتي)</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="hifz"
+                  checked={hifzConfirmed}
+                  onCheckedChange={(v) => setHifzConfirmed(!!v)}
+                />
+                <Label htmlFor="hifz" className="text-sm">نصاب الحفظ (سرد على شخص)</Label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>عدد الأخطاء</Label>
                 <Input
@@ -437,6 +470,13 @@ export default function RecitationPage() {
                   value={errorCount}
                   onChange={e => setErrorCount(parseInt(e.target.value) || 0)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>الدرجة /20</Label>
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 font-bold">
+                  {recitationScore(errorCount)}
+                  <span className="text-xs text-muted-foreground mr-1">/ 20</span>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>التقدير</Label>
