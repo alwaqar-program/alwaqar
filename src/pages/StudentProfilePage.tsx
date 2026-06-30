@@ -20,7 +20,10 @@ const attendanceLabels: Record<string, string> = {
   present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة',
 };
 
-const examTypes: Record<string, string> = { quarter: 'ربع', half: 'نصف', complete: 'ختم' };
+const examTypes: Record<string, string> = {
+  weekly_1: 'الأسبوعي ١', weekly_2: 'الأسبوعي ٢', final: 'النهائي',
+  quarter: 'ربع', half: 'نصف', complete: 'ختم',
+};
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -151,6 +154,7 @@ export default function StudentProfilePage() {
                     <TableHead>إلى</TableHead>
                     <TableHead>الصفحات</TableHead>
                     <TableHead>الأخطاء</TableHead>
+                    <TableHead>الدرجة /20</TableHead>
                     <TableHead>التقدير</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -162,6 +166,7 @@ export default function StudentProfilePage() {
                       <TableCell>{r.to_surah} ص{r.to_page}</TableCell>
                       <TableCell>{r.pages_recited}</TableCell>
                       <TableCell>{r.error_count}</TableCell>
+                      <TableCell className="font-bold">{r.score}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{r.grade}</Badge>
                         {r.is_extra_memorization && <Badge variant="secondary" className="mr-1 text-xs">زيادة</Badge>}
@@ -231,9 +236,11 @@ export default function StudentProfilePage() {
                   <TableRow>
                     <TableHead>النوع</TableHead>
                     <TableHead>التاريخ</TableHead>
-                    <TableHead>قسم 1</TableHead>
-                    <TableHead>قسم 2</TableHead>
-                    <TableHead>قسم 3</TableHead>
+                    <TableHead>مقطع 1</TableHead>
+                    <TableHead>مقطع 2</TableHead>
+                    <TableHead>مقطع 3</TableHead>
+                    <TableHead>مقطع 4</TableHead>
+                    <TableHead>تغيير المقطع</TableHead>
                     <TableHead>المجموع</TableHead>
                     <TableHead>الدرجة</TableHead>
                   </TableRow>
@@ -241,13 +248,15 @@ export default function StudentProfilePage() {
                 <TableBody>
                   {exams.map(e => (
                     <TableRow key={e.id}>
-                      <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{examTypes[e.exam_type] ?? e.exam_type}</Badge></TableCell>
                       <TableCell dir="ltr">{e.date}</TableCell>
                       <TableCell>{e.errors_section_1}</TableCell>
                       <TableCell>{e.errors_section_2}</TableCell>
                       <TableCell>{e.errors_section_3}</TableCell>
+                      <TableCell>{e.errors_section_4 ?? 0}</TableCell>
+                      <TableCell>{e.segment_changes ?? 0}</TableCell>
                       <TableCell>{e.total_errors}</TableCell>
-                      <TableCell className="font-bold">{e.total_score}%</TableCell>
+                      <TableCell className="font-bold">{e.total_score} / {e.max_score}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

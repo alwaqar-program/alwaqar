@@ -10,9 +10,9 @@ import {
 
 const gradeColors: Record<string, string> = {
   'ممتاز': 'bg-success/10 text-success',
-  'جيد جداً': 'bg-info/10 text-info',
+  'جيد جدًا': 'bg-info/10 text-info',
   'جيد': 'bg-accent/10 text-accent',
-  'مقبول': 'bg-warning/10 text-warning',
+  'مقبول': 'bg-warning/10 text-warning', // legacy rows
   'ضعيف': 'bg-destructive/10 text-destructive',
 };
 
@@ -156,6 +156,7 @@ export default function DashboardPage() {
       const studentPages: Record<string, { name: string; pages: number }> = {};
       (weekRec || []).forEach(r => {
         const sid = r.student_id;
+        if (!sid) return;
         if (!studentPages[sid]) studentPages[sid] = { name: (r.students as any)?.full_name || '', pages: 0 };
         studentPages[sid].pages += r.pages_recited || 0;
       });
