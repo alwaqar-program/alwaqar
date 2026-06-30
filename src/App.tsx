@@ -29,6 +29,9 @@ import RoommatesPage from "./pages/RoommatesPage";
 import SupervisorRegistrationPage from "./pages/SupervisorRegistrationPage";
 import PaymentPage from "./pages/PaymentPage";
 import InterviewPage from "./pages/InterviewPage";
+import TeacherRecitationPage from "./pages/teacher/TeacherRecitationPage";
+import TeacherAttendancePage from "./pages/teacher/TeacherAttendancePage";
+import TeacherExamPage from "./pages/teacher/TeacherExamPage";
 import InterviewCommitteePage from "./pages/InterviewCommitteePage";
 import CommitteeMemberProfilePage from "./pages/CommitteeMemberProfilePage";
 import InterviewsListPage from "./pages/InterviewsListPage";
@@ -73,6 +76,9 @@ const App = () => (
             <Route path="/supervisor-registration" element={<SupervisorRegistrationPage />} />
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/interview" element={<InterviewPage />} />
+            <Route path="/teacher/recitation" element={<TeacherRecitationPage />} />
+            <Route path="/teacher/attendance" element={<TeacherAttendancePage />} />
+            <Route path="/teacher/exam" element={<TeacherExamPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
             <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />
