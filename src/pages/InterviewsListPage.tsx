@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -65,8 +66,8 @@ export default function InterviewsListPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
-  const [memberFilter, setMemberFilter] = useState<string>('all');
-  const [resultFilter, setResultFilter] = useState<ResultGrade | 'all'>('all');
+  const [memberFilter, setMemberFilter] = useUrlMultiFilter('member');
+  const [resultFilter, setResultFilter] = useUrlMultiFilter('result');
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const setPage = (newPage: number) => {
@@ -126,8 +127,8 @@ export default function InterviewsListPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (memberFilter !== 'all' && r.committee_member_id !== memberFilter) return false;
-      if (resultFilter !== 'all' && r.result !== resultFilter) return false;
+      if (memberFilter.length > 0 && !memberFilter.includes(r.committee_member_id ?? '')) return false;
+      if (resultFilter.length > 0 && !resultFilter.includes(r.result ?? '')) return false;
       if (search.trim()) {
         const q = search.trim().toLowerCase();
         const hay = `${r.applicant?.full_name || ''} ${r.applicant?.national_id || ''}`.toLowerCase();
@@ -247,24 +248,18 @@ export default function InterviewsListPage() {
               className="pr-9"
             />
           </div>
-          <SearchableSelect
-            options={[
-              { value: 'all', label: 'كل العضوات' },
-              ...committeeMembers.map(([id, name]) => ({ value: id, label: name })),
-            ]}
-            value={memberFilter}
-            onValueChange={(v) => setMemberFilter(v || 'all')}
-            placeholder="العضوة المُقابِلة"
+          <MultiSearchableSelect
+            options={committeeMembers.map(([id, name]) => ({ value: id, label: name }))}
+            values={memberFilter}
+            onValuesChange={setMemberFilter}
+            placeholder="كل العضوات"
             searchPlaceholder="ابحث..."
           />
-          <SearchableSelect
-            options={[
-              { value: 'all', label: 'كل النتائج' },
-              ...(Object.entries(RESULT_AR) as [ResultGrade, string][]).map(([k, v]) => ({ value: k, label: v })),
-            ]}
-            value={resultFilter}
-            onValueChange={(v) => setResultFilter((v || 'all') as ResultGrade | 'all')}
-            placeholder="النتيجة"
+          <MultiSearchableSelect
+            options={(Object.entries(RESULT_AR) as [ResultGrade, string][]).map(([k, v]) => ({ value: k, label: v }))}
+            values={resultFilter}
+            onValuesChange={setResultFilter}
+            placeholder="كل النتائج"
             searchPlaceholder="ابحث..."
           />
         </CardContent>

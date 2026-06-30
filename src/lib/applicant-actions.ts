@@ -156,6 +156,39 @@ const PRE_INTERVIEW_STATUSES = new Set([
   'hifz_done', 'tilawa_step', 'tilawa_done', 'incomplete',
 ]);
 
+/**
+ * Public self-service: applicant enters her ID, sees her name, and saves
+ * (or updates) her 7-digit registration number. No auth required.
+ */
+export async function saveRegistrationNumber(
+  applicantId: string,
+  value: string,
+  previousValue: string | null
+): Promise<{ error: string | null }> {
+  const next = value.trim();
+  const prev = previousValue ?? null;
+  if (next === (prev ?? '')) return { error: null };
+
+  const { error } = await (supabase as any)
+    .from('applicants')
+    .update({ registration_number: next })
+    .eq('id', applicantId);
+  if (error) return { error: error.message };
+
+  await (supabase as any).from('applicant_activity_log').insert({
+    applicant_id: applicantId,
+    action: 'updated',
+    changes: { registration_number: { old: prev, new: next } },
+    notes: prev
+      ? 'تحديث رقم المستخدم عبر النموذج العام'
+      : 'إدخال رقم المستخدم عبر النموذج العام',
+    actor_id: null,
+    actor_email: 'reg_form@self',
+  });
+
+  return { error: null };
+}
+
 export async function pledgeApplicant(
   applicantId: string,
   previousStatus: string

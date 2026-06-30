@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { AlertTriangle, Plus, Search } from 'lucide-react';
@@ -35,7 +37,7 @@ export default function ViolationsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useUrlMultiFilter('type');
 
   const [form, setForm] = useState({
     student_id: '', violation_type: '', description: '', action_taken: '', violation_date: new Date().toISOString().split('T')[0], notes: '', recorded_by: '',
@@ -57,7 +59,7 @@ export default function ViolationsPage() {
   const filtered = useMemo(() => {
     return violations.filter(v => {
       if (search && !v.students?.full_name?.includes(search) && !v.description?.includes(search)) return false;
-      if (filterType !== 'all' && v.violation_type !== filterType) return false;
+      if (filterType.length > 0 && !filterType.includes(v.violation_type)) return false;
       return true;
     });
   }, [violations, search, filterType]);
@@ -177,11 +179,11 @@ export default function ViolationsPage() {
                 <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <SearchableSelect
+            <MultiSearchableSelect
               className="w-[180px]"
-              options={[{ value: 'all', label: 'كل الأنواع' }, ...violationTypes.map(t => ({ value: t, label: t }))]}
-              value={filterType}
-              onValueChange={v => setFilterType(v || 'all')}
+              options={violationTypes.map(t => ({ value: t, label: t }))}
+              values={filterType}
+              onValuesChange={setFilterType}
               placeholder="كل الأنواع"
               searchPlaceholder="ابحث..."
             />

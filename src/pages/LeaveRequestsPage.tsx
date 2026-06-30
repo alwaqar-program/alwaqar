@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { DoorOpen, Plus, Search, Check, X } from 'lucide-react';
@@ -36,8 +38,8 @@ export default function LeaveRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useUrlMultiFilter('status');
+  const [filterType, setFilterType] = useUrlMultiFilter('type');
 
   const [form, setForm] = useState({
     student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '',
@@ -59,8 +61,8 @@ export default function LeaveRequestsPage() {
   const filtered = useMemo(() => {
     return requests.filter(r => {
       if (search && !r.students?.full_name?.includes(search) && !r.reason?.includes(search)) return false;
-      if (filterStatus !== 'all' && r.status !== filterStatus) return false;
-      if (filterType !== 'all' && r.leave_type !== filterType) return false;
+      if (filterStatus.length > 0 && !filterStatus.includes(r.status)) return false;
+      if (filterType.length > 0 && !filterType.includes(r.leave_type)) return false;
       return true;
     });
   }, [requests, search, filterStatus, filterType]);
@@ -190,24 +192,23 @@ export default function LeaveRequestsPage() {
                 <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <SearchableSelect
+            <MultiSearchableSelect
               className="w-[160px]"
-              options={[{ value: 'all', label: 'كل الأنواع' }, ...leaveTypes.map(t => ({ value: t, label: t }))]}
-              value={filterType}
-              onValueChange={v => setFilterType(v || 'all')}
+              options={leaveTypes.map(t => ({ value: t, label: t }))}
+              values={filterType}
+              onValuesChange={setFilterType}
               placeholder="كل الأنواع"
               searchPlaceholder="ابحث..."
             />
-            <SearchableSelect
+            <MultiSearchableSelect
               className="w-[150px]"
               options={[
-                { value: 'all', label: 'كل الحالات' },
                 { value: 'pending', label: 'قيد الانتظار' },
                 { value: 'approved', label: 'مقبول' },
                 { value: 'rejected', label: 'مرفوض' },
               ]}
-              value={filterStatus}
-              onValueChange={v => setFilterStatus(v || 'all')}
+              values={filterStatus}
+              onValuesChange={setFilterStatus}
               placeholder="كل الحالات"
               searchPlaceholder="ابحث..."
             />

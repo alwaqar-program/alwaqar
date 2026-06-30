@@ -24,6 +24,7 @@ import LeaveRequestsPage from "./pages/LeaveRequestsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
 import ApplicantProfilePage from "./pages/ApplicantProfilePage";
 import PledgePage from "./pages/PledgePage";
+import RegNumberPage from "./pages/RegNumberPage";
 import RoommatesPage from "./pages/RoommatesPage";
 import SupervisorRegistrationPage from "./pages/SupervisorRegistrationPage";
 import PaymentPage from "./pages/PaymentPage";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/pledge" element={<PledgePage />} />
+            <Route path="/reg-number" element={<RegNumberPage />} />
             <Route path="/roommates" element={<RoommatesPage />} />
             <Route path="/supervisor-registration" element={<SupervisorRegistrationPage />} />
             <Route path="/payment" element={<PaymentPage />} />

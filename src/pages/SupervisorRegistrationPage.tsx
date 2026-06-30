@@ -11,6 +11,7 @@ import logoImg from '@/assets/logo.png';
 
 const EMPTY_FORM = {
   fullName: '',
+  title: '',
   nationalId: '',
   phone: '',
   email: '',
@@ -41,6 +42,7 @@ export default function SupervisorRegistrationPage() {
   function validate(): boolean {
     const e: Record<string, string> = {};
     if (!form.fullName.trim()) e.fullName = 'الاسم مطلوب';
+    if (!form.title.trim()) e.title = 'المسمى الوظيفي مطلوب';
     if (!form.nationalId.trim()) e.nationalId = 'رقم الهوية مطلوب';
     else if (form.nationalId.trim().length !== 10) e.nationalId = 'رقم الهوية يجب أن يكون 10 أرقام';
     if (!form.phone.trim()) e.phone = 'رقم الجوال مطلوب';
@@ -58,6 +60,7 @@ export default function SupervisorRegistrationPage() {
     setSubmitting(true);
     const { error } = await registerSupervisor({
       fullName: form.fullName,
+      title: form.title,
       nationalId: form.nationalId,
       phone: form.phone,
       email: form.email,
@@ -108,7 +111,7 @@ export default function SupervisorRegistrationPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="full_name">الاسم{errors.fullName && <span className="text-destructive"> *</span>}</Label>
+                    <Label htmlFor="full_name">الاسم الرباعي{errors.fullName && <span className="text-destructive"> *</span>}</Label>
                     <Input
                       id="full_name"
                       value={form.fullName}
@@ -116,6 +119,16 @@ export default function SupervisorRegistrationPage() {
                       autoFocus
                     />
                     {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">المسمى الوظيفي{errors.title && <span className="text-destructive"> *</span>}</Label>
+                    <Input
+                      id="title"
+                      value={form.title}
+                      onChange={(e) => set('title', e.target.value)}
+                      placeholder="مثال: مشرفة سكن"
+                    />
+                    {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="national_id">رقم الهوية{errors.nationalId && <span className="text-destructive"> *</span>}</Label>

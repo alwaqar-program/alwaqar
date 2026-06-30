@@ -13,9 +13,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
@@ -23,14 +20,13 @@ import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
-// Arabic labels for the staff title (role). Registrations arrive unassigned
-// (null), and an admin picks a role here. More roles can be added later.
+// Arabic labels kept only to display any legacy rows that still carry one of
+// the old fixed role keys. New titles are entered as free text.
 const TITLE_AR: Record<string, string> = {
   housing_supervisor: 'مشرفة سكن',
   student_affairs: 'شؤون طالبات',
   admin_staff: 'إدارية',
 };
-const UNASSIGNED = 'none';
 
 const staffCsvColumns: CsvColumnDef[] = [
   { key: 'staff_name', header: 'الاسم الكامل' },
@@ -116,7 +112,9 @@ export default function StaffPage() {
   const handleSave = async () => {
     const payload = {
       staff_name: form.staff_name,
-      title: form.title || null,
+      // `title` is NOT NULL in the DB; keep an empty title as '' (renders as
+      // "غير محدد") rather than null.
+      title: form.title.trim(),
       national_id: form.national_id || null,
       phone: form.phone || null,
       email: form.email || null,
@@ -161,16 +159,11 @@ export default function StaffPage() {
             </div>
             <div className="space-y-2">
               <Label>المسمى الوظيفي</Label>
-              <Select
-                value={form.title || UNASSIGNED}
-                onValueChange={v => setForm(f => ({ ...f, title: v === UNASSIGNED ? '' : v }))}
-              >
-                <SelectTrigger><SelectValue placeholder="غير محدد" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED}>غير محدد</SelectItem>
-                  {Object.entries(TITLE_AR).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="مثال: مشرفة سكن"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

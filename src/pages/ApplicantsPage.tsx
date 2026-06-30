@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, Search, UserPlus, Filter, Pencil, Trash2, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Badge } from '@/components/ui/badge';
-import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -41,6 +42,7 @@ const APPLICANT_CSV_COLUMNS: CsvColumnDef[] = [
   { key: 'submission_number', header: 'رقم الطلب' },
   { key: 'full_name', header: 'الاسم الرباعي' },
   { key: 'national_id', header: 'رقم الهوية' },
+  { key: 'registration_number', header: 'رقم المستخدم' },
   { key: 'nationality', header: 'الجنسية' },
   { key: 'date_of_birth', header: 'تاريخ الميلاد' },
   { key: 'age', header: 'العمر' },
@@ -95,10 +97,11 @@ export default function ApplicantsPage() {
   // restores the exact filtered view — and therefore its saved scroll
   // position, since the scroll key is derived from the URL.
   const search = searchParams.get('q') ?? '';
-  const statusFilter = (searchParams.get('status') as ApplicantStatus | 'all') || 'all';
-  const ageFilter = (searchParams.get('age') as AgeCategory | 'all') || 'all';
-  const branchFilter = (searchParams.get('branch') as Branch | 'all') || 'all';
-  const paymentFilter = (searchParams.get('pay') as PaymentState | 'all') || 'all';
+  const [statusValues, setStatusValues] = useUrlMultiFilter('status');
+  const [ageValues, setAgeValues] = useUrlMultiFilter('age');
+  const [branchValues, setBranchValues] = useUrlMultiFilter('branch');
+  const [payValues, setPayValues] = useUrlMultiFilter('pay');
+  const [regValues, setRegValues] = useUrlMultiFilter('reg');
 
   // Update one filter param and reset back to the first page. Uses `replace`
   // so typing/filtering doesn't flood the browser history (a single Back
@@ -113,10 +116,6 @@ export default function ApplicantsPage() {
     }, { replace: true });
   };
   const setSearch = (v: string) => setFilterParam('q', v);
-  const setStatusFilter = (v: ApplicantStatus | 'all') => setFilterParam('status', v);
-  const setAgeFilter = (v: AgeCategory | 'all') => setFilterParam('age', v);
-  const setBranchFilter = (v: Branch | 'all') => setFilterParam('branch', v);
-  const setPaymentFilter = (v: PaymentState | 'all') => setFilterParam('pay', v);
 
   // Dialog state
   const [addOpen, setAddOpen] = useState(false);
@@ -171,11 +170,15 @@ export default function ApplicantsPage() {
     return data
       .filter((r) => {
         // Hide deleted unless filter explicitly selects them
-        if (statusFilter === 'all' && r.status === 'deleted') return false;
-        if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-        if (ageFilter !== 'all' && r.age_category !== ageFilter) return false;
-        if (branchFilter !== 'all' && r.desired_branch !== branchFilter) return false;
-        if (paymentFilter !== 'all' && getPaymentState(r) !== paymentFilter) return false;
+        if (statusValues.length === 0 && r.status === 'deleted') return false;
+        if (statusValues.length > 0 && !statusValues.includes(r.status)) return false;
+        if (ageValues.length > 0 && !ageValues.includes(r.age_category ?? '')) return false;
+        if (branchValues.length > 0 && !branchValues.includes(r.desired_branch ?? '')) return false;
+        if (payValues.length > 0 && !payValues.includes(getPaymentState(r))) return false;
+        if (regValues.length > 0) {
+          const hasReg = !!r.registration_number && r.registration_number.trim() !== '';
+          if (!regValues.includes(hasReg ? 'filled' : 'empty')) return false;
+        }
         if (search) {
           const q = search.trim().toLowerCase();
           const hay = `${r.full_name || ''} ${r.national_id || ''} ${r.phone || ''}`.toLowerCase();
@@ -192,7 +195,7 @@ export default function ApplicantsPage() {
         if (!bn) return -1;
         return arabicCollator.compare(an, bn);
       });
-  }, [data, search, statusFilter, ageFilter, branchFilter, paymentFilter]);
+  }, [data, search, statusValues, ageValues, branchValues, payValues, regValues]);
 
   // Column sorting (URL-persisted). When no column is chosen the default
   // Arabic-name order from `filtered` is kept.
@@ -202,6 +205,7 @@ export default function ApplicantsPage() {
     const accessors: Record<string, (r: Applicant) => unknown> = {
       name: (r) => r.full_name,
       national_id: (r) => r.national_id,
+      reg: (r) => r.registration_number,
       phone: (r) => r.phone,
       city: (r) => r.city,
       age: (r) => r.age,
@@ -261,8 +265,8 @@ export default function ApplicantsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-            <div className="relative lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-56 shrink-0">
               <Search
                 size={16}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
@@ -275,59 +279,61 @@ export default function ApplicantsPage() {
               />
             </div>
 
-            <SearchableSelect
-              options={[
-                { value: 'all', label: 'جميع الحالات (عدا المحذوفة)' },
-                ...Object.entries(STATUS_AR)
-                  .filter(([k]) => presentStatuses.has(k as ApplicantStatus) || statusFilter === k)
-                  .map(([k, v]) => ({ value: k, label: v as string })),
-              ]}
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter((v || 'all') as ApplicantStatus | 'all')}
-              placeholder="الحالة"
+            <MultiSearchableSelect
+              className="w-[160px]"
+              options={Object.entries(STATUS_AR)
+                .filter(([k]) => presentStatuses.has(k as ApplicantStatus) || statusValues.includes(k))
+                .map(([k, v]) => ({ value: k, label: v as string }))}
+              values={statusValues}
+              onValuesChange={setStatusValues}
+              placeholder="كل الحالات"
               searchPlaceholder="ابحث..."
             />
 
-            <div className="grid grid-cols-3 gap-2">
-              <SearchableSelect
-                options={[
-                  { value: 'all', label: 'كل الأعمار' },
-                  ...Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string })),
-                ]}
-                value={ageFilter}
-                onValueChange={(v) => setAgeFilter((v || 'all') as AgeCategory | 'all')}
-                placeholder="الفئة العمرية"
-                searchPlaceholder="ابحث..."
-              />
+            <MultiSearchableSelect
+              className="w-[140px]"
+              options={Object.entries(AGE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={ageValues}
+              onValuesChange={setAgeValues}
+              placeholder="كل الأعمار"
+              searchPlaceholder="ابحث..."
+            />
 
-              <SearchableSelect
-                options={[
-                  { value: 'all', label: 'كل الفروع' },
-                  ...Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string })),
-                ]}
-                value={branchFilter}
-                onValueChange={(v) => setBranchFilter((v || 'all') as Branch | 'all')}
-                placeholder="الفرع"
-                searchPlaceholder="ابحث..."
-              />
+            <MultiSearchableSelect
+              className="w-[130px]"
+              options={Object.entries(BRANCH_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={branchValues}
+              onValuesChange={setBranchValues}
+              placeholder="كل الفروع"
+              searchPlaceholder="ابحث..."
+            />
 
-              <SearchableSelect
-                options={[
-                  { value: 'all', label: 'كل حالات السداد' },
-                  ...Object.entries(PAYMENT_STATE_AR).map(([k, v]) => ({ value: k, label: v as string })),
-                ]}
-                value={paymentFilter}
-                onValueChange={(v) => setPaymentFilter((v || 'all') as PaymentState | 'all')}
-                placeholder="السداد"
-                searchPlaceholder="ابحث..."
-              />
-            </div>
+            <MultiSearchableSelect
+              className="w-[160px]"
+              options={Object.entries(PAYMENT_STATE_AR).map(([k, v]) => ({ value: k, label: v as string }))}
+              values={payValues}
+              onValuesChange={setPayValues}
+              placeholder="كل حالات السداد"
+              searchPlaceholder="ابحث..."
+            />
+
+            <MultiSearchableSelect
+              className="w-[170px]"
+              options={[
+                { value: 'filled', label: 'أدخلت رقم المستخدم' },
+                { value: 'empty', label: 'لم تُدخل رقم المستخدم' },
+              ]}
+              values={regValues}
+              onValuesChange={setRegValues}
+              placeholder="رقم المستخدم"
+              searchPlaceholder="ابحث..."
+            />
           </div>
 
           <div className="text-xs text-muted-foreground mt-3 flex items-center gap-2 flex-wrap">
             <Filter size={12} />
             عرض {filtered.length} من إجمالي {data.length}
-            {deletedCount > 0 && statusFilter === 'all' && (
+            {deletedCount > 0 && statusValues.length === 0 && (
               <span className="text-rose-600">
                 ({deletedCount} محذوفة مخفية — استخدم فلتر الحالة لإظهارها)
               </span>
@@ -354,6 +360,7 @@ export default function ApplicantsPage() {
                         <>
                           <SortableHead label="الاسم" sortKey="name" {...sp} />
                           <SortableHead label="الهوية" sortKey="national_id" {...sp} />
+                          <SortableHead label="رقم المستخدم" sortKey="reg" {...sp} />
                           <SortableHead label="الجوال" sortKey="phone" {...sp} />
                           <SortableHead label="المدينة" sortKey="city" {...sp} />
                           <SortableHead label="الفئة العمرية" sortKey="age" {...sp} />
@@ -377,6 +384,7 @@ export default function ApplicantsPage() {
                     >
                       <TableCell className="font-medium">{r.full_name || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.national_id || '—'}</TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">{r.registration_number || '—'}</TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">{r.phone || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{r.city || '—'}</TableCell>
                       <TableCell>

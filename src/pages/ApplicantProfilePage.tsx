@@ -180,6 +180,7 @@ export default function ApplicantProfilePage() {
         <Section title="الهوية الشخصية">
           <Field label="الجنسية" value={data.nationality} />
           <Field label="الهوية الوطنية" value={data.national_id} mono />
+          <Field label="رقم المستخدم" value={data.registration_number} mono />
           <Field label="تاريخ الميلاد" value={data.date_of_birth} mono />
           <Field label="العمر" value={data.age?.toString()} mono />
           <Field label="الفئة العمرية" value={data.age_category && AGE_AR[data.age_category]} />

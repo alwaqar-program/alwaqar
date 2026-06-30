@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { FileSignature, Plus, Search } from 'lucide-react';
@@ -34,8 +36,8 @@ export default function PledgesPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterSigned, setFilterSigned] = useState('all');
+  const [filterType, setFilterType] = useUrlMultiFilter('type');
+  const [filterSigned, setFilterSigned] = useUrlMultiFilter('signed');
 
   const [form, setForm] = useState({
     student_id: '', pledge_type: '', pledge_text: '', signed: false, signed_date: '', notes: '', created_by: '',
@@ -57,9 +59,8 @@ export default function PledgesPage() {
   const filtered = useMemo(() => {
     return pledges.filter(p => {
       if (search && !p.students?.full_name?.includes(search) && !p.pledge_type?.includes(search)) return false;
-      if (filterType !== 'all' && p.pledge_type !== filterType) return false;
-      if (filterSigned === 'signed' && !p.signed) return false;
-      if (filterSigned === 'unsigned' && p.signed) return false;
+      if (filterType.length > 0 && !filterType.includes(p.pledge_type)) return false;
+      if (filterSigned.length > 0 && !filterSigned.includes(p.signed ? 'signed' : 'unsigned')) return false;
       return true;
     });
   }, [pledges, search, filterType, filterSigned]);
@@ -177,23 +178,22 @@ export default function PledgesPage() {
                 <Input placeholder="بحث بالاسم أو النوع..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
               </div>
             </div>
-            <SearchableSelect
+            <MultiSearchableSelect
               className="w-[180px]"
-              options={[{ value: 'all', label: 'كل الأنواع' }, ...pledgeTypes.map(t => ({ value: t, label: t }))]}
-              value={filterType}
-              onValueChange={v => setFilterType(v || 'all')}
+              options={pledgeTypes.map(t => ({ value: t, label: t }))}
+              values={filterType}
+              onValuesChange={setFilterType}
               placeholder="كل الأنواع"
               searchPlaceholder="ابحث..."
             />
-            <SearchableSelect
+            <MultiSearchableSelect
               className="w-[150px]"
               options={[
-                { value: 'all', label: 'الكل' },
                 { value: 'signed', label: 'موقّع' },
                 { value: 'unsigned', label: 'غير موقّع' },
               ]}
-              value={filterSigned}
-              onValueChange={v => setFilterSigned(v || 'all')}
+              values={filterSigned}
+              onValuesChange={setFilterSigned}
               placeholder="الكل"
               searchPlaceholder="ابحث..."
             />

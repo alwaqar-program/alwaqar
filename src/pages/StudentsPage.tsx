@@ -21,6 +21,8 @@ import {
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
+import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
@@ -87,10 +89,10 @@ export default function StudentsPage() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCircle, setFilterCircle] = useState('');
-  const [filterBranch, setFilterBranch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterHousing, setFilterHousing] = useState('');
+  const [filterCircle, setFilterCircle] = useUrlMultiFilter('circle');
+  const [filterBranch, setFilterBranch] = useUrlMultiFilter('branch');
+  const [filterStatus, setFilterStatus] = useUrlMultiFilter('status');
+  const [filterHousing, setFilterHousing] = useUrlMultiFilter('housing');
 
   const [form, setForm] = useState({
     full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal',
@@ -117,22 +119,27 @@ export default function StudentsPage() {
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       if (searchQuery && !s.full_name.includes(searchQuery) && !s.national_id?.includes(searchQuery) && !s.phone?.includes(searchQuery)) return false;
-      if (filterCircle && s.circle_id !== filterCircle) return false;
-      if (filterBranch && s.circles?.branches?.id !== filterBranch) return false;
-      if (filterStatus && s.admission_status !== filterStatus) return false;
-      if (filterHousing && s.housing_type !== filterHousing) return false;
+      if (filterCircle.length > 0 && !filterCircle.includes(s.circle_id ?? '')) return false;
+      if (filterBranch.length > 0 && !filterBranch.includes(s.circles?.branches?.id ?? '')) return false;
+      if (filterStatus.length > 0 && !filterStatus.includes(s.admission_status ?? '')) return false;
+      if (filterHousing.length > 0 && !filterHousing.includes(s.housing_type ?? '')) return false;
       return true;
     });
   }, [students, searchQuery, filterCircle, filterBranch, filterStatus, filterHousing]);
 
-  const hasActiveFilters = searchQuery || filterCircle || filterBranch || filterStatus || filterHousing;
+  const hasActiveFilters =
+    !!searchQuery ||
+    filterCircle.length > 0 ||
+    filterBranch.length > 0 ||
+    filterStatus.length > 0 ||
+    filterHousing.length > 0;
 
   const clearFilters = () => {
     setSearchQuery('');
-    setFilterCircle('');
-    setFilterBranch('');
-    setFilterStatus('');
-    setFilterHousing('');
+    setFilterCircle([]);
+    setFilterBranch([]);
+    setFilterStatus([]);
+    setFilterHousing([]);
   };
 
   const openCreate = () => {
@@ -326,37 +333,33 @@ export default function StudentsPage() {
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <SearchableSelect
+            <MultiSearchableSelect
               options={branchOptions}
-              value={filterBranch}
-              onValueChange={setFilterBranch}
+              values={filterBranch}
+              onValuesChange={setFilterBranch}
               placeholder="كل الفروع"
               searchPlaceholder="ابحث عن فرع..."
-              allowClear
             />
-            <SearchableSelect
+            <MultiSearchableSelect
               options={circleOptions}
-              value={filterCircle}
-              onValueChange={setFilterCircle}
+              values={filterCircle}
+              onValuesChange={setFilterCircle}
               placeholder="كل الحلقات"
               searchPlaceholder="ابحث عن حلقة..."
-              allowClear
             />
-            <SearchableSelect
+            <MultiSearchableSelect
               options={statusOptions}
-              value={filterStatus}
-              onValueChange={setFilterStatus}
+              values={filterStatus}
+              onValuesChange={setFilterStatus}
               placeholder="كل الحالات"
               searchPlaceholder="ابحث عن حالة..."
-              allowClear
             />
-            <SearchableSelect
+            <MultiSearchableSelect
               options={[{ value: 'internal', label: 'داخلي' }, { value: 'external', label: 'خارجي' }]}
-              value={filterHousing}
-              onValueChange={setFilterHousing}
+              values={filterHousing}
+              onValuesChange={setFilterHousing}
               placeholder="كل أنواع السكن"
               searchPlaceholder="ابحث..."
-              allowClear
             />
           </div>
         </CardContent>
