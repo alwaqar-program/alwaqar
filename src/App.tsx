@@ -34,6 +34,7 @@ import TeacherRecitationPage from "./pages/teacher/TeacherRecitationPage";
 import TeacherAttendancePage from "./pages/teacher/TeacherAttendancePage";
 import TeacherExamPage from "./pages/teacher/TeacherExamPage";
 import PublicRecitationPage from "./pages/PublicRecitationPage";
+import PublicAttendancePage from "./pages/PublicAttendancePage";
 import InterviewCommitteePage from "./pages/InterviewCommitteePage";
 import CommitteeMemberProfilePage from "./pages/CommitteeMemberProfilePage";
 import InterviewsListPage from "./pages/InterviewsListPage";
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/teacher/attendance" element={<TeacherAttendancePage />} />
             <Route path="/teacher/exam" element={<TeacherExamPage />} />
             <Route path="/recite" element={<PublicRecitationPage />} />
+            <Route path="/attend" element={<PublicAttendancePage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
             <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />

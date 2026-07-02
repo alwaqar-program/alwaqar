@@ -23,7 +23,7 @@ const lateReasons = [
 
 interface Entry { status: string; late_reason: string; late_reason_other: string; }
 
-function AttendanceForm({ session }: { session: TeacherSession }) {
+export function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
