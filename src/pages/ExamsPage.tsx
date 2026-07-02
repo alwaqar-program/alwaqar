@@ -16,6 +16,7 @@ import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { FileCheck, Plus, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CsvActions } from '@/components/CsvActions';
@@ -219,6 +220,20 @@ export default function ExamsPage() {
   }, [students, exams, coverageCircle, circles]);
   const missingCount = (t: string) => coverage.filter(r => !r.types[t]).length;
 
+  // Pagination — coverage tab and log tab paginate independently.
+  const PAGE_SIZE = 25;
+  const [covPage, setCovPage] = useState(1);
+  const covPageCount = Math.max(1, Math.ceil(coverage.length / PAGE_SIZE));
+  const covSafePage = Math.min(covPage, covPageCount);
+  useEffect(() => { setCovPage(1); }, [coverageCircle]);
+  const pagedCoverage = coverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
+
+  const [logPage, setLogPage] = useState(1);
+  const logPageCount = Math.max(1, Math.ceil(sortedExams.length / PAGE_SIZE));
+  const logSafePage = Math.min(logPage, logPageCount);
+  useEffect(() => { setLogPage(1); }, [sortKey, sortDir]);
+  const pagedExams = sortedExams.slice((logSafePage - 1) * PAGE_SIZE, logSafePage * PAGE_SIZE);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -344,7 +359,7 @@ export default function ExamsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {coverage.map(r => (
+                  {pagedCoverage.map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell>{r.circle_name}</TableCell>
@@ -367,6 +382,7 @@ export default function ExamsPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination page={covSafePage} pageSize={PAGE_SIZE} total={coverage.length} onPageChange={setCovPage} />
             </Card>
           </TabsContent>
 
@@ -393,7 +409,7 @@ export default function ExamsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedExams.map(e => (
+                    {pagedExams.map(e => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.students?.full_name}</TableCell>
                         <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
@@ -409,6 +425,7 @@ export default function ExamsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <TablePagination page={logSafePage} pageSize={PAGE_SIZE} total={sortedExams.length} onPageChange={setLogPage} />
               </Card>
             )}
           </TabsContent>

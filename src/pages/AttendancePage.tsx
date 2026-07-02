@@ -14,6 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { ClipboardCheck, Save, Download, Plus } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
@@ -131,6 +132,14 @@ export default function AttendancePage() {
     });
     return c;
   }, [overview]);
+
+  // Pagination for the overview table.
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, search]);
+  const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog logic -----
   const entryStudents = useMemo(
@@ -269,7 +278,7 @@ export default function AttendancePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {overview.map(r => (
+              {pagedOverview.map(r => (
                 <TableRow key={r.id} className={!r.status ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">{r.full_name}</TableCell>
                   <TableCell>{r.circle_name}</TableCell>
@@ -284,6 +293,7 @@ export default function AttendancePage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination page={safePage} pageSize={PAGE_SIZE} total={overview.length} onPageChange={setPage} />
         </Card>
       )}
 
