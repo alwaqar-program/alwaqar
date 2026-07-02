@@ -12,16 +12,15 @@ import { AlertCircle, FileCheck } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 
 const examTypes: Record<string, string> = { weekly_1: 'الأسبوع الأول', weekly_2: 'الأسبوع الثاني', final: 'النهائي' };
-const examConfig: Record<string, { max: number; sections: number }> = {
-  weekly_1: { max: 20, sections: 2 }, weekly_2: { max: 20, sections: 2 }, final: { max: 40, sections: 4 },
-};
+// الإدخال لكل الاختبارات: عدد الأخطاء + عدد اللحون (كلٌّ يخصم ربع درجة).
+// تُخزَّن الأخطاء في errors_section_1 واللحون في errors_section_2.
 // الدرجة تُحسب في قاعدة البيانات وتظهر للمشرفات فقط — لا تُعرض للمعلمة هنا.
 
 function ExamForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   const { circle, students, loadingStudents, teacher } = session;
 
-  const empty = { student_id: '', exam_type: 'weekly_1', e1: 0, e2: 0, e3: 0, e4: 0, changes: 0 };
+  const empty = { student_id: '', exam_type: 'weekly_1', errors: 0, lahn: 0, changes: 0 };
   const [form, setForm] = useState(empty);
   const [existing, setExisting] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -33,7 +32,6 @@ function ExamForm({ session }: { session: TeacherSession }) {
       .then(({ data }) => setExisting(new Set((data || []).map(e => `${e.student_id}-${e.exam_type}`))));
   }, [students]);
 
-  const cfg = examConfig[form.exam_type];
   const isDup = !!form.student_id && existing.has(`${form.student_id}-${form.exam_type}`);
 
   const save = async () => {
@@ -42,9 +40,10 @@ function ExamForm({ session }: { session: TeacherSession }) {
     setSaving(true);
     const { error } = await supabase.from('exams').insert({
       student_id: form.student_id, exam_type: form.exam_type,
-      errors_section_1: form.e1, errors_section_2: form.e2,
-      errors_section_3: cfg.sections >= 3 ? form.e3 : 0,
-      errors_section_4: cfg.sections >= 4 ? form.e4 : 0,
+      errors_section_1: form.errors, // عدد الأخطاء
+      errors_section_2: form.lahn,   // عدد اللحون (يخصم ربع درجة مثل الخطأ)
+      errors_section_3: 0,
+      errors_section_4: 0,
       segment_changes: form.changes, examiner_name: teacher.teacher_name,
       // total_errors, total_score, max_score are computed by the database
     });
@@ -76,7 +75,7 @@ function ExamForm({ session }: { session: TeacherSession }) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">نوع الاختبار</Label>
-          <SearchableSelect options={Object.keys(examConfig).map(k => ({ value: k, label: examTypes[k] }))}
+          <SearchableSelect options={Object.keys(examTypes).map(k => ({ value: k, label: examTypes[k] }))}
             value={form.exam_type} onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}
             placeholder="النوع" searchPlaceholder="ابحث…" />
         </div>
@@ -85,15 +84,11 @@ function ExamForm({ session }: { session: TeacherSession }) {
             <AlertCircle size={16} /> سجّلت هذه الطالبة هذا الاختبار مسبقاً
           </div>
         )}
-        <div className={`grid gap-3 ${cfg.sections >= 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-          <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 1</Label>
-            <Input type="number" min={0} value={form.e1} onChange={e => setForm(f => ({ ...f, e1: parseInt(e.target.value) || 0 }))} /></div>
-          <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 2</Label>
-            <Input type="number" min={0} value={form.e2} onChange={e => setForm(f => ({ ...f, e2: parseInt(e.target.value) || 0 }))} /></div>
-          {cfg.sections >= 3 && <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 3</Label>
-            <Input type="number" min={0} value={form.e3} onChange={e => setForm(f => ({ ...f, e3: parseInt(e.target.value) || 0 }))} /></div>}
-          {cfg.sections >= 4 && <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 4</Label>
-            <Input type="number" min={0} value={form.e4} onChange={e => setForm(f => ({ ...f, e4: parseInt(e.target.value) || 0 }))} /></div>}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5"><Label className="text-xs">عدد الأخطاء</Label>
+            <Input type="number" min={0} value={form.errors} onChange={e => setForm(f => ({ ...f, errors: parseInt(e.target.value) || 0 }))} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">عدد اللحون</Label>
+            <Input type="number" min={0} value={form.lahn} onChange={e => setForm(f => ({ ...f, lahn: parseInt(e.target.value) || 0 }))} /></div>
         </div>
         {/* تغيير المقطع مسموح مرة واحدة فقط */}
         <label className="flex items-center gap-2 text-sm">

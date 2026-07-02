@@ -83,13 +83,12 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true);
   const [existingExams, setExistingExams] = useState<Set<string>>(new Set());
 
+  // errors_section_1 = عدد الأخطاء، errors_section_2 = عدد اللحون (كلٌّ يخصم ربع درجة)
   const emptyForm = {
     student_id: '',
     exam_type: 'weekly_1' as string,
     errors_section_1: 0,
     errors_section_2: 0,
-    errors_section_3: 0,
-    errors_section_4: 0,
     segment_changes: 0,
     examiner_name: '',
   };
@@ -136,11 +135,7 @@ export default function ExamsPage() {
   }, [form.student_id, form.exam_type, existingExams]);
 
   const cfg = examConfig[form.exam_type] ?? { max: 100, sections: 3 };
-  const totalErrors =
-    form.errors_section_1 +
-    form.errors_section_2 +
-    (cfg.sections >= 3 ? form.errors_section_3 : 0) +
-    (cfg.sections >= 4 ? form.errors_section_4 : 0);
+  const totalErrors = form.errors_section_1 + form.errors_section_2; // أخطاء + لحون
   const totalScore = examScore(cfg.max, totalErrors, form.segment_changes);
 
   // Colour by ratio of score to its max (so /20 and /40 scale the same).
@@ -166,10 +161,10 @@ export default function ExamsPage() {
     const { error } = await supabase.from('exams').insert({
       student_id: form.student_id,
       exam_type: form.exam_type,
-      errors_section_1: form.errors_section_1,
-      errors_section_2: form.errors_section_2,
-      errors_section_3: cfg.sections >= 3 ? form.errors_section_3 : 0,
-      errors_section_4: cfg.sections >= 4 ? form.errors_section_4 : 0,
+      errors_section_1: form.errors_section_1, // عدد الأخطاء
+      errors_section_2: form.errors_section_2, // عدد اللحون
+      errors_section_3: 0,
+      errors_section_4: 0,
       segment_changes: form.segment_changes,
       examiner_name: form.examiner_name || null,
       // total_errors, total_score, max_score are computed by the database.
@@ -240,27 +235,15 @@ export default function ExamsPage() {
               </div>
             )}
 
-            <div className={`grid gap-3 ${cfg.sections >= 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs">أخطاء المقطع 1</Label>
+                <Label className="text-xs">عدد الأخطاء</Label>
                 <Input type="number" min={0} value={form.errors_section_1} onChange={e => setForm(f => ({ ...f, errors_section_1: parseInt(e.target.value) || 0 }))} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">أخطاء المقطع 2</Label>
+                <Label className="text-xs">عدد اللحون</Label>
                 <Input type="number" min={0} value={form.errors_section_2} onChange={e => setForm(f => ({ ...f, errors_section_2: parseInt(e.target.value) || 0 }))} />
               </div>
-              {cfg.sections >= 3 && (
-                <div className="space-y-2">
-                  <Label className="text-xs">أخطاء المقطع 3</Label>
-                  <Input type="number" min={0} value={form.errors_section_3} onChange={e => setForm(f => ({ ...f, errors_section_3: parseInt(e.target.value) || 0 }))} />
-                </div>
-              )}
-              {cfg.sections >= 4 && (
-                <div className="space-y-2">
-                  <Label className="text-xs">أخطاء المقطع 4</Label>
-                  <Input type="number" min={0} value={form.errors_section_4} onChange={e => setForm(f => ({ ...f, errors_section_4: parseInt(e.target.value) || 0 }))} />
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -272,7 +255,7 @@ export default function ExamsPage() {
 
             <div className="bg-muted/50 p-3 rounded-lg grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-muted-foreground">مجموع الأخطاء:</span>
+                <span className="text-muted-foreground">مجموع الأخطاء واللحون:</span>
                 <span className="font-bold mr-2">{totalErrors}</span>
               </div>
               <div>
