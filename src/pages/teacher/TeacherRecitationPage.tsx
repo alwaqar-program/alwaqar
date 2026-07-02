@@ -215,9 +215,10 @@ function RecitationForm({ session }: { session: TeacherSession }) {
             )}
             {/* الحصيلة والدرجة والتقدير تُحسب وتُحفظ في النظام وتظهر للمشرفات فقط */}
             <div className="flex flex-wrap items-center gap-4">
-              <label className="flex items-center gap-2 text-sm"><Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة</label>
-              <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت</label>
-              <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ</label>
+              {/* نفس مسميات الصفحة الإدارية */}
+              <label className="flex items-center gap-2 text-sm"><Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة خارج النصاب</label>
+              <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت (سرد ذاتي)</label>
+              <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ (سرد على شخص)</label>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">عدد الأخطاء</Label>
