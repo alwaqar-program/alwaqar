@@ -23,10 +23,8 @@ interface TodayRec { student_id: string; period: string; to_page: number | null;
 
 function RecitationForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
-  const { circle, period, students, loadingStudents, teacher } = session;
-  const today = new Date().toISOString().split('T')[0];
-  // تاريخ التسميع — افتراضياً اليوم، ويمكن للمعلمة اختيار يوم آخر.
-  const [date, setDate] = useState(today);
+  // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
+  const { circle, period, date, students, loadingStudents, teacher } = session;
 
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [branchJuz, setBranchJuz] = useState<number[]>([]);
@@ -135,19 +133,6 @@ function RecitationForm({ session }: { session: TeacherSession }) {
 
   return (
     <>
-      {/* تاريخ التسميع ظاهر دائماً أعلى الصفحة — يمكن رصد يوم سابق */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="space-y-1.5 max-w-xs">
-            <Label className="text-xs">تاريخ التسميع</Label>
-            <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
-          </div>
-          {date !== today && (
-            <p className="text-xs text-warning mt-2">تنبيه: تسجّلين على يوم سابق ({date})</p>
-          )}
-        </CardContent>
-      </Card>
-
       {branchJuz.length > 0 && (
         <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <strong>نصاب الفرع:</strong> الأجزاء {[...branchJuz].sort((a, b) => a - b).join('، ')}
@@ -234,7 +219,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
 
 export default function TeacherRecitationPage() {
   return (
-    <TeacherGate title="تسجيل التسميع" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك" needsPeriod>
+    <TeacherGate title="تسجيل التسميع" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك" needsPeriod dateLabel="تاريخ التسميع">
       {session => <RecitationForm session={session} />}
     </TeacherGate>
   );

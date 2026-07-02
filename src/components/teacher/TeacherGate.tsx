@@ -16,6 +16,8 @@ export interface TeacherSession {
   teacher: TeacherInfo;
   circle: TeacherCircle;
   period: Period;
+  /** التاريخ المختار في الترويسة (افتراضياً اليوم). */
+  date: string;
   students: StudentLite[];
   loadingStudents: boolean;
   reloadStudents: () => Promise<void>;
@@ -26,10 +28,12 @@ interface Props {
   subtitle?: string;
   /** Show the morning/evening toggle (recitation & attendance need it; exams don't). */
   needsPeriod?: boolean;
+  /** Label of the compact date field in the header (e.g. "تاريخ التسميع"). */
+  dateLabel?: string;
   children: (session: TeacherSession) => ReactNode;
 }
 
-export default function TeacherGate({ title, subtitle, needsPeriod = false, children }: Props) {
+export default function TeacherGate({ title, subtitle, needsPeriod = false, dateLabel, children }: Props) {
   const { toast } = useToast();
 
   useLayoutEffect(() => {
@@ -40,6 +44,10 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, chil
 
   const [nationalId, setNationalId] = useState('');
   const [checking, setChecking] = useState(false);
+
+  // تاريخ التسجيل — افتراضياً اليوم، ويمكن اختيار يوم سابق.
+  const today = new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(today);
 
   const [teacher, setTeacher] = useState<TeacherInfo | null>(null);
   const [circles, setCircles] = useState<TeacherCircle[]>([]);
@@ -151,7 +159,7 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, chil
   // ---------- Authenticated shell ----------
   const showPeriodToggle = needsPeriod && (circle?.periods.length ?? 0) > 1;
   const session: TeacherSession | null = circle
-    ? { teacher, circle, period, students, loadingStudents, reloadStudents }
+    ? { teacher, circle, period, date, students, loadingStudents, reloadStudents }
     : null;
 
   return (
@@ -215,7 +223,25 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, chil
                   )}
                 </div>
               )}
+
+              {dateLabel && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{dateLabel}</Label>
+                  <Input
+                    type="date"
+                    dir="ltr"
+                    className="h-10 w-[150px]"
+                    value={date}
+                    max={today}
+                    onChange={e => setDate(e.target.value || today)}
+                  />
+                </div>
+              )}
             </div>
+
+            {dateLabel && date !== today && (
+              <p className="text-xs text-warning">تنبيه: تسجّلين على يوم سابق ({date})</p>
+            )}
           </CardContent>
         </Card>
 

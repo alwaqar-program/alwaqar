@@ -18,13 +18,11 @@ const examTypes: Record<string, string> = { weekly_1: 'الأسبوع الأول
 
 function ExamForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
-  const { circle, students, loadingStudents, teacher } = session;
-  const today = new Date().toISOString().split('T')[0];
+  // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
+  const { circle, date, students, loadingStudents, teacher } = session;
 
   const empty = { student_id: '', exam_type: 'weekly_1', errors: 0, lahn: 0, changes: 0 };
   const [form, setForm] = useState(empty);
-  // تاريخ الاختبار — افتراضياً اليوم، ويمكن اختيار يوم سابق.
-  const [date, setDate] = useState(today);
   const [existing, setExisting] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -70,14 +68,6 @@ function ExamForm({ session }: { session: TeacherSession }) {
   return (
     <Card>
       <CardContent className="pt-4 space-y-4">
-        {/* تاريخ الاختبار ظاهر دائماً أعلى النموذج — يمكن رصد يوم سابق */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">تاريخ الاختبار</Label>
-          <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
-          {date !== today && (
-            <p className="text-xs text-warning">تنبيه: تسجّلين على يوم سابق ({date})</p>
-          )}
-        </div>
         <div className="space-y-1.5">
           <Label className="text-xs">الطالبة</Label>
           <SearchableSelect options={students.map(s => ({ value: s.id, label: s.full_name }))}
@@ -115,7 +105,7 @@ function ExamForm({ session }: { session: TeacherSession }) {
 
 export default function TeacherExamPage() {
   return (
-    <TeacherGate title="تسجيل الاختبار" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك">
+    <TeacherGate title="تسجيل الاختبار" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك" dateLabel="تاريخ الاختبار">
       {session => <ExamForm session={session} />}
     </TeacherGate>
   );
