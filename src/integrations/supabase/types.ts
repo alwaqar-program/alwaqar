@@ -746,6 +746,7 @@ export type Database = {
           end_date: string | null
           id: string
           is_active: boolean
+          period: string | null
           start_date: string
           teacher_id: string
         }
@@ -755,6 +756,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          period?: string | null
           start_date?: string
           teacher_id: string
         }
@@ -764,6 +766,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          period?: string | null
           start_date?: string
           teacher_id?: string
         }
