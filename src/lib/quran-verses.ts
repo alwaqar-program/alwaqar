@@ -154,3 +154,56 @@ export function parseVerseKey(key: string): { surah: string; verse: number } | n
   if (!surah || isNaN(verse)) return null;
   return { surah, verse };
 }
+
+// ---- Global verse ordering + page derivation ----
+
+// Cumulative verse count before each surah (index = surah number - 1).
+const OFFSETS: number[] = (() => {
+  const out: number[] = [];
+  let acc = 0;
+  for (const s of SURAHS) { out.push(acc); acc += s.verses; }
+  return out;
+})();
+
+const BY_NAME = new Map(SURAHS.map(s => [s.name, s]));
+
+/** 1-based position of (surah, verse) in mushaf order; null if unknown surah. */
+export function globalVerseIndex(surahName: string, verse: number): number | null {
+  const s = BY_NAME.get(surahName);
+  if (!s) return null;
+  return OFFSETS[s.number - 1] + verse;
+}
+
+/** Same, from a "سورة|آية" key. */
+export function globalIndexOfKey(key: string): number | null {
+  const ref = parseVerseKey(key);
+  return ref ? globalVerseIndex(ref.surah, ref.verse) : null;
+}
+
+export interface MushafPageRef {
+  page_number: number;
+  surah_number: number;   // first surah on the page
+  verse_start: number;    // its first verse there
+  sort_order: number;
+}
+
+/**
+ * Find the mushaf page containing a verse: the last page whose starting verse
+ * (first surah + verse_start from mushaf_reference) is <= the target verse.
+ * `pages` must be sorted by sort_order.
+ */
+export function pageOfVerse(
+  pages: MushafPageRef[],
+  surahName: string,
+  verse: number,
+): MushafPageRef | null {
+  const g = globalVerseIndex(surahName, verse);
+  if (g == null || pages.length === 0) return null;
+  let found: MushafPageRef | null = null;
+  for (const p of pages) {
+    const start = OFFSETS[p.surah_number - 1] + p.verse_start;
+    if (start <= g) found = p;
+    else break;
+  }
+  return found;
+}
