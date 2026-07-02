@@ -120,7 +120,7 @@ export default function AttendancePage() {
     // Validate: late_reason required if late
     for (const e of toInsert) {
       if (e.status === 'late' && !e.late_reason) {
-        toast({ title: 'خطأ', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
         setSaving(false);
         return;
       }

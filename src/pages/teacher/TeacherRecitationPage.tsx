@@ -98,11 +98,11 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   useEffect(() => { setFromVerse(''); setToVerse(''); }, [selected]);
 
   const save = async () => {
-    if (!selected || !fromRef || !toRef) { toast({ title: 'خطأ', description: 'اختاري نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' }); return; }
-    if (!orderOk) { toast({ title: 'خطأ', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' }); return; }
+    if (!selected || !fromRef || !toRef) { toast({ title: 'تنبيه', description: 'اختاري نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' }); return; }
+    if (!orderOk) { toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' }); return; }
     // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما
-    if (!thabit || !hifz) { toast({ title: 'خطأ', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' }); return; }
-    if (isAbsent(selected)) { toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
+    if (!thabit || !hifz) { toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' }); return; }
+    if (isAbsent(selected)) { toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
       student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date, period,

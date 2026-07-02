@@ -202,20 +202,20 @@ export default function RecitationPage() {
 
   const handleSave = async () => {
     if (!selectedStudent || !fromRef || !toRef) {
-      toast({ title: 'خطأ', description: 'اختر نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'اختر نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
       return;
     }
     if (!isOrderValid) {
-      toast({ title: 'خطأ', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
       return;
     }
     if (isAbsent(selectedStudent)) {
-      toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
       return;
     }
     // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما
     if (!thabitConfirmed || !hifzConfirmed) {
-      toast({ title: 'خطأ', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
       return;
     }
 
@@ -225,7 +225,7 @@ export default function RecitationPage() {
     const { data: teachers } = await supabase.from('teachers').select('id').limit(1);
     const teacherId = teachers?.[0]?.id;
     if (!teacherId) {
-      toast({ title: 'خطأ', description: 'لا يوجد معلمة مسجلة', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'لا يوجد معلمة مسجلة', variant: 'destructive' });
       setSaving(false);
       return;
     }

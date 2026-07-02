@@ -150,11 +150,11 @@ export default function ExamsPage() {
 
   const handleSave = async () => {
     if (!form.student_id) {
-      toast({ title: 'خطأ', description: 'اختر الطالبة', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'اختر الطالبة', variant: 'destructive' });
       return;
     }
     if (duplicateWarning) {
-      toast({ title: 'خطأ', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
       return;
     }
 
@@ -172,7 +172,7 @@ export default function ExamsPage() {
 
     if (error) {
       if (error.code === '23505') {
-        toast({ title: 'خطأ', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
       } else {
         toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
       }
