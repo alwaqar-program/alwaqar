@@ -19,9 +19,12 @@ const examTypes: Record<string, string> = { weekly_1: 'الأسبوع الأول
 function ExamForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   const { circle, students, loadingStudents, teacher } = session;
+  const today = new Date().toISOString().split('T')[0];
 
   const empty = { student_id: '', exam_type: 'weekly_1', errors: 0, lahn: 0, changes: 0 };
   const [form, setForm] = useState(empty);
+  // تاريخ الاختبار — افتراضياً اليوم، ويمكن اختيار يوم سابق.
+  const [date, setDate] = useState(today);
   const [existing, setExisting] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -39,7 +42,7 @@ function ExamForm({ session }: { session: TeacherSession }) {
     if (isDup) { toast({ title: 'خطأ', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('exams').insert({
-      student_id: form.student_id, exam_type: form.exam_type,
+      student_id: form.student_id, exam_type: form.exam_type, date,
       errors_section_1: form.errors, // عدد الأخطاء
       errors_section_2: form.lahn,   // عدد اللحون (يخصم ربع درجة مثل الخطأ)
       errors_section_3: 0,
@@ -89,6 +92,10 @@ function ExamForm({ session }: { session: TeacherSession }) {
             <Input type="number" min={0} value={form.errors} onChange={e => setForm(f => ({ ...f, errors: parseInt(e.target.value) || 0 }))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">عدد اللحون</Label>
             <Input type="number" min={0} value={form.lahn} onChange={e => setForm(f => ({ ...f, lahn: parseInt(e.target.value) || 0 }))} /></div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">تاريخ الاختبار</Label>
+          <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
         </div>
         {/* تغيير المقطع مسموح مرة واحدة فقط */}
         <label className="flex items-center gap-2 text-sm">

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { Save, ClipboardCheck } from 'lucide-react';
@@ -25,7 +26,9 @@ interface Entry { status: string; late_reason: string; late_reason_other: string
 function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   const { circle, period, students, loadingStudents, teacher } = session;
-  const date = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  // تاريخ الحضور — افتراضياً اليوم، ويمكن اختيار يوم سابق.
+  const [date, setDate] = useState(today);
 
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [existing, setExisting] = useState<Set<string>>(new Set());
@@ -90,6 +93,10 @@ function AttendanceForm({ session }: { session: TeacherSession }) {
 
   return (
     <>
+      <div className="space-y-1.5 max-w-xs">
+        <Label className="text-xs">تاريخ الحضور</Label>
+        <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
+      </div>
       <div className="flex gap-2 flex-wrap">
         <Badge variant="outline" className="bg-success/10 text-success border-success/20">حاضرة: {count('present')}</Badge>
         <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">غائبة: {count('absent')}</Badge>
