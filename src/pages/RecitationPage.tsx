@@ -213,6 +213,11 @@ export default function RecitationPage() {
       toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
       return;
     }
+    // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما
+    if (!thabitConfirmed || !hifzConfirmed) {
+      toast({ title: 'خطأ', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
 
@@ -470,7 +475,7 @@ export default function RecitationPage() {
                   checked={thabitConfirmed}
                   onCheckedChange={(v) => setThabitConfirmed(!!v)}
                 />
-                <Label htmlFor="thabit" className="text-sm">نصاب التثبيت (سرد ذاتي)</Label>
+                <Label htmlFor="thabit" className="text-sm">نصاب التثبيت (سرد ذاتي) *</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -478,7 +483,7 @@ export default function RecitationPage() {
                   checked={hifzConfirmed}
                   onCheckedChange={(v) => setHifzConfirmed(!!v)}
                 />
-                <Label htmlFor="hifz" className="text-sm">نصاب الحفظ (سرد على شخص)</Label>
+                <Label htmlFor="hifz" className="text-sm">نصاب الحفظ (سرد على شخص) *</Label>
               </div>
             </div>
 
