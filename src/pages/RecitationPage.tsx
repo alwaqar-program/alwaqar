@@ -1,84 +1,96 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { BookOpen, Check, X, AlertCircle, Download } from 'lucide-react';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { BookOpen, AlertCircle, Download, Plus } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
-import { allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
+import {
+  allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
+} from '@/lib/quran-verses';
 
-const recitationCsvColumns: CsvColumnDef[] = [
+// درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ (تُحسب في قاعدة البيانات).
+const recitationScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
+// التقدير — يطابق العمود المولّد: 0-2 ممتاز · 3-4 جيد جدًا · 5-6 جيد · 7+ ضعيف
+const getGrade = (errors: number) => {
+  if (errors <= 2) return { text: 'ممتاز', color: 'text-success' };
+  if (errors <= 4) return { text: 'جيد جدًا', color: 'text-info' };
+  if (errors <= 6) return { text: 'جيد', color: 'text-accent' };
+  return { text: 'ضعيف', color: 'text-destructive' };
+};
+const gradeColors: Record<string, string> = {
+  'ممتاز': 'bg-success/10 text-success border-success/20',
+  'جيد جدًا': 'bg-info/10 text-info border-info/20',
+  'جيد': 'bg-accent/10 text-accent border-accent/20',
+  'مقبول': 'bg-warning/10 text-warning border-warning/20', // legacy rows
+  'ضعيف': 'bg-destructive/10 text-destructive border-destructive/20',
+};
+
+const overviewCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الطالبة' },
-  { key: 'from_page', header: 'من صفحة' },
-  { key: 'to_page', header: 'إلى صفحة' },
-  { key: 'from_surah', header: 'من سورة' },
-  { key: 'to_surah', header: 'إلى سورة' },
-  { key: 'pages_recited', header: 'عدد الصفحات' },
-  { key: 'error_count', header: 'الأخطاء' },
+  { key: 'circle_name', header: 'الحلقة' },
+  { key: 'range', header: 'النطاق' },
+  { key: 'pages', header: 'الصفحات' },
+  { key: 'errors', header: 'الأخطاء' },
   { key: 'score', header: 'الدرجة /20' },
   { key: 'grade', header: 'التقدير' },
-  { key: 'date', header: 'التاريخ' },
+  { key: 'recorded_by', header: 'سجّلها' },
 ];
 
-type Period = 'morning' | 'evening';
-
-// درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ.
-const recitationScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
-
-interface Circle {
-  id: string;
-  circle_name: string;
-  branch_id: string;
-  branches: { branch_name: string; id: string } | null;
-}
-
 interface Student {
-  id: string;
-  full_name: string;
-  circle_id: string | null;
-  from_surah: string | null; // نطاق حفظ الطالبة (يقيّد التسميع)
-  to_surah: string | null;
+  id: string; full_name: string; circle_id: string | null;
+  from_surah: string | null; to_surah: string | null;
 }
-
+interface Circle { id: string; circle_name: string; }
 interface MushafPage {
-  page_number: number;
-  surah_name: string;
-  surah_number: number;
-  juz_number: number;
-  sort_order: number;
-  verse_start: number;
-  verse_end: number;
+  page_number: number; surah_name: string; surah_number: number;
+  juz_number: number; sort_order: number; verse_start: number; verse_end: number;
 }
-
-interface TodayRecitation {
-  student_id: string;
-  period: string;
-  to_page: number | null;
-  to_surah: string | null;
-  error_count: number;
-  pages_recited: number | null;
-  grade: string | null;
-  score: number | null;
+interface RecRow {
+  id: string; student_id: string | null; period: string;
+  from_surah: string | null; from_verse: number | null;
+  to_surah: string | null; to_verse: number | null;
+  pages_recited: number | null; error_count: number;
+  score: number | null; grade: string | null;
+  recorded_by: string | null;
+  teachers?: { teacher_name: string } | null;
 }
+interface AttRow { student_id: string; status: string; period: string; }
 
 export default function RecitationPage() {
   const { toast } = useToast();
-  const [circles, setCircles] = useState<Circle[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
-  const [branchJuz, setBranchJuz] = useState<number[]>([]);
-  const [todayRecitations, setTodayRecitations] = useState<TodayRecitation[]>([]);
-  const [todayAtt, setTodayAtt] = useState<{ student_id: string; status: string; period: string }[]>([]);
+  const { user } = useAuth();
+  // من أدخل السجل — يظهر في اللوق أنه مدير النظام
+  const adminName = user?.email ? `مدير النظام (${user.email})` : 'مدير النظام';
 
-  const [selectedCircle, setSelectedCircle] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState('');
-  // Period is chosen per recitation session (a circle runs both صباحي and مسائي).
-  const [period, setPeriod] = useState<Period>('morning');
+  const today = new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(today);
+  const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
+  const [filterCircle, setFilterCircle] = useState('');
+  const [search, setSearch] = useState('');
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
+  const [recRows, setRecRows] = useState<RecRow[]>([]);
+  const [attRows, setAttRows] = useState<AttRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ----- Entry dialog (إدخال تسميع) -----
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [entryStudent, setEntryStudent] = useState('');
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
@@ -87,97 +99,93 @@ export default function RecitationPage() {
   const [hifzConfirmed, setHifzConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
-
-  // Load circles with branches
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('circles')
-        .select('id, circle_name, branch_id, branches(branch_name, id)')
-        .eq('is_active', true);
-      setCircles(data || []);
+    const loadStatic = async () => {
+      const [stRes, cRes, mRes] = await Promise.all([
+        supabase.from('students')
+          .select('id, full_name, circle_id, from_surah, to_surah')
+          .eq('is_active', true).order('full_name'),
+        supabase.from('circles').select('id, circle_name').eq('is_active', true),
+        supabase.from('mushaf_reference')
+          .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
+          .order('sort_order'),
+      ]);
+      if (stRes.error) toast({ title: 'خطأ', description: stRes.error.message, variant: 'destructive' });
+      setStudents(stRes.data || []);
+      setCircles(cRes.data || []);
+      setMushafPages(mRes.data || []);
     };
-    load();
-  }, []);
+    loadStatic();
+  }, [toast]);
 
-  // Load mushaf pages
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('mushaf_reference')
-        .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
-        .order('sort_order');
-      setMushafPages(data || []);
-    };
-    load();
-  }, []);
+  const loadDay = async () => {
+    setLoading(true);
+    const [recRes, attRes] = await Promise.all([
+      supabase.from('recitation_log')
+        .select('id, student_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, score, grade, recorded_by, teachers(teacher_name)')
+        .eq('date', date).eq('is_deleted', false),
+      supabase.from('attendance').select('student_id, status, period').eq('date', date).eq('is_deleted', false),
+    ]);
+    if (recRes.error) toast({ title: 'خطأ', description: recRes.error.message, variant: 'destructive' });
+    setRecRows((recRes.data as RecRow[] | null) || []);
+    setAttRows(attRes.data || []);
+    setLoading(false);
+  };
+  useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
 
-  // When circle is selected, load students + branch juz
-  useEffect(() => {
-    if (!selectedCircle) { setStudents([]); return; }
-
-    const load = async () => {
-      // Get students
-      const { data: studData } = await supabase
-        .from('students')
-        .select('id, full_name, circle_id, from_surah, to_surah')
-        .eq('circle_id', selectedCircle)
-        .eq('is_active', true);
-      setStudents(studData || []);
-
-      // Get branch juz for this circle
-      const circle = circles.find(c => c.id === selectedCircle);
-      if (circle?.branch_id) {
-        const { data: juzData } = await supabase
-          .from('branch_juz')
-          .select('juz_number')
-          .eq('branch_id', circle.branch_id);
-        setBranchJuz((juzData || []).map(j => j.juz_number));
-      }
-
-      // Today's recitations for this circle (both periods; filtered client-side)
-      const { data: recData } = await supabase
-        .from('recitation_log')
-        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade, score')
-        .eq('circle_id', selectedCircle)
-        .eq('date', today)
-        .eq('is_deleted', false);
-      setTodayRecitations(recData || []);
-
-      // Today's attendance (both periods; filtered client-side)
-      const { data: attData } = await supabase
-        .from('attendance')
-        .select('student_id, status, period')
-        .eq('date', today)
-        .in('student_id', (studData || []).map(s => s.id));
-      setTodayAtt(attData || []);
-    };
-    load();
-  }, [selectedCircle, circles, today]);
-
-  const circleOptions = useMemo(
-    () => circles.map(c => ({
-      value: c.id,
-      label: `${c.circle_name} — ${c.branches?.branch_name ?? ''}`,
-    })),
-    [circles]
-  );
-
-  // Check if student recited in the selected period today
-  const hasRecitedToday = (studentId: string) =>
-    todayRecitations.some(r => r.student_id === studentId && r.period === period);
-
-  // Get student's recitations in the selected period today
-  const getStudentTodayInfo = (studentId: string) =>
-    todayRecitations.filter(r => r.student_id === studentId && r.period === period);
-
-  // Check if student is absent in the selected period
+  const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
+  const recsFor = (studentId: string) => recRows.filter(r => r.student_id === studentId && r.period === period);
   const isAbsent = (studentId: string) =>
-    todayAtt.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
+    attRows.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
 
-  // Pages are DERIVED from the «سورة|آية» range (one source of truth, so
-  // ordering validation actually works).
+  const fmtRange = (r: RecRow) => {
+    const from = r.from_surah ? `${r.from_surah}${r.from_verse ? `|${r.from_verse}` : ''}` : '';
+    const to = r.to_surah ? `${r.to_surah}${r.to_verse ? `|${r.to_verse}` : ''}` : '';
+    return from || to ? `${from} ← ${to}` : '-';
+  };
+
+  // Overview: one row per student for date+period.
+  const overview = useMemo(() => {
+    return students
+      .filter(s => !filterCircle || s.circle_id === filterCircle)
+      .filter(s => !search || s.full_name.includes(search))
+      .map(s => {
+        const recs = recsFor(s.id);
+        const last = recs[recs.length - 1];
+        return {
+          id: s.id,
+          full_name: s.full_name,
+          circle_name: circleName(s.circle_id),
+          recited: recs.length > 0,
+          count: recs.length,
+          range: last ? fmtRange(last) : '',
+          pages: recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0) || '',
+          errors: last ? last.error_count : '',
+          score: last?.score ?? '',
+          grade: last?.grade ?? '',
+          recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
+          absent: isAbsent(s.id),
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, recRows, attRows, period, filterCircle, search, circles]);
+
+  const recitedCount = overview.filter(r => r.recited).length;
+  const notRecited = overview.length - recitedCount;
+
+  // ----- Entry dialog helpers -----
+  const entryStudentObj = students.find(s => s.id === entryStudent);
+  const verseOpts = useMemo(() => {
+    if (entryStudentObj?.from_surah && entryStudentObj?.to_surah) {
+      return verseOptionsInRange(entryStudentObj.from_surah, entryStudentObj.to_surah);
+    }
+    return allVerseOptions();
+  }, [entryStudentObj?.from_surah, entryStudentObj?.to_surah]);
+  const isRestricted = entryStudentObj?.from_surah && entryStudentObj?.to_surah
+    && verseOpts.length < allVerseOptions().length;
+
+  useEffect(() => { setFromVerse(''); setToVerse(''); }, [entryStudent]);
+
   const pageRefs = useMemo(() => mushafPages.map(p => ({
     page_number: p.page_number, surah_number: p.surah_number,
     verse_start: p.verse_start, sort_order: p.sort_order,
@@ -190,53 +198,38 @@ export default function RecitationPage() {
   const toPageInfo = toRef ? pageOfVerse(pageRefs, toRef.surah, toRef.verse) : null;
   const isOrderValid = fromG == null || toG == null || fromG <= toG;
   const pagesCount = fromPageInfo && toPageInfo ? toPageInfo.page_number - fromPageInfo.page_number + 1 : null;
+  const grade = getGrade(errorCount);
 
-  // Grade calculation — must mirror the recitation_log.grade generated column.
-  // أخطاء 0-2 ممتاز · 3-4 جيد جدًا · 5-6 جيد · 7+ ضعيف
-  const getGrade = (errors: number) => {
-    if (errors <= 2) return { text: 'ممتاز', color: 'text-success' };
-    if (errors <= 4) return { text: 'جيد جدًا', color: 'text-info' };
-    if (errors <= 6) return { text: 'جيد', color: 'text-accent' };
-    return { text: 'ضعيف', color: 'text-destructive' };
+  const resetEntry = () => {
+    setEntryStudent(''); setFromVerse(''); setToVerse('');
+    setErrorCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
   };
 
-  const handleSave = async () => {
-    if (!selectedStudent || !fromRef || !toRef) {
-      toast({ title: 'تنبيه', description: 'اختر نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
+  const handleSaveEntry = async () => {
+    if (!entryStudent || !fromRef || !toRef) {
+      toast({ title: 'تنبيه', description: 'اختر الطالبة ونطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
       return;
     }
     if (!isOrderValid) {
       toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
       return;
     }
-    if (isAbsent(selectedStudent)) {
-      toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
-      return;
-    }
-    // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما
     if (!thabitConfirmed || !hifzConfirmed) {
       toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
       return;
     }
-
-    setSaving(true);
-
-    // Get teacher_id - for now use first teacher (should be from auth context)
-    const { data: teachers } = await supabase.from('teachers').select('id').limit(1);
-    const teacherId = teachers?.[0]?.id;
-    if (!teacherId) {
-      toast({ title: 'تنبيه', description: 'لا يوجد معلمة مسجلة', variant: 'destructive' });
-      setSaving(false);
+    if (isAbsent(entryStudent)) {
+      toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
       return;
     }
 
+    setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
-      student_id: selectedStudent,
-      teacher_id: teacherId,
-      circle_id: selectedCircle,
-      date: today,
+      student_id: entryStudent,
+      teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
+      circle_id: entryStudentObj?.circle_id ?? null,
+      date,
       period,
-      // الصفحات مشتقة تلقائياً من نطاق السورة|الآية
       from_page: fromPageInfo?.page_number ?? null,
       to_page: toPageInfo?.page_number ?? null,
       from_surah: fromRef.surah,
@@ -249,6 +242,7 @@ export default function RecitationPage() {
       thabit_confirmed: thabitConfirmed,
       hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
+      recorded_by: adminName, // اللوق: أدخلها مدير النظام
       // grade + score (/20) are computed by the database (generated columns).
     });
 
@@ -256,268 +250,232 @@ export default function RecitationPage() {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'تم حفظ التسميع بنجاح' });
-      // Refresh today's recitations
-      const { data: recData } = await supabase
-        .from('recitation_log')
-        .select('student_id, period, to_page, to_surah, error_count, pages_recited, grade, score')
-        .eq('circle_id', selectedCircle)
-        .eq('date', today)
-        .eq('is_deleted', false);
-      setTodayRecitations(recData || []);
-      // Reset form
-      setFromVerse('');
-      setToVerse('');
-      setErrorCount(0);
-      setIsExtra(false);
-      setThabitConfirmed(false);
-      setHifzConfirmed(false);
-      setSelectedStudent('');
+      setEntryOpen(false);
+      resetEntry();
+      loadDay();
     }
     setSaving(false);
   };
 
-  const selectedStudentObj = students.find(s => s.id === selectedStudent);
-  const grade = getGrade(errorCount);
-
-  // نطاق التسميع المسموح = نطاق حفظ الطالبة (من سورة → إلى سورة) إن وُجد.
-  const verseOpts = useMemo(() => {
-    if (selectedStudentObj?.from_surah && selectedStudentObj?.to_surah) {
-      return verseOptionsInRange(selectedStudentObj.from_surah, selectedStudentObj.to_surah);
-    }
-    return allVerseOptions();
-  }, [selectedStudentObj?.from_surah, selectedStudentObj?.to_surah]);
-  const isRestricted = selectedStudentObj?.from_surah && selectedStudentObj?.to_surah
-    && verseOpts.length < allVerseOptions().length;
-
-  // Clear the picked range when switching students (it may be outside the new range).
-  useEffect(() => { setFromVerse(''); setToVerse(''); }, [selectedStudent]);
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-display text-foreground">تسجيل التسميع</h1>
-          <p className="text-sm text-muted-foreground mt-1">تسجيل التسميع اليومي للطالبات</p>
+          <h1 className="text-2xl font-display text-foreground">التسميع</h1>
+          <p className="text-sm text-muted-foreground mt-1">استعراض التسميع المسجّل لكل الحلقات — ومن سجّله</p>
         </div>
-        {selectedCircle && todayRecitations.length > 0 && (
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
-            const exportData = todayRecitations.map(r => {
-              const student = students.find(s => s.id === r.student_id);
-              return { ...r, full_name: student?.full_name || '', date: today };
-            });
-            exportToCsv(exportData, recitationCsvColumns, `recitation_${today}`);
-          }}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() =>
+            exportToCsv(overview.map(r => ({ ...r, grade: r.grade || 'لم تُسمِّع' })), overviewCsvColumns, `recitation_${date}_${period}`)
+          }>
             <Download size={14} /> تصدير CSV
           </Button>
-        )}
+          <Button onClick={() => { resetEntry(); setEntryOpen(true); }}>
+            <Plus size={18} /> إدخال تسميع
+          </Button>
+        </div>
       </div>
 
-      {/* Step 1: Select Circle */}
+      {/* Filters */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">اختيار الحلقة</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4">
-          <SearchableSelect
-            className="max-w-sm flex-1 min-w-[220px]"
-            options={circleOptions}
-            value={selectedCircle}
-            onValueChange={v => { setSelectedCircle(v); setSelectedStudent(''); }}
-            placeholder="اختر الحلقة"
-            searchPlaceholder="ابحث عن حلقة..."
-          />
-          {/* Period is chosen here, not on the circle (each circle runs both) */}
-          <div className="flex rounded-lg border border-border overflow-hidden text-sm shrink-0">
-            {(['morning', 'evening'] as const).map(p => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => { setPeriod(p); setSelectedStudent(''); }}
-                className={`px-4 py-2 transition-colors ${period === p ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-              >
-                {p === 'morning' ? 'الفترة الصباحية' : 'الفترة المسائية'}
-              </button>
-            ))}
+        <CardContent className="pt-4 flex flex-wrap items-end gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">التاريخ</Label>
+            <Input type="date" dir="ltr" className="h-10 w-[150px]" value={date} max={today}
+              onChange={e => setDate(e.target.value || today)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">الفترة</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              {(['morning', 'evening'] as const).map(p => (
+                <button key={p} type="button" onClick={() => setPeriod(p)}
+                  className={`px-4 h-10 transition-colors ${period === p ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  {p === 'morning' ? 'صباحي' : 'مسائي'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5 min-w-[180px]">
+            <Label className="text-xs">الحلقة</Label>
+            <SearchableSelect
+              options={[{ value: '', label: 'كل الحلقات' }, ...circles.map(c => ({ value: c.id, label: c.circle_name }))]}
+              value={filterCircle} onValueChange={setFilterCircle}
+              placeholder="كل الحلقات" searchPlaceholder="ابحث عن حلقة..." allowClear />
+          </div>
+          <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
+            <Label className="text-xs">بحث</Label>
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم الطالبة..." />
           </div>
         </CardContent>
       </Card>
 
-      {/* Step 2: Students list */}
-      {selectedCircle && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">طالبات الحلقة</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {students.length === 0 ? (
-              <p className="text-muted-foreground text-sm">لا توجد طالبات مسجلات في هذه الحلقة</p>
-            ) : (
-              <div className="space-y-2">
-                {students.map(s => {
-                  const recited = hasRecitedToday(s.id);
-                  const absent = isAbsent(s.id);
-                  const todayInfo = getStudentTodayInfo(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => !absent && setSelectedStudent(s.id)}
-                      disabled={absent}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-right ${
-                        selectedStudent === s.id
-                          ? 'border-primary bg-primary/5'
-                          : absent
-                          ? 'border-destructive/20 bg-destructive/5 opacity-60 cursor-not-allowed'
-                          : 'border-border hover:border-primary/30 hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                          recited ? 'bg-success/10 text-success' : absent ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {recited ? <Check size={16} /> : absent ? <X size={16} /> : <BookOpen size={14} />}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{s.full_name}</p>
-                          {todayInfo.length > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              سمّعت اليوم: {todayInfo.reduce((sum, r) => sum + (r.pages_recited || 0), 0)} صفحات | 
-                              آخر موضع: {todayInfo[todayInfo.length - 1]?.to_surah} ص{todayInfo[todayInfo.length - 1]?.to_page}
-                            </p>
-                          )}
-                          {absent && <p className="text-xs text-destructive">غائبة اليوم</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {recited && <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">سمّعت ✓</Badge>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+      {/* Summary */}
+      <div className="flex gap-2 flex-wrap">
+        <Badge variant="outline" className="bg-success/10 text-success border-success/20">سمّعت: {recitedCount}</Badge>
+        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">لم تُسمِّع: {notRecited}</Badge>
+      </div>
+
+      {/* Overview table */}
+      {loading ? (
+        <Card className="animate-pulse"><CardContent className="h-48" /></Card>
+      ) : overview.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <BookOpen size={40} className="text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground">لا توجد طالبات مطابقات</p>
           </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>الطالبة</TableHead>
+                <TableHead>الحلقة</TableHead>
+                <TableHead>النطاق</TableHead>
+                <TableHead>الصفحات</TableHead>
+                <TableHead>الأخطاء</TableHead>
+                <TableHead>الدرجة /20</TableHead>
+                <TableHead>التقدير</TableHead>
+                <TableHead>سجّلها</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {overview.map(r => (
+                <TableRow key={r.id} className={!r.recited ? 'bg-muted/20' : ''}>
+                  <TableCell className="font-medium">
+                    {r.full_name}
+                    {r.count > 1 && <Badge variant="secondary" className="mr-1.5 text-xs">×{r.count}</Badge>}
+                  </TableCell>
+                  <TableCell>{r.circle_name}</TableCell>
+                  {r.recited ? (
+                    <>
+                      <TableCell className="text-sm">{r.range}</TableCell>
+                      <TableCell>{r.pages}</TableCell>
+                      <TableCell>{r.errors}</TableCell>
+                      <TableCell className="font-bold">{r.score}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={gradeColors[r.grade] || ''}>{r.grade}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{r.recorded_by}</TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell colSpan={5}>
+                        <span className="text-muted-foreground text-sm">
+                          {r.absent ? 'غائبة — لا تسميع' : 'لم تُسمِّع'}
+                        </span>
+                      </TableCell>
+                      <TableCell />
+                    </>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
 
-      {/* Step 3: Recitation form */}
-      {selectedStudent && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">تسجيل تسميع — {selectedStudentObj?.full_name}</CardTitle>
-            {isRestricted && (
-              <p className="text-xs text-muted-foreground mt-1">
-                نطاق حفظ الطالبة: <strong>{selectedStudentObj?.from_surah}</strong> ← <strong>{selectedStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
-              </p>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {branchJuz.length > 0 && (
-              <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                <strong>نصاب الفرع:</strong> الأجزاء {branchJuz.sort((a, b) => a - b).join('، ')}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>من: سورة | رقم الآية *</Label>
-                <SearchableSelect
-                  options={verseOpts}
-                  value={fromVerse}
-                  onValueChange={setFromVerse}
-                  placeholder="السورة|الآية"
-                  searchPlaceholder="مثال: البقرة 5"
-                  maxVisible={100}
-                  allowClear
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>إلى: سورة | رقم الآية *</Label>
-                <SearchableSelect
-                  options={verseOpts}
-                  value={toVerse}
-                  onValueChange={setToVerse}
-                  placeholder="السورة|الآية"
-                  searchPlaceholder="مثال: البقرة 10"
-                  maxVisible={100}
-                  allowClear
-                />
-              </div>
+      {/* إدخال تسميع */}
+      <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              إدخال تسميع — {date} ({period === 'morning' ? 'صباحي' : 'مسائي'})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>الطالبة</Label>
+              <SearchableSelect
+                options={students.map(s => ({ value: s.id, label: `${s.full_name} — ${circleName(s.circle_id)}` }))}
+                value={entryStudent} onValueChange={setEntryStudent}
+                placeholder="اختر الطالبة" searchPlaceholder="ابحث عن طالبة..." />
             </div>
 
-            {!isOrderValid && (
+            {entryStudent && isAbsent(entryStudent) && (
               <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
-                <AlertCircle size={16} />
-                بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف
+                <AlertCircle size={16} /> هذه الطالبة غائبة في هذه الفترة — لا يمكن تسجيل تسميع لها
               </div>
             )}
 
-            {isOrderValid && fromPageInfo && toPageInfo && (
-              <div className="text-sm bg-primary/5 p-3 rounded-lg border border-primary/10">
-                <strong>الحصيلة:</strong> {pagesCount} صفحات (ص{fromPageInfo.page_number} → ص{toPageInfo.page_number})
-              </div>
+            {entryStudent && (
+              <>
+                {isRestricted && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                    نطاق حفظ الطالبة: <strong>{entryStudentObj?.from_surah}</strong> ← <strong>{entryStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>من: سورة | رقم الآية *</Label>
+                    <SearchableSelect options={verseOpts} value={fromVerse} onValueChange={setFromVerse}
+                      placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة 5" maxVisible={100} allowClear />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>إلى: سورة | رقم الآية *</Label>
+                    <SearchableSelect options={verseOpts} value={toVerse} onValueChange={setToVerse}
+                      placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة 10" maxVisible={100} allowClear />
+                  </div>
+                </div>
+
+                {!isOrderValid && (
+                  <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
+                    <AlertCircle size={16} /> بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف
+                  </div>
+                )}
+
+                {isOrderValid && fromPageInfo && toPageInfo && (
+                  <div className="text-sm bg-primary/5 p-3 rounded-lg border border-primary/10">
+                    <strong>الحصيلة:</strong> {pagesCount} صفحات (ص{fromPageInfo.page_number} → ص{toPageInfo.page_number})
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة خارج النصاب
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={thabitConfirmed} onCheckedChange={v => setThabitConfirmed(!!v)} /> نصاب التثبيت (سرد ذاتي) *
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={hifzConfirmed} onCheckedChange={v => setHifzConfirmed(!!v)} /> نصاب الحفظ (سرد على شخص) *
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label>عدد الأخطاء</Label>
+                    <Input type="number" min={0} value={errorCount}
+                      onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>الدرجة /20</Label>
+                    <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 font-bold">
+                      {recitationScore(errorCount)}<span className="text-xs text-muted-foreground mr-1">/ 20</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>التقدير</Label>
+                    <div className={`h-10 flex items-center px-3 rounded-md border bg-muted/30 font-medium ${grade.color}`}>
+                      {grade.text}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  سيُسجَّل في اللوق أن المدخِل: {adminName}
+                </p>
+
+                <Button onClick={handleSaveEntry} disabled={saving || !isOrderValid || isAbsent(entryStudent)} className="w-full">
+                  {saving ? 'جارٍ الحفظ...' : 'حفظ التسميع'}
+                </Button>
+              </>
             )}
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="isExtra"
-                  checked={isExtra}
-                  onCheckedChange={(v) => setIsExtra(!!v)}
-                />
-                <Label htmlFor="isExtra" className="text-sm">حفظ زيادة خارج النصاب</Label>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="thabit"
-                  checked={thabitConfirmed}
-                  onCheckedChange={(v) => setThabitConfirmed(!!v)}
-                />
-                <Label htmlFor="thabit" className="text-sm">نصاب التثبيت (سرد ذاتي) *</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="hifz"
-                  checked={hifzConfirmed}
-                  onCheckedChange={(v) => setHifzConfirmed(!!v)}
-                />
-                <Label htmlFor="hifz" className="text-sm">نصاب الحفظ (سرد على شخص) *</Label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>عدد الأخطاء</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={errorCount}
-                  onChange={e => setErrorCount(parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>الدرجة /20</Label>
-                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 font-bold">
-                  {recitationScore(errorCount)}
-                  <span className="text-xs text-muted-foreground mr-1">/ 20</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>التقدير</Label>
-                <div className={`h-10 flex items-center px-3 rounded-md border bg-muted/30 font-medium ${grade.color}`}>
-                  {grade.text}
-                </div>
-              </div>
-            </div>
-
-            <Button onClick={handleSave} disabled={saving || !isOrderValid} className="w-full">
-              {saving ? 'جارٍ الحفظ...' : 'حفظ التسميع'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
