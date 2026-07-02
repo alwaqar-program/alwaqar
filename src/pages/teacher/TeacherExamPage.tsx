@@ -36,8 +36,8 @@ function ExamForm({ session }: { session: TeacherSession }) {
   const isDup = !!form.student_id && existing.has(`${form.student_id}-${form.exam_type}`);
 
   const save = async () => {
-    if (!form.student_id) { toast({ title: 'خطأ', description: 'اختاري الطالبة', variant: 'destructive' }); return; }
-    if (isDup) { toast({ title: 'خطأ', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
+    if (!form.student_id) { toast({ title: 'تنبيه', description: 'اختاري الطالبة', variant: 'destructive' }); return; }
+    if (isDup) { toast({ title: 'تنبيه', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('exams').insert({
       student_id: form.student_id, exam_type: form.exam_type, date,

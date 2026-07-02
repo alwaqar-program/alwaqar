@@ -61,7 +61,7 @@ function AttendanceForm({ session }: { session: TeacherSession }) {
     if (toInsert.length === 0) { toast({ title: 'تم تسجيل الحضور مسبقاً لهذه الفترة' }); setSaving(false); return; }
     for (const e of toInsert) {
       if (e.status === 'late' && !e.late_reason) {
-        toast({ title: 'خطأ', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
         setSaving(false); return;
       }
     }
