@@ -25,6 +25,7 @@ import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
 import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
+import { SURAHS } from '@/lib/quran-verses';
 
 const studentCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الاسم الكامل' },
@@ -51,6 +52,8 @@ interface Student {
   guardian_phone: string | null;
   nationality: string | null;
   qualification: string | null;
+  from_surah: string | null; // نطاق حفظ الطالبة (من ملف المتقدمة)
+  to_surah: string | null;
   circles?: { circle_name: string; branch_id: string; branches?: { branch_name: string; id: string } | null } | null;
 }
 
@@ -97,6 +100,7 @@ export default function StudentsPage() {
   const [form, setForm] = useState({
     full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal',
     admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '',
+    from_surah: '', to_surah: '',
   });
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -144,7 +148,7 @@ export default function StudentsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '' });
+    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '', from_surah: '', to_surah: '' });
     setDialogOpen(true);
   };
 
@@ -156,6 +160,7 @@ export default function StudentsPage() {
       admission_status: s.admission_status, email: s.email || '',
       guardian_phone: s.guardian_phone || '', nationality: s.nationality || '',
       qualification: s.qualification || '',
+      from_surah: s.from_surah || '', to_surah: s.to_surah || '',
     });
     setDialogOpen(true);
   };
@@ -165,12 +170,28 @@ export default function StudentsPage() {
       toast({ title: 'خطأ', description: 'الاسم مطلوب', variant: 'destructive' });
       return;
     }
+    // نطاق الحفظ: إن تُرك فارغاً عند إنشاء طالبة جديدة، يُجلب تلقائياً من
+    // ملف المتقدمة المطابق برقم الهوية (اختيارها عند التسجيل).
+    let fromSurah = form.from_surah || null;
+    let toSurah = form.to_surah || null;
+    if (!editing && !fromSurah && !toSurah && form.national_id) {
+      // applicants is not in the generated types (same cast as InterviewPage)
+      const { data: app } = await (supabase as any)
+        .from('applicants')
+        .select('from_surah, to_surah')
+        .eq('national_id', form.national_id)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (app?.[0]) { fromSurah = app[0].from_surah; toSurah = app[0].to_surah; }
+    }
     const payload = {
       full_name: form.full_name, national_id: form.national_id || null,
       phone: form.phone || null, circle_id: form.circle_id || null,
       housing_type: form.housing_type, admission_status: form.admission_status,
       email: form.email || null, guardian_phone: form.guardian_phone || null,
       nationality: form.nationality || null, qualification: form.qualification || null,
+      from_surah: fromSurah, to_surah: toSurah,
     };
     if (editing) {
       const { error } = await supabase.from('students').update(payload).eq('id', editing.id);
@@ -292,6 +313,30 @@ export default function StudentsPage() {
                     onValueChange={v => setForm(f => ({ ...f, housing_type: v }))}
                     placeholder="نوع السكن"
                     searchPlaceholder="ابحث..."
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>من سورة (نطاق التسميع)</Label>
+                  <SearchableSelect
+                    options={SURAHS.map(s => ({ value: s.name, label: s.name }))}
+                    value={form.from_surah}
+                    onValueChange={v => setForm(f => ({ ...f, from_surah: v }))}
+                    placeholder="تُجلب من ملف المتقدمة إن تُركت"
+                    searchPlaceholder="ابحث عن سورة..."
+                    allowClear
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>إلى سورة (نطاق التسميع)</Label>
+                  <SearchableSelect
+                    options={SURAHS.map(s => ({ value: s.name, label: s.name }))}
+                    value={form.to_surah}
+                    onValueChange={v => setForm(f => ({ ...f, to_surah: v }))}
+                    placeholder="تُجلب من ملف المتقدمة إن تُركت"
+                    searchPlaceholder="ابحث عن سورة..."
+                    allowClear
                   />
                 </div>
               </div>

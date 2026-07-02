@@ -20,6 +20,8 @@ export interface TeacherCircle {
 export interface StudentLite {
   id: string;
   full_name: string;
+  from_surah: string | null; // نطاق حفظ الطالبة (يقيّد التسميع)
+  to_surah: string | null;
 }
 
 export interface TeacherLookupResult {
@@ -100,7 +102,7 @@ export async function lookupTeacherByNationalId(
 export async function loadCircleStudents(circleId: string): Promise<StudentLite[]> {
   const { data } = await supabase
     .from('students')
-    .select('id, full_name')
+    .select('id, full_name, from_surah, to_surah')
     .eq('circle_id', circleId)
     .eq('is_active', true)
     .eq('admission_status', 'registered')

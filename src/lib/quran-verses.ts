@@ -180,6 +180,22 @@ export function globalIndexOfKey(key: string): number | null {
   return ref ? globalVerseIndex(ref.surah, ref.verse) : null;
 }
 
+/**
+ * The «سورة|آية» options limited to a student's chosen memorization range
+ * (from the first verse of fromSurah to the last verse of toSurah).
+ * Unknown surah names fall back to the full list.
+ */
+export function verseOptionsInRange(fromSurah: string, toSurah: string): VerseOption[] {
+  const from = BY_NAME.get(fromSurah);
+  const to = BY_NAME.get(toSurah);
+  if (!from || !to) return allVerseOptions();
+  const startG = OFFSETS[from.number - 1] + 1;                // fromSurah|1
+  const endG = OFFSETS[to.number - 1] + to.verses;            // toSurah|last
+  if (startG > endG) return allVerseOptions();
+  // allVerseOptions() is in mushaf order, so the range is a simple slice.
+  return allVerseOptions().slice(startG - 1, endG);
+}
+
 export interface MushafPageRef {
   page_number: number;
   surah_number: number;   // first surah on the page
