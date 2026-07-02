@@ -10,6 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { BookOpen, Check, X, AlertCircle } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
+import { allVerseOptions, parseVerseKey } from '@/lib/quran-verses';
 
 interface MushafPage {
   page_number: number; surah_name: string; juz_number: number; sort_order: number;
@@ -96,12 +97,16 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     if (!orderOk) { toast({ title: 'خطأ', description: 'صفحة البداية قبل النهاية', variant: 'destructive' }); return; }
     if (isAbsent(selected)) { toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
     setSaving(true);
+    const fromRef = parseVerseKey(fromVerse);
+    const toRef = parseVerseKey(toVerse);
     const { error } = await supabase.from('recitation_log').insert({
       student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date: today, period,
       from_page: parseInt(fromPage), to_page: parseInt(toPage),
-      from_surah: fromPageInfo?.surah_name, to_surah: toPageInfo?.surah_name,
-      from_verse: fromVerse ? parseInt(fromVerse) : null,
-      to_verse: toVerse ? parseInt(toVerse) : null,
+      // السورة من اختيار «سورة|آية» إن وُجد، وإلا سورة الصفحة
+      from_surah: fromRef?.surah ?? fromPageInfo?.surah_name,
+      to_surah: toRef?.surah ?? toPageInfo?.surah_name,
+      from_verse: fromRef?.verse ?? null,
+      to_verse: toRef?.verse ?? null,
       from_sort_order: fromPageInfo?.sort_order, to_sort_order: toPageInfo?.sort_order,
       is_extra_memorization: isExtra, thabit_confirmed: thabit, hifz_confirmed: hifz,
       error_count: errorCount, // grade + score are computed by the database
@@ -181,14 +186,14 @@ function RecitationForm({ session }: { session: TeacherSession }) {
                 <SearchableSelect options={pageOptions} value={toPage} onValueChange={setToPage} placeholder="اختر" searchPlaceholder="ابحث…" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">من الآية{fromPageInfo ? ` (${fromPageInfo.verse_start}–${fromPageInfo.verse_end})` : ''}</Label>
-                <Input type="number" min={1} inputMode="numeric" placeholder="رقم الآية"
-                  value={fromVerse} onChange={e => setFromVerse(e.target.value)} />
+                <Label className="text-xs">من: سورة | رقم الآية</Label>
+                <SearchableSelect options={allVerseOptions()} value={fromVerse} onValueChange={setFromVerse}
+                  placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة|5" maxVisible={100} allowClear />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">إلى الآية{toPageInfo ? ` (${toPageInfo.verse_start}–${toPageInfo.verse_end})` : ''}</Label>
-                <Input type="number" min={1} inputMode="numeric" placeholder="رقم الآية"
-                  value={toVerse} onChange={e => setToVerse(e.target.value)} />
+                <Label className="text-xs">إلى: سورة | رقم الآية</Label>
+                <SearchableSelect options={allVerseOptions()} value={toVerse} onValueChange={setToVerse}
+                  placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة|10" maxVisible={100} allowClear />
               </div>
             </div>
             {!orderOk && (
