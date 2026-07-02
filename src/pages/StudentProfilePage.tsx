@@ -124,6 +124,8 @@ export default function StudentProfilePage() {
                 ['الجنسية', student.nationality],
                 ['المؤهل', student.qualification],
                 ['نوع السكن', student.housing_type === 'internal' ? 'داخلي' : 'خارجي'],
+                ['من سورة', student.from_surah],
+                ['إلى سورة', student.to_surah],
                 ['تاريخ التسجيل', student.registration_date],
                 ['التعهد', student.agreement_signed ? 'تم التوقيع' : 'لم يتم'],
               ].map(([label, value]) => (

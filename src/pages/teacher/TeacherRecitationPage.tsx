@@ -10,7 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { BookOpen, Check, X, AlertCircle } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
-import { allVerseOptions, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
+import { allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
 
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
@@ -90,6 +90,21 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   const pagesCount = fromPageInfo && toPageInfo ? toPageInfo.page_number - fromPageInfo.page_number + 1 : null;
   const grade = recGrade(errorCount);
 
+  const selectedStudent = students.find(s => s.id === selected);
+
+  // نطاق التسميع المسموح = نطاق حفظ الطالبة (من سورة → إلى سورة) إن وُجد.
+  const verseOpts = useMemo(() => {
+    if (selectedStudent?.from_surah && selectedStudent?.to_surah) {
+      return verseOptionsInRange(selectedStudent.from_surah, selectedStudent.to_surah);
+    }
+    return allVerseOptions();
+  }, [selectedStudent?.from_surah, selectedStudent?.to_surah]);
+  const isRestricted = selectedStudent?.from_surah && selectedStudent?.to_surah
+    && verseOpts.length < allVerseOptions().length;
+
+  // Clear the picked range when switching students (it may be outside the new range).
+  useEffect(() => { setFromVerse(''); setToVerse(''); }, [selected]);
+
   const save = async () => {
     if (!selected || !fromRef || !toRef) { toast({ title: 'خطأ', description: 'اختاري نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' }); return; }
     if (!orderOk) { toast({ title: 'خطأ', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' }); return; }
@@ -123,8 +138,6 @@ function RecitationForm({ session }: { session: TeacherSession }) {
       <p className="text-muted-foreground text-sm">لا توجد طالبات مسجلات في «{circle.circle_name}»</p>
     </CardContent></Card>
   );
-
-  const selectedStudent = students.find(s => s.id === selected);
 
   return (
     <>
@@ -171,15 +184,20 @@ function RecitationForm({ session }: { session: TeacherSession }) {
         <Card>
           <CardContent className="pt-4 space-y-4">
             <p className="font-medium text-sm">تسجيل تسميع — {selectedStudent.full_name}</p>
+            {isRestricted && (
+              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                نطاق حفظ الطالبة: <strong>{selectedStudent.from_surah}</strong> ← <strong>{selectedStudent.to_surah}</strong> — الخيارات محصورة فيه.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">من: سورة | رقم الآية *</Label>
-                <SearchableSelect options={allVerseOptions()} value={fromVerse} onValueChange={setFromVerse}
+                <SearchableSelect options={verseOpts} value={fromVerse} onValueChange={setFromVerse}
                   placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة 5" maxVisible={100} allowClear />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">إلى: سورة | رقم الآية *</Label>
-                <SearchableSelect options={allVerseOptions()} value={toVerse} onValueChange={setToVerse}
+                <SearchableSelect options={verseOpts} value={toVerse} onValueChange={setToVerse}
                   placeholder="السورة|الآية" searchPlaceholder="مثال: البقرة 10" maxVisible={100} allowClear />
               </div>
             </div>

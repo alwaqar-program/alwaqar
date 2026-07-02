@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { BookOpen, Check, X, AlertCircle, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
-import { allVerseOptions, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
+import { allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
 
 const recitationCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الطالبة' },
@@ -41,6 +41,8 @@ interface Student {
   id: string;
   full_name: string;
   circle_id: string | null;
+  from_surah: string | null; // نطاق حفظ الطالبة (يقيّد التسميع)
+  to_surah: string | null;
 }
 
 interface MushafPage {
@@ -119,7 +121,7 @@ export default function RecitationPage() {
       // Get students
       const { data: studData } = await supabase
         .from('students')
-        .select('id, full_name, circle_id')
+        .select('id, full_name, circle_id, from_surah, to_surah')
         .eq('circle_id', selectedCircle)
         .eq('is_active', true)
         .eq('admission_status', 'registered');
@@ -273,6 +275,19 @@ export default function RecitationPage() {
   const selectedStudentObj = students.find(s => s.id === selectedStudent);
   const grade = getGrade(errorCount);
 
+  // نطاق التسميع المسموح = نطاق حفظ الطالبة (من سورة → إلى سورة) إن وُجد.
+  const verseOpts = useMemo(() => {
+    if (selectedStudentObj?.from_surah && selectedStudentObj?.to_surah) {
+      return verseOptionsInRange(selectedStudentObj.from_surah, selectedStudentObj.to_surah);
+    }
+    return allVerseOptions();
+  }, [selectedStudentObj?.from_surah, selectedStudentObj?.to_surah]);
+  const isRestricted = selectedStudentObj?.from_surah && selectedStudentObj?.to_surah
+    && verseOpts.length < allVerseOptions().length;
+
+  // Clear the picked range when switching students (it may be outside the new range).
+  useEffect(() => { setFromVerse(''); setToVerse(''); }, [selectedStudent]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -385,6 +400,11 @@ export default function RecitationPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">تسجيل تسميع — {selectedStudentObj?.full_name}</CardTitle>
+            {isRestricted && (
+              <p className="text-xs text-muted-foreground mt-1">
+                نطاق حفظ الطالبة: <strong>{selectedStudentObj?.from_surah}</strong> ← <strong>{selectedStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {branchJuz.length > 0 && (
@@ -397,7 +417,7 @@ export default function RecitationPage() {
               <div className="space-y-2">
                 <Label>من: سورة | رقم الآية *</Label>
                 <SearchableSelect
-                  options={allVerseOptions()}
+                  options={verseOpts}
                   value={fromVerse}
                   onValueChange={setFromVerse}
                   placeholder="السورة|الآية"
@@ -409,7 +429,7 @@ export default function RecitationPage() {
               <div className="space-y-2">
                 <Label>إلى: سورة | رقم الآية *</Label>
                 <SearchableSelect
-                  options={allVerseOptions()}
+                  options={verseOpts}
                   value={toVerse}
                   onValueChange={setToVerse}
                   placeholder="السورة|الآية"

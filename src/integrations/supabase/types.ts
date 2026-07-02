@@ -653,6 +653,7 @@ export type Database = {
           companion_count_children: number | null
           created_at: string
           email: string | null
+          from_surah: string | null
           full_name: string
           guardian_phone: string | null
           has_companions: boolean | null
@@ -668,6 +669,7 @@ export type Database = {
           registration_date: string | null
           registration_source: string | null
           room_id: string | null
+          to_surah: string | null
           updated_at: string
         }
         Insert: {
@@ -679,6 +681,7 @@ export type Database = {
           companion_count_children?: number | null
           created_at?: string
           email?: string | null
+          from_surah?: string | null
           full_name: string
           guardian_phone?: string | null
           has_companions?: boolean | null
@@ -694,6 +697,7 @@ export type Database = {
           registration_date?: string | null
           registration_source?: string | null
           room_id?: string | null
+          to_surah?: string | null
           updated_at?: string
         }
         Update: {
@@ -705,6 +709,7 @@ export type Database = {
           companion_count_children?: number | null
           created_at?: string
           email?: string | null
+          from_surah?: string | null
           full_name?: string
           guardian_phone?: string | null
           has_companions?: boolean | null
@@ -720,6 +725,7 @@ export type Database = {
           registration_date?: string | null
           registration_source?: string | null
           room_id?: string | null
+          to_surah?: string | null
           updated_at?: string
         }
         Relationships: [
