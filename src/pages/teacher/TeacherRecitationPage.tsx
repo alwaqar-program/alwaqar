@@ -21,7 +21,7 @@ interface TodayRec { student_id: string; period: string; to_page: number | null;
 // الدرجة /20 والتقدير يُحسبان في قاعدة البيانات ويُعرضان للمشرفات فقط —
 // لا يظهران للمعلمة هنا.
 
-function RecitationForm({ session }: { session: TeacherSession }) {
+export function RecitationForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
@@ -105,7 +105,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     if (isAbsent(selected)) { toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
-      student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date, period,
+      student_id: selected, teacher_id: teacher.id || null, circle_id: circle.id, date, period,
       // الصفحات مشتقة تلقائياً من نطاق السورة|الآية
       from_page: fromPageInfo?.page_number ?? null,
       to_page: toPageInfo?.page_number ?? null,
