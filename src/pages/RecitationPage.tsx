@@ -123,8 +123,7 @@ export default function RecitationPage() {
         .from('students')
         .select('id, full_name, circle_id, from_surah, to_surah')
         .eq('circle_id', selectedCircle)
-        .eq('is_active', true)
-        .eq('admission_status', 'registered');
+        .eq('is_active', true);
       setStudents(studData || []);
 
       // Get branch juz for this circle

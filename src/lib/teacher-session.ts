@@ -105,7 +105,6 @@ export async function loadCircleStudents(circleId: string): Promise<StudentLite[
     .select('id, full_name, from_surah, to_surah')
     .eq('circle_id', circleId)
     .eq('is_active', true)
-    .eq('admission_status', 'registered')
     .order('full_name');
   return data || [];
 }
