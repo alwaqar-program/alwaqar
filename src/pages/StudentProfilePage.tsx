@@ -21,7 +21,7 @@ const attendanceLabels: Record<string, string> = {
 };
 
 const examTypes: Record<string, string> = {
-  weekly_1: 'الأسبوعي ١', weekly_2: 'الأسبوعي ٢', final: 'النهائي',
+  weekly_1: 'الأسبوع الأول', weekly_2: 'الأسبوع الثاني', final: 'النهائي',
   quarter: 'ربع', half: 'نصف', complete: 'ختم',
 };
 
