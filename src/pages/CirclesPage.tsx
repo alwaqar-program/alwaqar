@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, BookOpen } from 'lucide-react';
+import { Plus, Pencil, BookOpen, Users, X, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -50,29 +50,42 @@ interface Assignment {
 // Per-circle assigned teachers, resolved to a morning + evening teacher id.
 interface CircleTeachers { morning: string; evening: string; }
 
+interface StudentLite {
+  id: string;
+  full_name: string;
+  circle_id: string | null;
+}
+
 export default function CirclesPage() {
   const [circles, setCircles] = useState<Circle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<StudentLite[]>([]);
   const [assignments, setAssignments] = useState<Record<string, CircleTeachers>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
   const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '' });
+  // Roster dialog (add/remove students of one circle)
+  const [rosterCircle, setRosterCircle] = useState<Circle | null>(null);
+  const [studentToAdd, setStudentToAdd] = useState('');
   const { toast } = useToast();
 
   const teacherName = (id: string) => teachers.find(t => t.id === id)?.teacher_name || '';
 
   const fetch = async () => {
-    const [circlesRes, branchesRes, teachersRes, assignRes] = await Promise.all([
+    const [circlesRes, branchesRes, teachersRes, assignRes, studentsRes] = await Promise.all([
       supabase.from('circles').select('*, branches(branch_name)').order('created_at'),
       supabase.from('branches').select('id, branch_name').eq('is_active', true),
       supabase.from('teachers').select('id, teacher_name').eq('is_active', true).order('teacher_name'),
       supabase.from('teacher_assignments').select('teacher_id, circle_id, period').eq('is_active', true),
+      supabase.from('students').select('id, full_name, circle_id')
+        .eq('is_active', true).eq('admission_status', 'registered').order('full_name'),
     ]);
     setCircles(circlesRes.data || []);
     setBranches(branchesRes.data || []);
     setTeachers(teachersRes.data || []);
+    setStudents(studentsRes.data || []);
 
     // Resolve each circle's assignments to a morning + evening teacher.
     const map: Record<string, CircleTeachers> = {};
@@ -139,6 +152,30 @@ export default function CirclesPage() {
 
   const toggleActive = async (c: Circle) => {
     await supabase.from('circles').update({ is_active: !c.is_active }).eq('id', c.id);
+    fetch();
+  };
+
+  // ----- Circle roster (add/remove students) -----
+  const circleStudents = (circleId: string) => students.filter(s => s.circle_id === circleId);
+
+  const addStudentToCircle = async () => {
+    if (!rosterCircle || !studentToAdd) return;
+    const student = students.find(s => s.id === studentToAdd);
+    const { error } = await supabase.from('students')
+      .update({ circle_id: rosterCircle.id }).eq('id', studentToAdd);
+    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
+    toast({
+      title: `أُضيفت ${student?.full_name ?? 'الطالبة'} إلى ${rosterCircle.circle_name}`,
+      description: student?.circle_id ? 'نُقلت من حلقتها السابقة.' : undefined,
+    });
+    setStudentToAdd('');
+    fetch();
+  };
+
+  const removeStudentFromCircle = async (s: StudentLite) => {
+    const { error } = await supabase.from('students').update({ circle_id: null }).eq('id', s.id);
+    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: `أُزيلت ${s.full_name} من الحلقة` });
     fetch();
   };
 
@@ -219,6 +256,66 @@ export default function CirclesPage() {
         </div>
       </div>
 
+      {/* Circle roster: add/remove students (students can still be assigned from the Students page) */}
+      <Dialog open={!!rosterCircle} onOpenChange={open => { if (!open) setRosterCircle(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">طالبات حلقة {rosterCircle?.circle_name}</DialogTitle>
+          </DialogHeader>
+          {rosterCircle && (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>إضافة طالبة</Label>
+                <div className="flex gap-2">
+                  <SearchableSelect
+                    className="flex-1"
+                    options={students
+                      .filter(s => s.circle_id !== rosterCircle.id)
+                      .map(s => ({
+                        value: s.id,
+                        label: s.circle_id
+                          ? `${s.full_name} — (في: ${circles.find(c => c.id === s.circle_id)?.circle_name ?? 'حلقة أخرى'})`
+                          : s.full_name,
+                      }))}
+                    value={studentToAdd}
+                    onValueChange={setStudentToAdd}
+                    placeholder="اختر الطالبة"
+                    searchPlaceholder="ابحث عن طالبة..."
+                  />
+                  <Button onClick={addStudentToCircle} disabled={!studentToAdd} className="shrink-0">
+                    <UserPlus size={16} /> إضافة
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  اختيار طالبة في حلقة أخرى ينقلها إلى هذه الحلقة.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>الطالبات الحاليات ({circleStudents(rosterCircle.id).length})</Label>
+                {circleStudents(rosterCircle.id).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-3 text-center border border-dashed rounded-lg">
+                    لا توجد طالبات في هذه الحلقة
+                  </p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                    {circleStudents(rosterCircle.id).map(s => (
+                      <div key={s.id} className="flex items-center justify-between p-2 rounded-md border text-sm">
+                        <span>{s.full_name}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          title="إزالة من الحلقة" onClick={() => removeStudentFromCircle(s)}>
+                          <X size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => <Card key={i} className="animate-pulse"><CardContent className="h-24" /></Card>)}
@@ -238,6 +335,10 @@ export default function CirclesPage() {
                 <div className="flex items-start justify-between">
                   <CardTitle className="font-display text-lg">{c.circle_name}</CardTitle>
                   <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="طالبات الحلقة"
+                      onClick={() => { setRosterCircle(c); setStudentToAdd(''); }}>
+                      <Users size={14} />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
                       <Pencil size={14} />
                     </Button>
@@ -246,9 +347,10 @@ export default function CirclesPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{c.branches?.branch_name}</Badge>
                   <Badge variant="outline">صباحي ومسائي</Badge>
+                  <Badge variant="outline" className="gap-1"><Users size={11} /> {circleStudents(c.id).length}</Badge>
                 </div>
                 {(() => {
                   const a = assignments[c.id];
