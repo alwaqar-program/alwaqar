@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { BookOpen, Check, X, AlertCircle, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
-import { allVerseOptions, parseVerseKey } from '@/lib/quran-verses';
+import { allVerseOptions, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
 
 const recitationCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الطالبة' },
@@ -46,6 +46,7 @@ interface Student {
 interface MushafPage {
   page_number: number;
   surah_name: string;
+  surah_number: number;
   juz_number: number;
   sort_order: number;
   verse_start: number;
@@ -76,9 +77,6 @@ export default function RecitationPage() {
   const [selectedStudent, setSelectedStudent] = useState('');
   // Period is chosen per recitation session (a circle runs both صباحي and مسائي).
   const [period, setPeriod] = useState<Period>('morning');
-  const [showAllMushaf, setShowAllMushaf] = useState(false);
-  const [fromPage, setFromPage] = useState('');
-  const [toPage, setToPage] = useState('');
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
@@ -106,7 +104,7 @@ export default function RecitationPage() {
     const load = async () => {
       const { data } = await supabase
         .from('mushaf_reference')
-        .select('page_number, surah_name, juz_number, sort_order, verse_start, verse_end')
+        .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
         .order('sort_order');
       setMushafPages(data || []);
     };
@@ -157,20 +155,6 @@ export default function RecitationPage() {
     load();
   }, [selectedCircle, circles, today]);
 
-  // Filter mushaf pages based on branch juz
-  const filteredPages = useMemo(() => {
-    if (showAllMushaf || branchJuz.length === 0) return mushafPages;
-    return mushafPages.filter(p => branchJuz.includes(p.juz_number));
-  }, [mushafPages, branchJuz, showAllMushaf]);
-
-  const pageOptions = useMemo(
-    () => filteredPages.map(p => ({
-      value: String(p.page_number),
-      label: `ص${p.page_number} — ${p.surah_name} (ج${p.juz_number})`,
-    })),
-    [filteredPages]
-  );
-
   const circleOptions = useMemo(
     () => circles.map(c => ({
       value: c.id,
@@ -191,12 +175,20 @@ export default function RecitationPage() {
   const isAbsent = (studentId: string) =>
     todayAtt.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
 
-  // Validation: from <= to
-  const fromPageInfo = mushafPages.find(p => p.page_number === parseInt(fromPage));
-  const toPageInfo = mushafPages.find(p => p.page_number === parseInt(toPage));
-  const fromSort = fromPageInfo?.sort_order || 0;
-  const toSort = toPageInfo?.sort_order || 0;
-  const isOrderValid = !fromPage || !toPage || fromSort <= toSort;
+  // Pages are DERIVED from the «سورة|آية» range (one source of truth, so
+  // ordering validation actually works).
+  const pageRefs = useMemo(() => mushafPages.map(p => ({
+    page_number: p.page_number, surah_number: p.surah_number,
+    verse_start: p.verse_start, sort_order: p.sort_order,
+  })), [mushafPages]);
+  const fromRef = parseVerseKey(fromVerse);
+  const toRef = parseVerseKey(toVerse);
+  const fromG = fromVerse ? globalIndexOfKey(fromVerse) : null;
+  const toG = toVerse ? globalIndexOfKey(toVerse) : null;
+  const fromPageInfo = fromRef ? pageOfVerse(pageRefs, fromRef.surah, fromRef.verse) : null;
+  const toPageInfo = toRef ? pageOfVerse(pageRefs, toRef.surah, toRef.verse) : null;
+  const isOrderValid = fromG == null || toG == null || fromG <= toG;
+  const pagesCount = fromPageInfo && toPageInfo ? toPageInfo.page_number - fromPageInfo.page_number + 1 : null;
 
   // Grade calculation — must mirror the recitation_log.grade generated column.
   // أخطاء 0-2 ممتاز · 3-4 جيد جدًا · 5-6 جيد · 7+ ضعيف
@@ -208,12 +200,12 @@ export default function RecitationPage() {
   };
 
   const handleSave = async () => {
-    if (!selectedStudent || !fromPage || !toPage) {
-      toast({ title: 'خطأ', description: 'أكمل جميع الحقول المطلوبة', variant: 'destructive' });
+    if (!selectedStudent || !fromRef || !toRef) {
+      toast({ title: 'خطأ', description: 'اختر نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
       return;
     }
     if (!isOrderValid) {
-      toast({ title: 'خطأ', description: 'صفحة البداية يجب أن تكون قبل صفحة النهاية', variant: 'destructive' });
+      toast({ title: 'خطأ', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
       return;
     }
     if (isAbsent(selectedStudent)) {
@@ -222,10 +214,6 @@ export default function RecitationPage() {
     }
 
     setSaving(true);
-    const fromInfo = fromPageInfo;
-    const toInfo = toPageInfo;
-    const fromRef = parseVerseKey(fromVerse);
-    const toRef = parseVerseKey(toVerse);
 
     // Get teacher_id - for now use first teacher (should be from auth context)
     const { data: teachers } = await supabase.from('teachers').select('id').limit(1);
@@ -242,15 +230,15 @@ export default function RecitationPage() {
       circle_id: selectedCircle,
       date: today,
       period,
-      from_page: parseInt(fromPage),
-      to_page: parseInt(toPage),
-      // السورة من اختيار «سورة|آية» إن وُجد، وإلا سورة الصفحة
-      from_surah: fromRef?.surah ?? fromInfo?.surah_name,
-      to_surah: toRef?.surah ?? toInfo?.surah_name,
-      from_verse: fromRef?.verse ?? null,
-      to_verse: toRef?.verse ?? null,
-      from_sort_order: fromInfo?.sort_order,
-      to_sort_order: toInfo?.sort_order,
+      // الصفحات مشتقة تلقائياً من نطاق السورة|الآية
+      from_page: fromPageInfo?.page_number ?? null,
+      to_page: toPageInfo?.page_number ?? null,
+      from_surah: fromRef.surah,
+      to_surah: toRef.surah,
+      from_verse: fromRef.verse,
+      to_verse: toRef.verse,
+      from_sort_order: fromPageInfo?.sort_order ?? null,
+      to_sort_order: toPageInfo?.sort_order ?? null,
       is_extra_memorization: isExtra,
       thabit_confirmed: thabitConfirmed,
       hifz_confirmed: hifzConfirmed,
@@ -271,8 +259,6 @@ export default function RecitationPage() {
         .eq('is_deleted', false);
       setTodayRecitations(recData || []);
       // Reset form
-      setFromPage('');
-      setToPage('');
       setFromVerse('');
       setToVerse('');
       setErrorCount(0);
@@ -409,45 +395,25 @@ export default function RecitationPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>من صفحة</Label>
-                <SearchableSelect
-                  options={pageOptions}
-                  value={fromPage}
-                  onValueChange={setFromPage}
-                  placeholder="اختر الصفحة"
-                  searchPlaceholder="ابحث عن صفحة أو سورة..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>إلى صفحة</Label>
-                <SearchableSelect
-                  options={pageOptions}
-                  value={toPage}
-                  onValueChange={setToPage}
-                  placeholder="اختر الصفحة"
-                  searchPlaceholder="ابحث عن صفحة أو سورة..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>من: سورة | رقم الآية</Label>
+                <Label>من: سورة | رقم الآية *</Label>
                 <SearchableSelect
                   options={allVerseOptions()}
                   value={fromVerse}
                   onValueChange={setFromVerse}
                   placeholder="السورة|الآية"
-                  searchPlaceholder="مثال: البقرة|5"
+                  searchPlaceholder="مثال: البقرة 5"
                   maxVisible={100}
                   allowClear
                 />
               </div>
               <div className="space-y-2">
-                <Label>إلى: سورة | رقم الآية</Label>
+                <Label>إلى: سورة | رقم الآية *</Label>
                 <SearchableSelect
                   options={allVerseOptions()}
                   value={toVerse}
                   onValueChange={setToVerse}
                   placeholder="السورة|الآية"
-                  searchPlaceholder="مثال: البقرة|10"
+                  searchPlaceholder="مثال: البقرة 10"
                   maxVisible={100}
                   allowClear
                 />
@@ -457,19 +423,17 @@ export default function RecitationPage() {
             {!isOrderValid && (
               <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
                 <AlertCircle size={16} />
-                صفحة البداية يجب أن تكون قبل صفحة النهاية في ترتيب المصحف
+                بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف
+              </div>
+            )}
+
+            {isOrderValid && fromPageInfo && toPageInfo && (
+              <div className="text-sm bg-primary/5 p-3 rounded-lg border border-primary/10">
+                <strong>الحصيلة:</strong> {pagesCount} صفحات (ص{fromPageInfo.page_number} → ص{toPageInfo.page_number})
               </div>
             )}
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="showAll"
-                  checked={showAllMushaf}
-                  onCheckedChange={(v) => setShowAllMushaf(!!v)}
-                />
-                <Label htmlFor="showAll" className="text-sm">عرض كل المصحف (غير ذلك)</Label>
-              </div>
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="isExtra"
@@ -523,12 +487,6 @@ export default function RecitationPage() {
                 </div>
               </div>
             </div>
-
-            {fromPage && toPage && isOrderValid && (
-              <div className="text-sm bg-primary/5 p-3 rounded-lg border border-primary/10">
-                <strong>الحصيلة:</strong> {parseInt(toPage) - parseInt(fromPage) + 1} صفحات
-              </div>
-            )}
 
             <Button onClick={handleSave} disabled={saving || !isOrderValid} className="w-full">
               {saving ? 'جارٍ الحفظ...' : 'حفظ التسميع'}
