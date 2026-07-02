@@ -232,6 +232,18 @@ export default function StudentsPage() {
     return sortRows(filteredStudents, acc[sortKey], sortDir, 'text');
   }, [filteredStudents, sortKey, sortDir]);
 
+  // Pagination (client-side)
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(sortedStudents.length / PAGE_SIZE));
+  // Back to page 1 whenever the visible set changes (filters/search/sort).
+  useEffect(() => { setPage(1); }, [searchQuery, filterCircle, filterBranch, filterStatus, filterHousing, sortKey, sortDir]);
+  const safePage = Math.min(page, pageCount);
+  const pagedStudents = useMemo(
+    () => sortedStudents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sortedStudents, safePage],
+  );
+
   // Options for searchable selects
   const circleOptions = circles.map(c => ({ value: c.id, label: c.circle_name }));
   const branchOptions = branches.map(b => ({ value: b.id, label: b.branch_name }));
@@ -440,7 +452,7 @@ export default function StudentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStudents.map(s => (
+                {pagedStudents.map(s => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/students/${s.id}`)}>
                     <TableCell className="font-medium">{s.full_name}</TableCell>
                     <TableCell>{s.circles?.circle_name || '-'}</TableCell>
@@ -466,6 +478,36 @@ export default function StudentsPage() {
               </TableBody>
             </Table>
           </div>
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t text-sm">
+              <span className="text-muted-foreground">
+                عرض {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, sortedStudents.length)} من {sortedStudents.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                  السابق
+                </Button>
+                {Array.from({ length: pageCount }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === pageCount || Math.abs(n - safePage) <= 2)
+                  .map((n, idx, arr) => (
+                    <span key={n} className="flex items-center">
+                      {idx > 0 && arr[idx - 1] !== n - 1 && <span className="px-1 text-muted-foreground">…</span>}
+                      <Button
+                        variant={n === safePage ? 'default' : 'ghost'}
+                        size="sm"
+                        className="w-8 px-0"
+                        onClick={() => setPage(n)}
+                      >
+                        {n}
+                      </Button>
+                    </span>
+                  ))}
+                <Button variant="outline" size="sm" disabled={safePage >= pageCount} onClick={() => setPage(p => Math.min(pageCount, p + 1))}>
+                  التالي
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

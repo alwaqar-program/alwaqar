@@ -114,7 +114,7 @@ export default function ExamsPage() {
   const fetchData = async () => {
     const [exRes, stRes] = await Promise.all([
       supabase.from('exams').select('*, students(full_name)').eq('is_deleted', false).order('date', { ascending: false }),
-      supabase.from('students').select('id, full_name').eq('is_active', true).eq('admission_status', 'registered'),
+      supabase.from('students').select('id, full_name').eq('is_active', true),
     ]);
     setExams(exRes.data || []);
     setStudents(stRes.data || []);

@@ -48,7 +48,7 @@ export default function DailyFollowUp() {
     const load = async () => {
       const [s, c, a, r] = await Promise.all([
         supabase.from('students').select('id, full_name, circle_id')
-          .eq('is_active', true).eq('admission_status', 'registered'),
+          .eq('is_active', true),
         supabase.from('circles').select('id, circle_name').eq('is_active', true),
         supabase.from('attendance').select('student_id, status, period, late_reason, late_reason_other')
           .eq('date', today).eq('is_deleted', false),

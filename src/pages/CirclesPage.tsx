@@ -80,7 +80,7 @@ export default function CirclesPage() {
       supabase.from('teachers').select('id, teacher_name').eq('is_active', true).order('teacher_name'),
       supabase.from('teacher_assignments').select('teacher_id, circle_id, period').eq('is_active', true),
       supabase.from('students').select('id, full_name, circle_id')
-        .eq('is_active', true).eq('admission_status', 'registered').order('full_name'),
+        .eq('is_active', true).order('full_name'),
     ]);
     setCircles(circlesRes.data || []);
     setBranches(branchesRes.data || []);

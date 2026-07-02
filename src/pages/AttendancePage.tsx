@@ -66,8 +66,7 @@ export default function AttendancePage() {
         .from('students')
         .select('id, full_name')
         .eq('circle_id', selectedCircle)
-        .eq('is_active', true)
-        .eq('admission_status', 'registered');
+        .eq('is_active', true);
       setStudents(studData || []);
 
       // Check existing attendance
