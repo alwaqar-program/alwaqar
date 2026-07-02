@@ -35,6 +35,7 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
+  const [lahnCount, setLahnCount] = useState(0);
   const [isExtra, setIsExtra] = useState(false);
   const [thabit, setThabit] = useState(false);
   const [hifz, setHifz] = useState(false);
@@ -113,14 +114,14 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
       from_verse: fromRef.verse, to_verse: toRef.verse,
       from_sort_order: fromPageInfo?.sort_order ?? null, to_sort_order: toPageInfo?.sort_order ?? null,
       is_extra_memorization: isExtra, thabit_confirmed: thabit, hifz_confirmed: hifz,
-      error_count: errorCount, // grade + score are computed by the database
+      error_count: errorCount, lahn_count: lahnCount, // grade + score are computed by the database
       recorded_by: teacher.teacher_name, // سجل: من أدخلت التسميع
     });
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     else {
       toast({ title: 'تم حفظ التسميع' });
       setFromVerse(''); setToVerse('');
-      setErrorCount(0); setIsExtra(false); setThabit(false); setHifz(false); setSelected('');
+      setErrorCount(0); setLahnCount(0); setIsExtra(false); setThabit(false); setHifz(false); setSelected('');
       refreshDay();
     }
     setSaving(false);
@@ -208,9 +209,15 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت (سرد ذاتي) *</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ (سرد على شخص) *</label>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">عدد الأخطاء</Label>
-              <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">عدد الأخطاء</Label>
+                <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">عدد اللحون</Label>
+                <Input type="number" min={0} value={lahnCount} onChange={e => setLahnCount(parseInt(e.target.value) || 0)} />
+              </div>
             </div>
             <Button onClick={save} disabled={saving || !orderOk} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ التسميع'}</Button>
           </CardContent>

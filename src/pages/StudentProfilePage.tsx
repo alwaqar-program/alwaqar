@@ -156,6 +156,7 @@ export default function StudentProfilePage() {
                     <TableHead>إلى</TableHead>
                     <TableHead>الصفحات</TableHead>
                     <TableHead>الأخطاء</TableHead>
+                    <TableHead>اللحون</TableHead>
                     <TableHead>الدرجة /20</TableHead>
                     <TableHead>التقدير</TableHead>
                   </TableRow>
@@ -168,6 +169,7 @@ export default function StudentProfilePage() {
                       <TableCell>{r.to_surah} ص{r.to_page}</TableCell>
                       <TableCell>{r.pages_recited}</TableCell>
                       <TableCell>{r.error_count}</TableCell>
+                      <TableCell>{r.lahn_count ?? 0}</TableCell>
                       <TableCell className="font-bold">{r.score}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{r.grade}</Badge>
