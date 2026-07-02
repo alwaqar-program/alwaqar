@@ -10,6 +10,36 @@ export interface SearchableSelectOption {
   label: string;
 }
 
+// Lenient matching: Arabic-Indic digits = Latin digits, hamza/taa-marbuta
+// variants collapse (الانعام ≡ الأنعام), diacritics/tatweel ignored.
+const ARABIC_DIGITS: Record<string, string> = {
+  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+  '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+  '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
+};
+
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[٠-٩۰-۹]/g, d => ARABIC_DIGITS[d] ?? d)
+    .replace(/[ً-ْٰـ]/g, '') // tashkeel + tatweel
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي');
+}
+
+/** Every whitespace/|-separated token of the query must appear in the label. */
+function matches(label: string, search: string): boolean {
+  const norm = normalizeText(label);
+  return normalizeText(search)
+    .split(/[\s|،,]+/)
+    .filter(Boolean)
+    .every(token => norm.includes(token));
+}
+
 interface SearchableSelectProps {
   options: SearchableSelectOption[];
   value: string;
@@ -38,9 +68,9 @@ export function SearchableSelect({
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const allFiltered = options.filter(o =>
-    o.label.toLowerCase().includes(search.toLowerCase())
-  );
+  const allFiltered = search.trim()
+    ? options.filter(o => matches(o.label, search))
+    : options;
   const truncated = maxVisible != null && allFiltered.length > maxVisible;
   const filtered = truncated ? allFiltered.slice(0, maxVisible) : allFiltered;
 
