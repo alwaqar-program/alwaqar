@@ -36,22 +36,53 @@ interface Branch {
   branch_name: string;
 }
 
+interface Teacher {
+  id: string;
+  teacher_name: string;
+}
+
+interface Assignment {
+  teacher_id: string;
+  circle_id: string;
+  period: string; // 'morning' | 'evening' | 'both'
+}
+
+// Per-circle assigned teachers, resolved to a morning + evening teacher id.
+interface CircleTeachers { morning: string; evening: string; }
+
 export default function CirclesPage() {
   const [circles, setCircles] = useState<Circle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, CircleTeachers>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
-  const [form, setForm] = useState({ circle_name: '', branch_id: '' });
+  const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '' });
   const { toast } = useToast();
 
+  const teacherName = (id: string) => teachers.find(t => t.id === id)?.teacher_name || '';
+
   const fetch = async () => {
-    const [circlesRes, branchesRes] = await Promise.all([
+    const [circlesRes, branchesRes, teachersRes, assignRes] = await Promise.all([
       supabase.from('circles').select('*, branches(branch_name)').order('created_at'),
       supabase.from('branches').select('id, branch_name').eq('is_active', true),
+      supabase.from('teachers').select('id, teacher_name').eq('is_active', true).order('teacher_name'),
+      supabase.from('teacher_assignments').select('teacher_id, circle_id, period').eq('is_active', true),
     ]);
     setCircles(circlesRes.data || []);
     setBranches(branchesRes.data || []);
+    setTeachers(teachersRes.data || []);
+
+    // Resolve each circle's assignments to a morning + evening teacher.
+    const map: Record<string, CircleTeachers> = {};
+    (assignRes.data as Assignment[] | null || []).forEach(a => {
+      if (!map[a.circle_id]) map[a.circle_id] = { morning: '', evening: '' };
+      if (a.period === 'morning') map[a.circle_id].morning = a.teacher_id;
+      else if (a.period === 'evening') map[a.circle_id].evening = a.teacher_id;
+      else { map[a.circle_id].morning = a.teacher_id; map[a.circle_id].evening = a.teacher_id; } // 'both'
+    });
+    setAssignments(map);
     setLoading(false);
   };
 
@@ -59,14 +90,31 @@ export default function CirclesPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ circle_name: '', branch_id: branches[0]?.id || '' });
+    setForm({ circle_name: '', branch_id: branches[0]?.id || '', morning: '', evening: '' });
     setDialogOpen(true);
   };
 
   const openEdit = (c: Circle) => {
     setEditing(c);
-    setForm({ circle_name: c.circle_name, branch_id: c.branch_id });
+    const a = assignments[c.id];
+    setForm({ circle_name: c.circle_name, branch_id: c.branch_id, morning: a?.morning || '', evening: a?.evening || '' });
     setDialogOpen(true);
+  };
+
+  // Replace a circle's teacher_assignments with the current morning/evening picks.
+  const saveAssignments = async (circleId: string) => {
+    await supabase.from('teacher_assignments').delete().eq('circle_id', circleId);
+    const rows: { teacher_id: string; circle_id: string; period: string }[] = [];
+    if (form.morning && form.morning === form.evening) {
+      rows.push({ teacher_id: form.morning, circle_id: circleId, period: 'both' });
+    } else {
+      if (form.morning) rows.push({ teacher_id: form.morning, circle_id: circleId, period: 'morning' });
+      if (form.evening) rows.push({ teacher_id: form.evening, circle_id: circleId, period: 'evening' });
+    }
+    if (rows.length > 0) {
+      const { error } = await supabase.from('teacher_assignments').insert(rows);
+      if (error) toast({ title: 'تعذّر حفظ التكليف', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleSave = async () => {
@@ -74,13 +122,16 @@ export default function CirclesPage() {
     // recitation/attendance time. Sent only to satisfy the legacy NOT NULL column
     // until 19_tasmee_exams.sql makes it nullable.
     const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning' };
+    let circleId = editing?.id;
     if (editing) {
       const { error } = await supabase.from('circles').update(payload).eq('id', editing.id);
       if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
     } else {
-      const { error } = await supabase.from('circles').insert(payload);
+      const { data, error } = await supabase.from('circles').insert(payload).select('id').single();
       if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
+      circleId = data.id;
     }
+    if (circleId) await saveAssignments(circleId);
     toast({ title: editing ? 'تم تحديث الحلقة' : 'تم إضافة الحلقة' });
     setDialogOpen(false);
     fetch();
@@ -126,6 +177,41 @@ export default function CirclesPage() {
               <p className="text-xs text-muted-foreground">
                 الحلقة تعمل في الفترتين الصباحية والمسائية؛ تُحدَّد الفترة عند تسجيل التسميع أو الحضور.
               </p>
+
+              <div className="border-t pt-3 space-y-3">
+                <Label className="text-sm font-medium">تكليف المعلمات</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">معلمة الفترة الصباحية</Label>
+                  <SearchableSelect
+                    options={[{ value: '', label: '— بدون —' }, ...teachers.map(t => ({ value: t.id, label: t.teacher_name }))]}
+                    value={form.morning}
+                    onValueChange={v => setForm(f => ({ ...f, morning: v }))}
+                    placeholder="اختر المعلمة"
+                    searchPlaceholder="ابحث عن معلمة..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">معلمة الفترة المسائية</Label>
+                  <SearchableSelect
+                    options={[{ value: '', label: '— بدون —' }, ...teachers.map(t => ({ value: t.id, label: t.teacher_name }))]}
+                    value={form.evening}
+                    onValueChange={v => setForm(f => ({ ...f, evening: v }))}
+                    placeholder="اختر المعلمة"
+                    searchPlaceholder="ابحث عن معلمة..."
+                  />
+                </div>
+                {form.morning && form.morning === form.evening && (
+                  <p className="text-xs text-muted-foreground">نفس المعلمة للفترتين.</p>
+                )}
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setForm(f => ({ ...f, evening: f.morning }))}
+                >
+                  نسخ معلمة الصباح للمساء
+                </button>
+              </div>
+
               <Button onClick={handleSave} className="w-full">{editing ? 'حفظ' : 'إضافة'}</Button>
             </div>
           </DialogContent>
@@ -159,9 +245,23 @@ export default function CirclesPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex items-center gap-2">
-                <Badge variant="secondary">{c.branches?.branch_name}</Badge>
-                <Badge variant="outline">صباحي ومسائي</Badge>
+              <CardContent className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{c.branches?.branch_name}</Badge>
+                  <Badge variant="outline">صباحي ومسائي</Badge>
+                </div>
+                {(() => {
+                  const a = assignments[c.id];
+                  const m = a?.morning ? teacherName(a.morning) : '';
+                  const e = a?.evening ? teacherName(a.evening) : '';
+                  if (!m && !e) return <p className="text-xs text-muted-foreground">لا توجد معلمة مكلّفة</p>;
+                  if (m && m === e) return <p className="text-xs text-muted-foreground">المعلمة: <span className="text-foreground">{m}</span> (الفترتان)</p>;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      صباحي: <span className="text-foreground">{m || '—'}</span> · مسائي: <span className="text-foreground">{e || '—'}</span>
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
