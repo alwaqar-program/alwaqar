@@ -20,8 +20,8 @@ import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
 const examTypes: Record<string, string> = {
-  weekly_1: 'الأسبوعي ١',
-  weekly_2: 'الأسبوعي ٢',
+  weekly_1: 'الأسبوع الأول',
+  weekly_2: 'الأسبوع الثاني',
   final: 'النهائي',
   // legacy types (kept so old rows still render)
   quarter: 'ربع',
@@ -264,8 +264,10 @@ export default function ExamsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">تغيير المقطع (خصم درجتين لكل مرة)</Label>
-              <Input type="number" min={0} value={form.segment_changes} onChange={e => setForm(f => ({ ...f, segment_changes: parseInt(e.target.value) || 0 }))} />
+              {/* مسموح مرة واحدة فقط (خصم درجتين) */}
+              <Label className="text-xs">تغيير المقطع (مرة واحدة كحد أقصى، خصم درجتين)</Label>
+              <Input type="number" min={0} max={1} value={form.segment_changes}
+                onChange={e => setForm(f => ({ ...f, segment_changes: Math.min(1, Math.max(0, parseInt(e.target.value) || 0)) }))} />
             </div>
 
             <div className="bg-muted/50 p-3 rounded-lg grid grid-cols-2 gap-3 text-sm">

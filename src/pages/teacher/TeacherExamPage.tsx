@@ -4,17 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, FileCheck } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 
-const examTypes: Record<string, string> = { weekly_1: 'الأسبوعي ١', weekly_2: 'الأسبوعي ٢', final: 'النهائي' };
+const examTypes: Record<string, string> = { weekly_1: 'الأسبوع الأول', weekly_2: 'الأسبوع الثاني', final: 'النهائي' };
 const examConfig: Record<string, { max: number; sections: number }> = {
   weekly_1: { max: 20, sections: 2 }, weekly_2: { max: 20, sections: 2 }, final: { max: 40, sections: 4 },
 };
-const examScore = (max: number, errors: number, changes: number) => Math.max(0, max - 0.25 * errors - 2 * changes);
+// الدرجة تُحسب في قاعدة البيانات وتظهر للمشرفات فقط — لا تُعرض للمعلمة هنا.
 
 function ExamForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
@@ -33,8 +34,6 @@ function ExamForm({ session }: { session: TeacherSession }) {
   }, [students]);
 
   const cfg = examConfig[form.exam_type];
-  const totalErrors = form.e1 + form.e2 + (cfg.sections >= 3 ? form.e3 : 0) + (cfg.sections >= 4 ? form.e4 : 0);
-  const score = examScore(cfg.max, totalErrors, form.changes);
   const isDup = !!form.student_id && existing.has(`${form.student_id}-${form.exam_type}`);
 
   const save = async () => {
@@ -77,7 +76,7 @@ function ExamForm({ session }: { session: TeacherSession }) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">نوع الاختبار</Label>
-          <SearchableSelect options={Object.entries(examConfig).map(([k]) => ({ value: k, label: `${examTypes[k]} (من ${examConfig[k].max})` }))}
+          <SearchableSelect options={Object.keys(examConfig).map(k => ({ value: k, label: examTypes[k] }))}
             value={form.exam_type} onValueChange={v => setForm(f => ({ ...f, exam_type: v }))}
             placeholder="النوع" searchPlaceholder="ابحث…" />
         </div>
@@ -96,14 +95,12 @@ function ExamForm({ session }: { session: TeacherSession }) {
           {cfg.sections >= 4 && <div className="space-y-1.5"><Label className="text-xs">أخطاء المقطع 4</Label>
             <Input type="number" min={0} value={form.e4} onChange={e => setForm(f => ({ ...f, e4: parseInt(e.target.value) || 0 }))} /></div>}
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">تغيير المقطع (خصم درجتين لكل مرة)</Label>
-          <Input type="number" min={0} value={form.changes} onChange={e => setForm(f => ({ ...f, changes: parseInt(e.target.value) || 0 }))} />
-        </div>
-        <div className="bg-muted/50 p-3 rounded-lg grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-muted-foreground">مجموع الأخطاء:</span> <span className="font-bold mr-1">{totalErrors}</span></div>
-          <div><span className="text-muted-foreground">الدرجة:</span> <span className="font-bold mr-1">{score} / {cfg.max}</span></div>
-        </div>
+        {/* تغيير المقطع مسموح مرة واحدة فقط */}
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={form.changes === 1} onCheckedChange={v => setForm(f => ({ ...f, changes: v ? 1 : 0 }))} />
+          غيّرت المقطع (مسموح مرة واحدة فقط)
+        </label>
+        {/* مجموع الأخطاء والدرجة يُحسبان في النظام ويظهران للمشرفات فقط */}
         <Button onClick={save} disabled={saving || isDup} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ الاختبار'}</Button>
       </CardContent>
     </Card>
