@@ -238,10 +238,8 @@ export default function StudentProfilePage() {
                   <TableRow>
                     <TableHead>النوع</TableHead>
                     <TableHead>التاريخ</TableHead>
-                    <TableHead>مقطع 1</TableHead>
-                    <TableHead>مقطع 2</TableHead>
-                    <TableHead>مقطع 3</TableHead>
-                    <TableHead>مقطع 4</TableHead>
+                    <TableHead>الأخطاء</TableHead>
+                    <TableHead>اللحون</TableHead>
                     <TableHead>تغيير المقطع</TableHead>
                     <TableHead>المجموع</TableHead>
                     <TableHead>الدرجة</TableHead>
@@ -254,8 +252,6 @@ export default function StudentProfilePage() {
                       <TableCell dir="ltr">{e.date}</TableCell>
                       <TableCell>{e.errors_section_1}</TableCell>
                       <TableCell>{e.errors_section_2}</TableCell>
-                      <TableCell>{e.errors_section_3}</TableCell>
-                      <TableCell>{e.errors_section_4 ?? 0}</TableCell>
                       <TableCell>{e.segment_changes ?? 0}</TableCell>
                       <TableCell>{e.total_errors}</TableCell>
                       <TableCell className="font-bold">{e.total_score} / {e.max_score}</TableCell>
