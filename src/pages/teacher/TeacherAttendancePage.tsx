@@ -25,10 +25,8 @@ interface Entry { status: string; late_reason: string; late_reason_other: string
 
 function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
-  const { circle, period, students, loadingStudents, teacher } = session;
-  const today = new Date().toISOString().split('T')[0];
-  // تاريخ الحضور — افتراضياً اليوم، ويمكن اختيار يوم سابق.
-  const [date, setDate] = useState(today);
+  // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
+  const { circle, period, date, students, loadingStudents, teacher } = session;
 
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [existing, setExisting] = useState<Set<string>>(new Set());
@@ -93,18 +91,6 @@ function AttendanceForm({ session }: { session: TeacherSession }) {
 
   return (
     <>
-      {/* تاريخ الحضور ظاهر دائماً أعلى الصفحة — يمكن رصد يوم سابق */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="space-y-1.5 max-w-xs">
-            <Label className="text-xs">تاريخ الحضور</Label>
-            <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
-          </div>
-          {date !== today && (
-            <p className="text-xs text-warning mt-2">تنبيه: تسجّلين على يوم سابق ({date})</p>
-          )}
-        </CardContent>
-      </Card>
       <div className="flex gap-2 flex-wrap">
         <Badge variant="outline" className="bg-success/10 text-success border-success/20">حاضرة: {count('present')}</Badge>
         <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">غائبة: {count('absent')}</Badge>
@@ -153,7 +139,7 @@ function AttendanceForm({ session }: { session: TeacherSession }) {
 
 export default function TeacherAttendancePage() {
   return (
-    <TeacherGate title="تسجيل الحضور" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك" needsPeriod>
+    <TeacherGate title="تسجيل الحضور" subtitle="أدخلي رقم هويتك لعرض طالبات حلقتك" needsPeriod dateLabel="تاريخ الحضور">
       {session => <AttendanceForm session={session} />}
     </TeacherGate>
   );
