@@ -135,6 +135,19 @@ function RecitationForm({ session }: { session: TeacherSession }) {
 
   return (
     <>
+      {/* تاريخ التسميع ظاهر دائماً أعلى الصفحة — يمكن رصد يوم سابق */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="space-y-1.5 max-w-xs">
+            <Label className="text-xs">تاريخ التسميع</Label>
+            <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
+          </div>
+          {date !== today && (
+            <p className="text-xs text-warning mt-2">تنبيه: تسجّلين على يوم سابق ({date})</p>
+          )}
+        </CardContent>
+      </Card>
+
       {branchJuz.length > 0 && (
         <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <strong>نصاب الفرع:</strong> الأجزاء {[...branchJuz].sort((a, b) => a - b).join('، ')}
@@ -206,15 +219,9 @@ function RecitationForm({ session }: { session: TeacherSession }) {
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ</label>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">عدد الأخطاء</Label>
-                <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">تاريخ التسميع</Label>
-                <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">عدد الأخطاء</Label>
+              <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
             </div>
             <Button onClick={save} disabled={saving || !orderOk} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ التسميع'}</Button>
           </CardContent>
