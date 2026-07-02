@@ -47,6 +47,8 @@ interface MushafPage {
   surah_name: string;
   juz_number: number;
   sort_order: number;
+  verse_start: number;
+  verse_end: number;
 }
 
 interface TodayRecitation {
@@ -76,6 +78,8 @@ export default function RecitationPage() {
   const [showAllMushaf, setShowAllMushaf] = useState(false);
   const [fromPage, setFromPage] = useState('');
   const [toPage, setToPage] = useState('');
+  const [fromVerse, setFromVerse] = useState('');
+  const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
   const [isExtra, setIsExtra] = useState(false);
   const [thabitConfirmed, setThabitConfirmed] = useState(false);
@@ -101,7 +105,7 @@ export default function RecitationPage() {
     const load = async () => {
       const { data } = await supabase
         .from('mushaf_reference')
-        .select('page_number, surah_name, juz_number, sort_order')
+        .select('page_number, surah_name, juz_number, sort_order, verse_start, verse_end')
         .order('sort_order');
       setMushafPages(data || []);
     };
@@ -187,8 +191,10 @@ export default function RecitationPage() {
     todayAtt.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
 
   // Validation: from <= to
-  const fromSort = mushafPages.find(p => p.page_number === parseInt(fromPage))?.sort_order || 0;
-  const toSort = mushafPages.find(p => p.page_number === parseInt(toPage))?.sort_order || 0;
+  const fromPageInfo = mushafPages.find(p => p.page_number === parseInt(fromPage));
+  const toPageInfo = mushafPages.find(p => p.page_number === parseInt(toPage));
+  const fromSort = fromPageInfo?.sort_order || 0;
+  const toSort = toPageInfo?.sort_order || 0;
   const isOrderValid = !fromPage || !toPage || fromSort <= toSort;
 
   // Grade calculation — must mirror the recitation_log.grade generated column.
@@ -215,8 +221,8 @@ export default function RecitationPage() {
     }
 
     setSaving(true);
-    const fromInfo = mushafPages.find(p => p.page_number === parseInt(fromPage));
-    const toInfo = mushafPages.find(p => p.page_number === parseInt(toPage));
+    const fromInfo = fromPageInfo;
+    const toInfo = toPageInfo;
 
     // Get teacher_id - for now use first teacher (should be from auth context)
     const { data: teachers } = await supabase.from('teachers').select('id').limit(1);
@@ -237,6 +243,8 @@ export default function RecitationPage() {
       to_page: parseInt(toPage),
       from_surah: fromInfo?.surah_name,
       to_surah: toInfo?.surah_name,
+      from_verse: fromVerse ? parseInt(fromVerse) : null,
+      to_verse: toVerse ? parseInt(toVerse) : null,
       from_sort_order: fromInfo?.sort_order,
       to_sort_order: toInfo?.sort_order,
       is_extra_memorization: isExtra,
@@ -261,6 +269,8 @@ export default function RecitationPage() {
       // Reset form
       setFromPage('');
       setToPage('');
+      setFromVerse('');
+      setToVerse('');
       setErrorCount(0);
       setIsExtra(false);
       setThabitConfirmed(false);
@@ -412,6 +422,28 @@ export default function RecitationPage() {
                   onValueChange={setToPage}
                   placeholder="اختر الصفحة"
                   searchPlaceholder="ابحث عن صفحة أو سورة..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>من الآية{fromPageInfo ? ` (${fromPageInfo.verse_start}–${fromPageInfo.verse_end})` : ''}</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  placeholder="رقم الآية"
+                  value={fromVerse}
+                  onChange={e => setFromVerse(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>إلى الآية{toPageInfo ? ` (${toPageInfo.verse_start}–${toPageInfo.verse_end})` : ''}</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  placeholder="رقم الآية"
+                  value={toVerse}
+                  onChange={e => setToVerse(e.target.value)}
                 />
               </div>
             </div>

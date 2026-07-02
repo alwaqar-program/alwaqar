@@ -11,8 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { BookOpen, Check, X, AlertCircle } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 
-interface MushafPage { page_number: number; surah_name: string; juz_number: number; sort_order: number; }
-interface TodayRec { student_id: string; period: string; to_page: number | null; to_surah: string | null; pages_recited: number | null; }
+interface MushafPage {
+  page_number: number; surah_name: string; juz_number: number; sort_order: number;
+  verse_start: number; verse_end: number;
+}
+interface TodayRec { student_id: string; period: string; to_page: number | null; to_surah: string | null; to_verse: number | null; pages_recited: number | null; }
 
 // Mirrors the recitation_log generated columns (score /20, grade scale).
 const recScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
@@ -37,6 +40,8 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   const [showAll, setShowAll] = useState(false);
   const [fromPage, setFromPage] = useState('');
   const [toPage, setToPage] = useState('');
+  const [fromVerse, setFromVerse] = useState('');
+  const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
   const [isExtra, setIsExtra] = useState(false);
   const [thabit, setThabit] = useState(false);
@@ -44,7 +49,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.from('mushaf_reference').select('page_number, surah_name, juz_number, sort_order').order('sort_order')
+    supabase.from('mushaf_reference').select('page_number, surah_name, juz_number, sort_order, verse_start, verse_end').order('sort_order')
       .then(({ data }) => setMushafPages(data || []));
   }, []);
 
@@ -58,7 +63,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     if (students.length === 0) { setTodayRecs([]); setAbsentIds(new Set()); return; }
     const ids = students.map(s => s.id);
     const [{ data: rec }, { data: att }] = await Promise.all([
-      supabase.from('recitation_log').select('student_id, period, to_page, to_surah, pages_recited')
+      supabase.from('recitation_log').select('student_id, period, to_page, to_surah, to_verse, pages_recited')
         .eq('circle_id', circle.id).eq('date', today).eq('is_deleted', false),
       supabase.from('attendance').select('student_id, status, period').eq('date', today).in('student_id', ids),
     ]);
@@ -79,8 +84,10 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   const isAbsent = (id: string) => absentIds.has(id);
   const studentToday = (id: string) => todayRecs.filter(r => r.student_id === id && r.period === period);
 
-  const fromSort = mushafPages.find(p => p.page_number === parseInt(fromPage))?.sort_order || 0;
-  const toSort = mushafPages.find(p => p.page_number === parseInt(toPage))?.sort_order || 0;
+  const fromPageInfo = mushafPages.find(p => p.page_number === parseInt(fromPage));
+  const toPageInfo = mushafPages.find(p => p.page_number === parseInt(toPage));
+  const fromSort = fromPageInfo?.sort_order || 0;
+  const toSort = toPageInfo?.sort_order || 0;
   const orderOk = !fromPage || !toPage || fromSort <= toSort;
   const grade = recGrade(errorCount);
 
@@ -89,20 +96,21 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     if (!orderOk) { toast({ title: 'خطأ', description: 'صفحة البداية قبل النهاية', variant: 'destructive' }); return; }
     if (isAbsent(selected)) { toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
     setSaving(true);
-    const fromInfo = mushafPages.find(p => p.page_number === parseInt(fromPage));
-    const toInfo = mushafPages.find(p => p.page_number === parseInt(toPage));
     const { error } = await supabase.from('recitation_log').insert({
       student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date: today, period,
       from_page: parseInt(fromPage), to_page: parseInt(toPage),
-      from_surah: fromInfo?.surah_name, to_surah: toInfo?.surah_name,
-      from_sort_order: fromInfo?.sort_order, to_sort_order: toInfo?.sort_order,
+      from_surah: fromPageInfo?.surah_name, to_surah: toPageInfo?.surah_name,
+      from_verse: fromVerse ? parseInt(fromVerse) : null,
+      to_verse: toVerse ? parseInt(toVerse) : null,
+      from_sort_order: fromPageInfo?.sort_order, to_sort_order: toPageInfo?.sort_order,
       is_extra_memorization: isExtra, thabit_confirmed: thabit, hifz_confirmed: hifz,
       error_count: errorCount, // grade + score are computed by the database
     });
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     else {
       toast({ title: 'تم حفظ التسميع' });
-      setFromPage(''); setToPage(''); setErrorCount(0); setIsExtra(false); setThabit(false); setHifz(false); setSelected('');
+      setFromPage(''); setToPage(''); setFromVerse(''); setToVerse('');
+      setErrorCount(0); setIsExtra(false); setThabit(false); setHifz(false); setSelected('');
       refreshDay();
     }
     setSaving(false);
@@ -146,7 +154,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
                     <p className="font-medium text-sm">{s.full_name}</p>
                     {info.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        سمّعت: {info.reduce((sum, r) => sum + (r.pages_recited || 0), 0)} صفحات · آخر موضع {info[info.length - 1]?.to_surah} ص{info[info.length - 1]?.to_page}
+                        سمّعت: {info.reduce((sum, r) => sum + (r.pages_recited || 0), 0)} صفحات · آخر موضع {info[info.length - 1]?.to_surah} ص{info[info.length - 1]?.to_page}{info[info.length - 1]?.to_verse ? ` آية ${info[info.length - 1]?.to_verse}` : ''}
                       </p>
                     )}
                     {absent && <p className="text-xs text-destructive">غائبة هذه الفترة</p>}
@@ -171,6 +179,16 @@ function RecitationForm({ session }: { session: TeacherSession }) {
               <div className="space-y-1.5">
                 <Label className="text-xs">إلى صفحة</Label>
                 <SearchableSelect options={pageOptions} value={toPage} onValueChange={setToPage} placeholder="اختر" searchPlaceholder="ابحث…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">من الآية{fromPageInfo ? ` (${fromPageInfo.verse_start}–${fromPageInfo.verse_end})` : ''}</Label>
+                <Input type="number" min={1} inputMode="numeric" placeholder="رقم الآية"
+                  value={fromVerse} onChange={e => setFromVerse(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">إلى الآية{toPageInfo ? ` (${toPageInfo.verse_start}–${toPageInfo.verse_end})` : ''}</Label>
+                <Input type="number" min={1} inputMode="numeric" placeholder="رقم الآية"
+                  value={toVerse} onChange={e => setToVerse(e.target.value)} />
               </div>
             </div>
             {!orderOk && (
