@@ -15,6 +15,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { BookOpen, AlertCircle, Download, Plus } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import {
@@ -172,6 +173,14 @@ export default function RecitationPage() {
 
   const recitedCount = overview.filter(r => r.recited).length;
   const notRecited = overview.length - recitedCount;
+
+  // Pagination for the overview table.
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, search]);
+  const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog helpers -----
   const entryStudentObj = students.find(s => s.id === entryStudent);
@@ -341,7 +350,7 @@ export default function RecitationPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {overview.map(r => (
+              {pagedOverview.map(r => (
                 <TableRow key={r.id} className={!r.recited ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">
                     {r.full_name}
@@ -373,6 +382,7 @@ export default function RecitationPage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination page={safePage} pageSize={PAGE_SIZE} total={overview.length} onPageChange={setPage} />
         </Card>
       )}
 
