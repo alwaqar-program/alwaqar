@@ -19,6 +19,8 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   className?: string;
   allowClear?: boolean;
+  /** Cap rendered rows (for very large lists); the rest is reachable by typing. */
+  maxVisible?: number;
 }
 
 export function SearchableSelect({
@@ -30,14 +32,17 @@ export function SearchableSelect({
   emptyMessage = 'لا توجد نتائج',
   className,
   allowClear = false,
+  maxVisible,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = options.filter(o =>
+  const allFiltered = options.filter(o =>
     o.label.toLowerCase().includes(search.toLowerCase())
   );
+  const truncated = maxVisible != null && allFiltered.length > maxVisible;
+  const filtered = truncated ? allFiltered.slice(0, maxVisible) : allFiltered;
 
   const selectedLabel = options.find(o => o.value === value)?.label;
 
@@ -89,7 +94,8 @@ export function SearchableSelect({
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
           ) : (
-            filtered.map(option => (
+            <>
+            {filtered.map(option => (
               <button
                 key={option.value}
                 onClick={() => {
@@ -106,7 +112,13 @@ export function SearchableSelect({
                 <Check size={14} className={cn('shrink-0', value === option.value ? 'opacity-100' : 'opacity-0')} />
                 <span className="flex-1 text-right">{option.label}</span>
               </button>
-            ))
+            ))}
+            {truncated && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                يُعرض {filtered.length} من {allFiltered.length} — اكتبي للبحث عن المزيد
+              </p>
+            )}
+            </>
           )}
         </div>
       </PopoverContent>

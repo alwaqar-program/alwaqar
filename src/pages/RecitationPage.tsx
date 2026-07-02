@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { BookOpen, Check, X, AlertCircle, Download } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
+import { allVerseOptions, parseVerseKey } from '@/lib/quran-verses';
 
 const recitationCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الطالبة' },
@@ -223,6 +224,8 @@ export default function RecitationPage() {
     setSaving(true);
     const fromInfo = fromPageInfo;
     const toInfo = toPageInfo;
+    const fromRef = parseVerseKey(fromVerse);
+    const toRef = parseVerseKey(toVerse);
 
     // Get teacher_id - for now use first teacher (should be from auth context)
     const { data: teachers } = await supabase.from('teachers').select('id').limit(1);
@@ -241,10 +244,11 @@ export default function RecitationPage() {
       period,
       from_page: parseInt(fromPage),
       to_page: parseInt(toPage),
-      from_surah: fromInfo?.surah_name,
-      to_surah: toInfo?.surah_name,
-      from_verse: fromVerse ? parseInt(fromVerse) : null,
-      to_verse: toVerse ? parseInt(toVerse) : null,
+      // السورة من اختيار «سورة|آية» إن وُجد، وإلا سورة الصفحة
+      from_surah: fromRef?.surah ?? fromInfo?.surah_name,
+      to_surah: toRef?.surah ?? toInfo?.surah_name,
+      from_verse: fromRef?.verse ?? null,
+      to_verse: toRef?.verse ?? null,
       from_sort_order: fromInfo?.sort_order,
       to_sort_order: toInfo?.sort_order,
       is_extra_memorization: isExtra,
@@ -425,25 +429,27 @@ export default function RecitationPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>من الآية{fromPageInfo ? ` (${fromPageInfo.verse_start}–${fromPageInfo.verse_end})` : ''}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="رقم الآية"
+                <Label>من: سورة | رقم الآية</Label>
+                <SearchableSelect
+                  options={allVerseOptions()}
                   value={fromVerse}
-                  onChange={e => setFromVerse(e.target.value)}
+                  onValueChange={setFromVerse}
+                  placeholder="السورة|الآية"
+                  searchPlaceholder="مثال: البقرة|5"
+                  maxVisible={100}
+                  allowClear
                 />
               </div>
               <div className="space-y-2">
-                <Label>إلى الآية{toPageInfo ? ` (${toPageInfo.verse_start}–${toPageInfo.verse_end})` : ''}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  placeholder="رقم الآية"
+                <Label>إلى: سورة | رقم الآية</Label>
+                <SearchableSelect
+                  options={allVerseOptions()}
                   value={toVerse}
-                  onChange={e => setToVerse(e.target.value)}
+                  onValueChange={setToVerse}
+                  placeholder="السورة|الآية"
+                  searchPlaceholder="مثال: البقرة|10"
+                  maxVisible={100}
+                  allowClear
                 />
               </div>
             </div>
