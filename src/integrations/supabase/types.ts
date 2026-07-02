@@ -465,6 +465,7 @@ export type Database = {
           is_deleted: boolean | null
           hifz_confirmed: boolean | null
           is_extra_memorization: boolean | null
+          lahn_count: number | null
           pages_recited: number | null
           period: string
           recorded_by: string | null
@@ -494,6 +495,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean | null
           is_extra_memorization?: boolean | null
+          lahn_count?: number | null
           pages_recited?: number | null
           period: string
           recorded_by?: string | null
@@ -523,6 +525,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean | null
           is_extra_memorization?: boolean | null
+          lahn_count?: number | null
           pages_recited?: number | null
           period?: string
           recorded_by?: string | null

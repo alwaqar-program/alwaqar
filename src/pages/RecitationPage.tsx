@@ -22,13 +22,14 @@ import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
 } from '@/lib/quran-verses';
 
-// درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ (تُحسب في قاعدة البيانات).
-const recitationScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
+// درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
+// المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
+const recitationScore = (total: number) => Math.max(0, 20 - 0.25 * total);
 // التقدير — يطابق العمود المولّد: 0-2 ممتاز · 3-4 جيد جدًا · 5-6 جيد · 7+ ضعيف
-const getGrade = (errors: number) => {
-  if (errors <= 2) return { text: 'ممتاز', color: 'text-success' };
-  if (errors <= 4) return { text: 'جيد جدًا', color: 'text-info' };
-  if (errors <= 6) return { text: 'جيد', color: 'text-accent' };
+const getGrade = (total: number) => {
+  if (total <= 2) return { text: 'ممتاز', color: 'text-success' };
+  if (total <= 4) return { text: 'جيد جدًا', color: 'text-info' };
+  if (total <= 6) return { text: 'جيد', color: 'text-accent' };
   return { text: 'ضعيف', color: 'text-destructive' };
 };
 const gradeColors: Record<string, string> = {
@@ -45,6 +46,7 @@ const overviewCsvColumns: CsvColumnDef[] = [
   { key: 'range', header: 'النطاق' },
   { key: 'pages', header: 'الصفحات' },
   { key: 'errors', header: 'الأخطاء' },
+  { key: 'lahn', header: 'اللحون' },
   { key: 'score', header: 'الدرجة /20' },
   { key: 'grade', header: 'التقدير' },
   { key: 'recorded_by', header: 'سجّلها' },
@@ -63,7 +65,7 @@ interface RecRow {
   id: string; student_id: string | null; period: string;
   from_surah: string | null; from_verse: number | null;
   to_surah: string | null; to_verse: number | null;
-  pages_recited: number | null; error_count: number;
+  pages_recited: number | null; error_count: number; lahn_count: number | null;
   score: number | null; grade: string | null;
   recorded_by: string | null;
   teachers?: { teacher_name: string } | null;
@@ -95,6 +97,7 @@ export default function RecitationPage() {
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
+  const [lahnCount, setLahnCount] = useState(0);
   const [isExtra, setIsExtra] = useState(false);
   const [thabitConfirmed, setThabitConfirmed] = useState(false);
   const [hifzConfirmed, setHifzConfirmed] = useState(false);
@@ -123,7 +126,7 @@ export default function RecitationPage() {
     setLoading(true);
     const [recRes, attRes] = await Promise.all([
       supabase.from('recitation_log')
-        .select('id, student_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, score, grade, recorded_by, teachers(teacher_name)')
+        .select('id, student_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, recorded_by, teachers(teacher_name)')
         .eq('date', date).eq('is_deleted', false),
       supabase.from('attendance').select('student_id, status, period').eq('date', date).eq('is_deleted', false),
     ]);
@@ -162,6 +165,7 @@ export default function RecitationPage() {
           range: last ? fmtRange(last) : '',
           pages: recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0) || '',
           errors: last ? last.error_count : '',
+          lahn: last ? (last.lahn_count ?? 0) : '',
           score: last?.score ?? '',
           grade: last?.grade ?? '',
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
@@ -207,11 +211,12 @@ export default function RecitationPage() {
   const toPageInfo = toRef ? pageOfVerse(pageRefs, toRef.surah, toRef.verse) : null;
   const isOrderValid = fromG == null || toG == null || fromG <= toG;
   const pagesCount = fromPageInfo && toPageInfo ? toPageInfo.page_number - fromPageInfo.page_number + 1 : null;
-  const grade = getGrade(errorCount);
+  const totalErrors = errorCount + lahnCount; // أخطاء + لحون — نفس نموذج الاختبارات
+  const grade = getGrade(totalErrors);
 
   const resetEntry = () => {
     setEntryStudent(''); setFromVerse(''); setToVerse('');
-    setErrorCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
+    setErrorCount(0); setLahnCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
   };
 
   const handleSaveEntry = async () => {
@@ -251,6 +256,7 @@ export default function RecitationPage() {
       thabit_confirmed: thabitConfirmed,
       hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
+      lahn_count: lahnCount,
       recorded_by: adminName, // اللوق: أدخلها مدير النظام
       // grade + score (/20) are computed by the database (generated columns).
     });
@@ -344,6 +350,7 @@ export default function RecitationPage() {
                 <TableHead>النطاق</TableHead>
                 <TableHead>الصفحات</TableHead>
                 <TableHead>الأخطاء</TableHead>
+                <TableHead>اللحون</TableHead>
                 <TableHead>الدرجة /20</TableHead>
                 <TableHead>التقدير</TableHead>
                 <TableHead>سجّلها</TableHead>
@@ -362,6 +369,7 @@ export default function RecitationPage() {
                       <TableCell className="text-sm">{r.range}</TableCell>
                       <TableCell>{r.pages}</TableCell>
                       <TableCell>{r.errors}</TableCell>
+                      <TableCell>{r.lahn}</TableCell>
                       <TableCell className="font-bold">{r.score}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={gradeColors[r.grade] || ''}>{r.grade}</Badge>
@@ -370,7 +378,7 @@ export default function RecitationPage() {
                     </>
                   ) : (
                     <>
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={6}>
                         <span className="text-muted-foreground text-sm">
                           {r.absent ? 'غائبة — لا تسميع' : 'لم تُسمِّع'}
                         </span>
@@ -454,16 +462,21 @@ export default function RecitationPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>عدد الأخطاء</Label>
                     <Input type="number" min={0} value={errorCount}
                       onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
                   </div>
                   <div className="space-y-2">
+                    <Label>عدد اللحون</Label>
+                    <Input type="number" min={0} value={lahnCount}
+                      onChange={e => setLahnCount(parseInt(e.target.value) || 0)} />
+                  </div>
+                  <div className="space-y-2">
                     <Label>الدرجة /20</Label>
                     <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 font-bold">
-                      {recitationScore(errorCount)}<span className="text-xs text-muted-foreground mr-1">/ 20</span>
+                      {recitationScore(totalErrors)}<span className="text-xs text-muted-foreground mr-1">/ 20</span>
                     </div>
                   </div>
                   <div className="space-y-2">
