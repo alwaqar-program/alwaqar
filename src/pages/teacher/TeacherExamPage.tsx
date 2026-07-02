@@ -46,6 +46,7 @@ function ExamForm({ session }: { session: TeacherSession }) {
       errors_section_3: 0,
       errors_section_4: 0,
       segment_changes: form.changes, examiner_name: teacher.teacher_name,
+      recorded_by: teacher.teacher_name, // سجل: من أدخلت الاختبار
       // total_errors, total_score, max_score are computed by the database
     });
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });

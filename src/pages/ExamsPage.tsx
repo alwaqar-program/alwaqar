@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { FileCheck, Plus, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 
@@ -51,12 +53,16 @@ const examCsvColumns: CsvColumnDef[] = [
   { key: 'total_score', header: 'الدرجة' },
   { key: 'max_score', header: 'الحد الأقصى' },
   { key: 'examiner_name', header: 'المختبرة' },
+  { key: 'recorded_by', header: 'سجّلها' },
 ];
 
 interface Student {
   id: string;
   full_name: string;
+  circle_id: string | null;
 }
+
+interface Circle { id: string; circle_name: string; }
 
 interface Exam {
   id: string;
@@ -72,13 +78,19 @@ interface Exam {
   total_score: number | null;
   max_score: number | null;
   examiner_name: string | null;
+  recorded_by: string | null;
   students?: { full_name: string } | null;
 }
 
 export default function ExamsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  // من أدخل السجل — يظهر في اللوق أنه مدير النظام
+  const adminName = user?.email ? `مدير النظام (${user.email})` : 'مدير النظام';
   const [exams, setExams] = useState<Exam[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [coverageCircle, setCoverageCircle] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [existingExams, setExistingExams] = useState<Set<string>>(new Set());
@@ -111,12 +123,15 @@ export default function ExamsPage() {
   })();
 
   const fetchData = async () => {
-    const [exRes, stRes] = await Promise.all([
+    const [exRes, stRes, cRes] = await Promise.all([
       supabase.from('exams').select('*, students(full_name)').eq('is_deleted', false).order('date', { ascending: false }),
-      supabase.from('students').select('id, full_name').eq('is_active', true),
+      supabase.from('students').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
+      supabase.from('circles').select('id, circle_name').eq('is_active', true),
     ]);
+    if (exRes.error) toast({ title: 'خطأ', description: exRes.error.message, variant: 'destructive' });
     setExams(exRes.data || []);
     setStudents(stRes.data || []);
+    setCircles(cRes.data || []);
     // Build existing exam keys
     const keys = new Set((exRes.data || []).map(e => `${e.student_id}-${e.exam_type}`));
     setExistingExams(keys);
@@ -167,6 +182,7 @@ export default function ExamsPage() {
       errors_section_4: 0,
       segment_changes: form.segment_changes,
       examiner_name: form.examiner_name || null,
+      recorded_by: adminName, // اللوق: أدخلها مدير النظام
       // total_errors, total_score, max_score are computed by the database.
     });
 
@@ -182,6 +198,26 @@ export default function ExamsPage() {
       fetchData();
     }
   };
+
+  // ----- التغطية: من اختُبرت ومن لا، لكل نوع -----
+  const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
+  const coverage = useMemo(() => {
+    const byStudent = new Map<string, Record<string, Exam>>();
+    exams.forEach(e => {
+      if (!byStudent.has(e.student_id)) byStudent.set(e.student_id, {});
+      byStudent.get(e.student_id)![e.exam_type] = e;
+    });
+    return students
+      .filter(s => !coverageCircle || s.circle_id === coverageCircle)
+      .map(s => ({
+        id: s.id,
+        full_name: s.full_name,
+        circle_name: circleName(s.circle_id),
+        types: byStudent.get(s.id) ?? {},
+      }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, exams, coverageCircle, circles]);
+  const missingCount = (t: string) => coverage.filter(r => !r.types[t]).length;
 
   return (
     <div className="space-y-6">
@@ -276,43 +312,107 @@ export default function ExamsPage() {
 
       {loading ? (
         <Card className="animate-pulse"><CardContent className="h-48" /></Card>
-      ) : exams.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <FileCheck size={40} className="text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">لا توجد اختبارات بعد</p>
-          </CardContent>
-        </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="النوع" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="التاريخ" sortKey="date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="الأخطاء" sortKey="errors" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="الدرجة" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="المختبرة" sortKey="examiner" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedExams.map(e => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.students?.full_name}</TableCell>
-                  <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
-                  <TableCell dir="ltr">{e.date}</TableCell>
-                  <TableCell>{e.total_errors}</TableCell>
-                  <TableCell className={getScoreColor(e.total_score, e.max_score)}>
-                    <span className="font-bold">{e.total_score}</span>
-                    <span className="text-xs text-muted-foreground"> / {e.max_score}</span>
-                  </TableCell>
-                  <TableCell>{e.examiner_name || '-'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        <Tabs defaultValue="coverage" dir="rtl">
+          <TabsList>
+            <TabsTrigger value="coverage">التغطية — من اختُبرت ومن لا</TabsTrigger>
+            <TabsTrigger value="log">السجل</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="coverage" className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <SearchableSelect
+                className="w-56"
+                options={[{ value: '', label: 'كل الحلقات' }, ...circles.map(c => ({ value: c.id, label: c.circle_name }))]}
+                value={coverageCircle} onValueChange={setCoverageCircle}
+                placeholder="كل الحلقات" searchPlaceholder="ابحث عن حلقة..." allowClear />
+              <div className="flex gap-2 flex-wrap">
+                {newExamTypes.map(t => (
+                  <Badge key={t} variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                    {examTypes[t]} — لم تُختبر: {missingCount(t)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>الطالبة</TableHead>
+                    <TableHead>الحلقة</TableHead>
+                    {newExamTypes.map(t => <TableHead key={t}>{examTypes[t]}</TableHead>)}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coverage.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.full_name}</TableCell>
+                      <TableCell>{r.circle_name}</TableCell>
+                      {newExamTypes.map(t => {
+                        const e = r.types[t];
+                        return (
+                          <TableCell key={t}>
+                            {e ? (
+                              <span className={getScoreColor(e.total_score, e.max_score)}>
+                                <span className="font-bold">{e.total_score}</span>
+                                <span className="text-xs text-muted-foreground"> / {e.max_score}</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="log">
+            {exams.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileCheck size={40} className="text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">لا توجد اختبارات بعد</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <SortableHead label="النوع" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <SortableHead label="التاريخ" sortKey="date" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <SortableHead label="الأخطاء" sortKey="errors" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <SortableHead label="الدرجة" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <SortableHead label="المختبرة" sortKey="examiner" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                      <TableHead>سجّلها</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedExams.map(e => (
+                      <TableRow key={e.id}>
+                        <TableCell className="font-medium">{e.students?.full_name}</TableCell>
+                        <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
+                        <TableCell dir="ltr">{e.date}</TableCell>
+                        <TableCell>{e.total_errors}</TableCell>
+                        <TableCell className={getScoreColor(e.total_score, e.max_score)}>
+                          <span className="font-bold">{e.total_score}</span>
+                          <span className="text-xs text-muted-foreground"> / {e.max_score}</span>
+                        </TableCell>
+                        <TableCell>{e.examiner_name || '-'}</TableCell>
+                        <TableCell className="text-sm">{e.recorded_by || e.examiner_name || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

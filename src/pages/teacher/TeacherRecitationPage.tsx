@@ -114,6 +114,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
       from_sort_order: fromPageInfo?.sort_order ?? null, to_sort_order: toPageInfo?.sort_order ?? null,
       is_extra_memorization: isExtra, thabit_confirmed: thabit, hifz_confirmed: hifz,
       error_count: errorCount, // grade + score are computed by the database
+      recorded_by: teacher.teacher_name, // سجل: من أدخلت التسميع
     });
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     else {

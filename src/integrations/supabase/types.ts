@@ -231,6 +231,7 @@ export type Database = {
           is_deleted: boolean | null
           max_score: number | null
           notes: string | null
+          recorded_by: string | null
           segment_changes: number | null
           student_id: string
           total_errors: number | null
@@ -249,6 +250,7 @@ export type Database = {
           is_deleted?: boolean | null
           max_score?: number | null
           notes?: string | null
+          recorded_by?: string | null
           segment_changes?: number | null
           student_id: string
           total_errors?: number | null
@@ -267,6 +269,7 @@ export type Database = {
           is_deleted?: boolean | null
           max_score?: number | null
           notes?: string | null
+          recorded_by?: string | null
           segment_changes?: number | null
           student_id?: string
           total_errors?: number | null
@@ -464,10 +467,11 @@ export type Database = {
           is_extra_memorization: boolean | null
           pages_recited: number | null
           period: string
+          recorded_by: string | null
           reciter_id: string | null
           score: number | null
           student_id: string | null
-          teacher_id: string
+          teacher_id: string | null
           thabit_confirmed: boolean | null
           to_page: number | null
           to_sort_order: number | null
@@ -492,10 +496,11 @@ export type Database = {
           is_extra_memorization?: boolean | null
           pages_recited?: number | null
           period: string
+          recorded_by?: string | null
           reciter_id?: string | null
           score?: number | null
           student_id?: string | null
-          teacher_id: string
+          teacher_id?: string | null
           thabit_confirmed?: boolean | null
           to_page?: number | null
           to_sort_order?: number | null
@@ -520,10 +525,11 @@ export type Database = {
           is_extra_memorization?: boolean | null
           pages_recited?: number | null
           period?: string
+          recorded_by?: string | null
           reciter_id?: string | null
           score?: number | null
           student_id?: string | null
-          teacher_id?: string
+          teacher_id?: string | null
           thabit_confirmed?: boolean | null
           to_page?: number | null
           to_sort_order?: number | null
