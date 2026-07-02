@@ -18,19 +18,15 @@ interface MushafPage {
 }
 interface TodayRec { student_id: string; period: string; to_page: number | null; to_surah: string | null; to_verse: number | null; pages_recited: number | null; }
 
-// Mirrors the recitation_log generated columns (score /20, grade scale).
-const recScore = (errors: number) => Math.max(0, 20 - 0.25 * errors);
-const recGrade = (errors: number) => {
-  if (errors <= 2) return { text: 'ممتاز', color: 'text-success' };
-  if (errors <= 4) return { text: 'جيد جدًا', color: 'text-info' };
-  if (errors <= 6) return { text: 'جيد', color: 'text-accent' };
-  return { text: 'ضعيف', color: 'text-destructive' };
-};
+// الدرجة /20 والتقدير يُحسبان في قاعدة البيانات ويُعرضان للمشرفات فقط —
+// لا يظهران للمعلمة هنا.
 
 function RecitationForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   const { circle, period, students, loadingStudents, teacher } = session;
   const today = new Date().toISOString().split('T')[0];
+  // تاريخ التسميع — افتراضياً اليوم، ويمكن للمعلمة اختيار يوم آخر.
+  const [date, setDate] = useState(today);
 
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [branchJuz, setBranchJuz] = useState<number[]>([]);
@@ -62,13 +58,13 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     const ids = students.map(s => s.id);
     const [{ data: rec }, { data: att }] = await Promise.all([
       supabase.from('recitation_log').select('student_id, period, to_page, to_surah, to_verse, pages_recited')
-        .eq('circle_id', circle.id).eq('date', today).eq('is_deleted', false),
-      supabase.from('attendance').select('student_id, status, period').eq('date', today).in('student_id', ids),
+        .eq('circle_id', circle.id).eq('date', date).eq('is_deleted', false),
+      supabase.from('attendance').select('student_id, status, period').eq('date', date).in('student_id', ids),
     ]);
     setTodayRecs(rec || []);
     setAbsentIds(new Set((att || []).filter(a => a.period === period && a.status === 'absent').map(a => a.student_id)));
   };
-  useEffect(() => { refreshDay(); /* eslint-disable-line */ }, [students, period, today, circle.id]);
+  useEffect(() => { refreshDay(); /* eslint-disable-line */ }, [students, period, date, circle.id]);
 
   const recitedThisPeriod = (id: string) => todayRecs.some(r => r.student_id === id && r.period === period);
   const isAbsent = (id: string) => absentIds.has(id);
@@ -87,8 +83,6 @@ function RecitationForm({ session }: { session: TeacherSession }) {
   const fromPageInfo = fromRef ? pageOfVerse(pageRefs, fromRef.surah, fromRef.verse) : null;
   const toPageInfo = toRef ? pageOfVerse(pageRefs, toRef.surah, toRef.verse) : null;
   const orderOk = fromG == null || toG == null || fromG <= toG;
-  const pagesCount = fromPageInfo && toPageInfo ? toPageInfo.page_number - fromPageInfo.page_number + 1 : null;
-  const grade = recGrade(errorCount);
 
   const selectedStudent = students.find(s => s.id === selected);
 
@@ -111,7 +105,7 @@ function RecitationForm({ session }: { session: TeacherSession }) {
     if (isAbsent(selected)) { toast({ title: 'خطأ', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
-      student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date: today, period,
+      student_id: selected, teacher_id: teacher.id, circle_id: circle.id, date, period,
       // الصفحات مشتقة تلقائياً من نطاق السورة|الآية
       from_page: fromPageInfo?.page_number ?? null,
       to_page: toPageInfo?.page_number ?? null,
@@ -206,28 +200,20 @@ function RecitationForm({ session }: { session: TeacherSession }) {
                 <AlertCircle size={16} /> بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف
               </div>
             )}
-            {orderOk && fromPageInfo && toPageInfo && (
-              <div className="text-sm bg-primary/5 p-3 rounded-lg border border-primary/10">
-                <strong>الحصيلة:</strong> {pagesCount} صفحات (ص{fromPageInfo.page_number} → ص{toPageInfo.page_number})
-              </div>
-            )}
+            {/* الحصيلة والدرجة والتقدير تُحسب وتُحفظ في النظام وتظهر للمشرفات فقط */}
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ</label>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">عدد الأخطاء</Label>
                 <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">الدرجة /20</Label>
-                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 font-bold">{recScore(errorCount)}<span className="text-xs text-muted-foreground mr-1">/ 20</span></div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">التقدير</Label>
-                <div className={`h-10 flex items-center px-3 rounded-md border bg-muted/30 font-medium ${grade.color}`}>{grade.text}</div>
+                <Label className="text-xs">تاريخ التسميع</Label>
+                <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
               </div>
             </div>
             <Button onClick={save} disabled={saving || !orderOk} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ التسميع'}</Button>
