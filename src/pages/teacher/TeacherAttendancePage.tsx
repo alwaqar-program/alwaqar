@@ -93,10 +93,18 @@ function AttendanceForm({ session }: { session: TeacherSession }) {
 
   return (
     <>
-      <div className="space-y-1.5 max-w-xs">
-        <Label className="text-xs">تاريخ الحضور</Label>
-        <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
-      </div>
+      {/* تاريخ الحضور ظاهر دائماً أعلى الصفحة — يمكن رصد يوم سابق */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="space-y-1.5 max-w-xs">
+            <Label className="text-xs">تاريخ الحضور</Label>
+            <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
+          </div>
+          {date !== today && (
+            <p className="text-xs text-warning mt-2">تنبيه: تسجّلين على يوم سابق ({date})</p>
+          )}
+        </CardContent>
+      </Card>
       <div className="flex gap-2 flex-wrap">
         <Badge variant="outline" className="bg-success/10 text-success border-success/20">حاضرة: {count('present')}</Badge>
         <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">غائبة: {count('absent')}</Badge>

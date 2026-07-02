@@ -70,6 +70,14 @@ function ExamForm({ session }: { session: TeacherSession }) {
   return (
     <Card>
       <CardContent className="pt-4 space-y-4">
+        {/* تاريخ الاختبار ظاهر دائماً أعلى النموذج — يمكن رصد يوم سابق */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">تاريخ الاختبار</Label>
+          <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
+          {date !== today && (
+            <p className="text-xs text-warning">تنبيه: تسجّلين على يوم سابق ({date})</p>
+          )}
+        </div>
         <div className="space-y-1.5">
           <Label className="text-xs">الطالبة</Label>
           <SearchableSelect options={students.map(s => ({ value: s.id, label: s.full_name }))}
@@ -92,10 +100,6 @@ function ExamForm({ session }: { session: TeacherSession }) {
             <Input type="number" min={0} value={form.errors} onChange={e => setForm(f => ({ ...f, errors: parseInt(e.target.value) || 0 }))} /></div>
           <div className="space-y-1.5"><Label className="text-xs">عدد اللحون</Label>
             <Input type="number" min={0} value={form.lahn} onChange={e => setForm(f => ({ ...f, lahn: parseInt(e.target.value) || 0 }))} /></div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">تاريخ الاختبار</Label>
-          <Input type="date" dir="ltr" value={date} max={today} onChange={e => setDate(e.target.value || today)} />
         </div>
         {/* تغيير المقطع مسموح مرة واحدة فقط */}
         <label className="flex items-center gap-2 text-sm">
