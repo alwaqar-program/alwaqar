@@ -143,6 +143,21 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
         </div>
       )}
 
+      {selected && selectedStudent ? (
+        <Card>
+          <CardContent className="py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <BookOpen size={14} />
+              </div>
+              <p className="font-medium text-sm truncate">{selectedStudent.full_name}</p>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground shrink-0" onClick={() => setSelected('')}>
+              تغيير الطالبة
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardContent className="pt-4 space-y-2">
           {students.map(s => {
@@ -175,6 +190,7 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
           })}
         </CardContent>
       </Card>
+      )}
 
       {selectedStudent && (
         <Card>
