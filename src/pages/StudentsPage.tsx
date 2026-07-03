@@ -196,7 +196,7 @@ export default function StudentsPage() {
     const payload = {
       full_name: form.full_name, national_id: form.national_id || null,
       phone: form.phone || null, circle_id: form.circle_id || null,
-      housing_type: form.housing_type, admission_status: form.admission_status,
+      housing_type: form.housing_type || null, admission_status: form.admission_status,
       email: form.email || null, guardian_phone: form.guardian_phone || null,
       nationality: form.nationality || null, qualification: form.qualification || null,
       from_surah: fromSurah, to_surah: toSurah,
