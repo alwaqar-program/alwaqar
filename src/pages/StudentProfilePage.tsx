@@ -8,6 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { User, BookOpen, ClipboardCheck, FileCheck } from 'lucide-react';
+import { HOUSING_AR, HousingAnswer } from '@/lib/interview-types';
 
 const statusLabels: Record<string, string> = {
   candidate: 'مرشحة', interview_scheduled: 'مقابلة مجدولة', preliminary_accepted: 'قبول مبدئي',
@@ -123,7 +124,7 @@ export default function StudentProfilePage() {
                 ['هاتف ولي الأمر', student.guardian_phone],
                 ['الجنسية', student.nationality],
                 ['المؤهل', student.qualification],
-                ['نوع السكن', student.housing_type === 'internal' ? 'داخلي' : 'خارجي'],
+                ['نوع السكن', student.housing_type && HOUSING_AR[student.housing_type as HousingAnswer] ? HOUSING_AR[student.housing_type as HousingAnswer] : 'غير محدد'],
                 ['من سورة', student.from_surah],
                 ['إلى سورة', student.to_surah],
                 ['تاريخ التسجيل', student.registration_date],

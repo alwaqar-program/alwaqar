@@ -26,6 +26,14 @@ import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { SURAHS } from '@/lib/quran-verses';
+import { HOUSING_AR, HousingAnswer } from '@/lib/interview-types';
+
+// نوع السكن مطابق لإجابة المقابلة (تقبل السكن المشترك / لا تقبل / معها مرافقات).
+const housingOptions = (Object.keys(HOUSING_AR) as HousingAnswer[]).map(k => ({ value: k, label: HOUSING_AR[k] }));
+const housingLabel = (v: string | null | undefined) =>
+  v && HOUSING_AR[v as HousingAnswer] ? HOUSING_AR[v as HousingAnswer] : 'غير محدد';
+const housingFromLabel = (s: string) =>
+  (Object.keys(HOUSING_AR) as HousingAnswer[]).find(k => HOUSING_AR[k] === s?.trim()) ?? null;
 
 const studentCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الاسم الكامل' },
@@ -35,7 +43,7 @@ const studentCsvColumns: CsvColumnDef[] = [
   { key: 'guardian_phone', header: 'هاتف ولي الأمر' },
   { key: 'nationality', header: 'الجنسية' },
   { key: 'qualification', header: 'المؤهل' },
-  { key: 'housing_type', header: 'نوع السكن' },
+  { key: 'housing_type', header: 'نوع السكن', transform: housingLabel, importTransform: housingFromLabel },
   { key: 'admission_status', header: 'حالة القبول' },
 ];
 
@@ -98,7 +106,7 @@ export default function StudentsPage() {
   const [filterHousing, setFilterHousing] = useUrlMultiFilter('housing');
 
   const [form, setForm] = useState({
-    full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal',
+    full_name: '', national_id: '', phone: '', circle_id: '', housing_type: '',
     admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '',
     from_surah: '', to_surah: '',
   });
@@ -148,7 +156,7 @@ export default function StudentsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', housing_type: 'internal', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '', from_surah: '', to_surah: '' });
+    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', housing_type: '', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '', from_surah: '', to_surah: '' });
     setDialogOpen(true);
   };
 
@@ -156,7 +164,7 @@ export default function StudentsPage() {
     setEditing(s);
     setForm({
       full_name: s.full_name, national_id: s.national_id || '', phone: s.phone || '',
-      circle_id: s.circle_id || '', housing_type: s.housing_type || 'internal',
+      circle_id: s.circle_id || '', housing_type: s.housing_type || '',
       admission_status: s.admission_status, email: s.email || '',
       guardian_phone: s.guardian_phone || '', nationality: s.nationality || '',
       qualification: s.qualification || '',
@@ -226,7 +234,7 @@ export default function StudentsPage() {
       circle: (s) => s.circles?.circle_name,
       branch: (s) => s.circles?.branches?.branch_name,
       status: (s) => statusLabels[s.admission_status] || s.admission_status,
-      housing: (s) => (s.housing_type === 'internal' ? 'داخلي' : 'خارجي'),
+      housing: (s) => housingLabel(s.housing_type),
     };
     if (!sortKey || !acc[sortKey]) return filteredStudents;
     return sortRows(filteredStudents, acc[sortKey], sortDir, 'text');
@@ -320,11 +328,12 @@ export default function StudentsPage() {
                 <div className="space-y-2">
                   <Label>نوع السكن</Label>
                   <SearchableSelect
-                    options={[{ value: 'internal', label: 'داخلي' }, { value: 'external', label: 'خارجي' }]}
+                    options={housingOptions}
                     value={form.housing_type}
                     onValueChange={v => setForm(f => ({ ...f, housing_type: v }))}
                     placeholder="نوع السكن"
                     searchPlaceholder="ابحث..."
+                    allowClear
                   />
                 </div>
               </div>
@@ -412,7 +421,7 @@ export default function StudentsPage() {
               searchPlaceholder="ابحث عن حالة..."
             />
             <MultiSearchableSelect
-              options={[{ value: 'internal', label: 'داخلي' }, { value: 'external', label: 'خارجي' }]}
+              options={housingOptions}
               values={filterHousing}
               onValuesChange={setFilterHousing}
               placeholder="كل أنواع السكن"
@@ -462,7 +471,7 @@ export default function StudentsPage() {
                         {statusLabels[s.admission_status] || s.admission_status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{s.housing_type === 'internal' ? 'داخلي' : 'خارجي'}</TableCell>
+                    <TableCell>{housingLabel(s.housing_type)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(s); }}>
