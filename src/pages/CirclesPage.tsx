@@ -50,42 +50,71 @@ interface Assignment {
 // Per-circle assigned teachers, resolved to a morning + evening teacher id.
 interface CircleTeachers { morning: string; evening: string; }
 
-interface StudentLite {
+// A circle member can come from any of the three cohort tables.
+type MemberKind = 'student' | 'companion' | 'beginner';
+
+const MEMBER_TABLE: Record<MemberKind, 'students' | 'companions' | 'beginners'> = {
+  student: 'students',
+  companion: 'companions',
+  beginner: 'beginners',
+};
+
+const MEMBER_LABEL: Record<MemberKind, string> = {
+  student: 'طالبة',
+  companion: 'مرافقة',
+  beginner: 'مبتدئة',
+};
+
+interface MemberLite {
   id: string;
   full_name: string;
   circle_id: string | null;
+  kind: MemberKind;
 }
 
 export default function CirclesPage() {
   const [circles, setCircles] = useState<Circle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [students, setStudents] = useState<StudentLite[]>([]);
+  const [members, setMembers] = useState<MemberLite[]>([]);
   const [assignments, setAssignments] = useState<Record<string, CircleTeachers>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
   const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '' });
-  // Roster dialog (add/remove students of one circle)
+  // Roster dialog (add/remove members of one circle)
   const [rosterCircle, setRosterCircle] = useState<Circle | null>(null);
-  const [studentToAdd, setStudentToAdd] = useState('');
+  const [memberToAdd, setMemberToAdd] = useState('');
+  const [addFilter, setAddFilter] = useState<'all' | MemberKind>('all');
   const { toast } = useToast();
 
   const teacherName = (id: string) => teachers.find(t => t.id === id)?.teacher_name || '';
 
   const fetch = async () => {
-    const [circlesRes, branchesRes, teachersRes, assignRes, studentsRes] = await Promise.all([
+    const [circlesRes, branchesRes, teachersRes, assignRes, studentsRes, companionsRes, beginnersRes] = await Promise.all([
       supabase.from('circles').select('*, branches(branch_name)').order('created_at'),
       supabase.from('branches').select('id, branch_name').eq('is_active', true),
       supabase.from('teachers').select('id, teacher_name').eq('is_active', true).order('teacher_name'),
       supabase.from('teacher_assignments').select('teacher_id, circle_id, period').eq('is_active', true),
-      supabase.from('students').select('id, full_name, circle_id')
-        .eq('is_active', true).order('full_name'),
+      supabase.from('students').select('id, full_name, circle_id, is_active').order('full_name'),
+      supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
+      supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
     ]);
     setCircles(circlesRes.data || []);
     setBranches(branchesRes.data || []);
     setTeachers(teachersRes.data || []);
-    setStudents(studentsRes.data || []);
+
+    // Merge the three cohorts into one member list. is_active can be null on
+    // companions, so we exclude only rows explicitly marked inactive.
+    const toMembers = (rows: any[] | null, kind: MemberKind): MemberLite[] =>
+      (rows || [])
+        .filter(r => r.is_active !== false)
+        .map(r => ({ id: r.id, full_name: r.full_name, circle_id: r.circle_id, kind }));
+    setMembers([
+      ...toMembers(studentsRes.data, 'student'),
+      ...toMembers(companionsRes.data, 'companion'),
+      ...toMembers(beginnersRes.data, 'beginner'),
+    ]);
 
     // Resolve each circle's assignments to a morning + evening teacher.
     const map: Record<string, CircleTeachers> = {};
@@ -155,27 +184,28 @@ export default function CirclesPage() {
     fetch();
   };
 
-  // ----- Circle roster (add/remove students) -----
-  const circleStudents = (circleId: string) => students.filter(s => s.circle_id === circleId);
+  // ----- Circle roster (add/remove members from any cohort) -----
+  const circleMembers = (circleId: string) => members.filter(m => m.circle_id === circleId);
 
-  const addStudentToCircle = async () => {
-    if (!rosterCircle || !studentToAdd) return;
-    const student = students.find(s => s.id === studentToAdd);
-    const { error } = await supabase.from('students')
-      .update({ circle_id: rosterCircle.id }).eq('id', studentToAdd);
+  const addMemberToCircle = async () => {
+    if (!rosterCircle || !memberToAdd) return;
+    const member = members.find(m => m.id === memberToAdd);
+    if (!member) return;
+    const { error } = await supabase.from(MEMBER_TABLE[member.kind])
+      .update({ circle_id: rosterCircle.id }).eq('id', member.id);
     if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
     toast({
-      title: `أُضيفت ${student?.full_name ?? 'الطالبة'} إلى ${rosterCircle.circle_name}`,
-      description: student?.circle_id ? 'نُقلت من حلقتها السابقة.' : undefined,
+      title: `أُضيفت ${member.full_name} إلى ${rosterCircle.circle_name}`,
+      description: member.circle_id ? 'نُقلت من حلقتها السابقة.' : undefined,
     });
-    setStudentToAdd('');
+    setMemberToAdd('');
     fetch();
   };
 
-  const removeStudentFromCircle = async (s: StudentLite) => {
-    const { error } = await supabase.from('students').update({ circle_id: null }).eq('id', s.id);
+  const removeMemberFromCircle = async (m: MemberLite) => {
+    const { error } = await supabase.from(MEMBER_TABLE[m.kind]).update({ circle_id: null }).eq('id', m.id);
     if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: `أُزيلت ${s.full_name} من الحلقة` });
+    toast({ title: `أُزيلت ${m.full_name} من الحلقة` });
     fetch();
   };
 
@@ -256,54 +286,77 @@ export default function CirclesPage() {
         </div>
       </div>
 
-      {/* Circle roster: add/remove students (students can still be assigned from the Students page) */}
+      {/* Circle roster: add/remove members from students, companions and beginners */}
       <Dialog open={!!rosterCircle} onOpenChange={open => { if (!open) setRosterCircle(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">طالبات حلقة {rosterCircle?.circle_name}</DialogTitle>
+            <DialogTitle className="font-display">أعضاء حلقة {rosterCircle?.circle_name}</DialogTitle>
           </DialogHeader>
           {rosterCircle && (
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label>إضافة طالبة</Label>
+                <Label>إضافة عضوة</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ['all', 'الكل'],
+                    ['student', MEMBER_LABEL.student],
+                    ['companion', MEMBER_LABEL.companion],
+                    ['beginner', MEMBER_LABEL.beginner],
+                  ] as const).map(([val, label]) => (
+                    <Button
+                      key={val}
+                      type="button"
+                      size="sm"
+                      variant={addFilter === val ? 'default' : 'outline'}
+                      className="h-7 px-3 text-xs"
+                      onClick={() => { setAddFilter(val); setMemberToAdd(''); }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="flex gap-2">
                   <SearchableSelect
                     className="flex-1"
-                    options={students
-                      .filter(s => s.circle_id !== rosterCircle.id)
-                      .map(s => ({
-                        value: s.id,
-                        label: s.circle_id
-                          ? `${s.full_name} — (في: ${circles.find(c => c.id === s.circle_id)?.circle_name ?? 'حلقة أخرى'})`
-                          : s.full_name,
+                    options={members
+                      .filter(m => m.circle_id !== rosterCircle.id)
+                      .filter(m => addFilter === 'all' || m.kind === addFilter)
+                      .map(m => ({
+                        value: m.id,
+                        label: m.circle_id
+                          ? `${m.full_name} (${MEMBER_LABEL[m.kind]}) — (في: ${circles.find(c => c.id === m.circle_id)?.circle_name ?? 'حلقة أخرى'})`
+                          : `${m.full_name} (${MEMBER_LABEL[m.kind]})`,
                       }))}
-                    value={studentToAdd}
-                    onValueChange={setStudentToAdd}
-                    placeholder="اختر الطالبة"
-                    searchPlaceholder="ابحث عن طالبة..."
+                    value={memberToAdd}
+                    onValueChange={setMemberToAdd}
+                    placeholder="اختر العضوة"
+                    searchPlaceholder="ابحث عن طالبة أو مرافقة أو مبتدئة..."
                   />
-                  <Button onClick={addStudentToCircle} disabled={!studentToAdd} className="shrink-0">
+                  <Button onClick={addMemberToCircle} disabled={!memberToAdd} className="shrink-0">
                     <UserPlus size={16} /> إضافة
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  اختيار طالبة في حلقة أخرى ينقلها إلى هذه الحلقة.
+                  يمكن إضافة الطالبات والمرافقات والمبتدئات. اختيار عضوة في حلقة أخرى ينقلها إلى هذه الحلقة.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>الطالبات الحاليات ({circleStudents(rosterCircle.id).length})</Label>
-                {circleStudents(rosterCircle.id).length === 0 ? (
+                <Label>الأعضاء الحاليات ({circleMembers(rosterCircle.id).length})</Label>
+                {circleMembers(rosterCircle.id).length === 0 ? (
                   <p className="text-sm text-muted-foreground py-3 text-center border border-dashed rounded-lg">
-                    لا توجد طالبات في هذه الحلقة
+                    لا توجد عضوات في هذه الحلقة
                   </p>
                 ) : (
                   <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
-                    {circleStudents(rosterCircle.id).map(s => (
-                      <div key={s.id} className="flex items-center justify-between p-2 rounded-md border text-sm">
-                        <span>{s.full_name}</span>
+                    {circleMembers(rosterCircle.id).map(m => (
+                      <div key={m.id} className="flex items-center justify-between p-2 rounded-md border text-sm">
+                        <span className="flex items-center gap-2">
+                          {m.full_name}
+                          {m.kind !== 'student' && <Badge variant="secondary" className="text-[10px]">{MEMBER_LABEL[m.kind]}</Badge>}
+                        </span>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          title="إزالة من الحلقة" onClick={() => removeStudentFromCircle(s)}>
+                          title="إزالة من الحلقة" onClick={() => removeMemberFromCircle(m)}>
                           <X size={14} />
                         </Button>
                       </div>
@@ -335,8 +388,8 @@ export default function CirclesPage() {
                 <div className="flex items-start justify-between">
                   <CardTitle className="font-display text-lg">{c.circle_name}</CardTitle>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="طالبات الحلقة"
-                      onClick={() => { setRosterCircle(c); setStudentToAdd(''); }}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="أعضاء الحلقة"
+                      onClick={() => { setRosterCircle(c); setMemberToAdd(''); setAddFilter('all'); }}>
                       <Users size={14} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
@@ -350,7 +403,7 @@ export default function CirclesPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{c.branches?.branch_name}</Badge>
                   <Badge variant="outline">صباحي ومسائي</Badge>
-                  <Badge variant="outline" className="gap-1"><Users size={11} /> {circleStudents(c.id).length}</Badge>
+                  <Badge variant="outline" className="gap-1"><Users size={11} /> {circleMembers(c.id).length}</Badge>
                 </div>
                 {(() => {
                   const a = assignments[c.id];
