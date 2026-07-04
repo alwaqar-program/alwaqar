@@ -16,11 +16,15 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
+import {
+  fetchJuzPageCounts, pagesForJuz, studyDaysExcludingFridays, dailyPageTarget,
+} from '@/lib/program-target';
 
 const branchCsvColumns: CsvColumnDef[] = [
   { key: 'branch_name', header: 'اسم الفرع' },
   { key: 'juz_count', header: 'عدد الأجزاء', importTransform: v => parseInt(v) || 0 },
-  { key: 'expected_daily_pages', header: 'المستهدف اليومي', importTransform: v => parseFloat(v) || 3 },
+  { key: 'total_pages', header: 'إجمالي الصفحات' },
+  { key: 'daily_target', header: 'المستهدف اليومي (محسوب)' },
   { key: 'program_start_date', header: 'تاريخ البداية' },
   { key: 'program_end_date', header: 'تاريخ النهاية' },
 ];
@@ -37,33 +41,46 @@ interface Branch {
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [juzPages, setJuzPages] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [form, setForm] = useState({
     branch_name: '',
     juz_count: 5,
-    expected_daily_pages: 3,
     program_start_date: '',
     program_end_date: '',
   });
   const { toast } = useToast();
 
   const fetchBranches = async () => {
-    const { data, error } = await supabase.from('branches').select('*').order('created_at');
+    const [{ data, error }, jp] = await Promise.all([
+      supabase.from('branches').select('*').order('created_at'),
+      fetchJuzPageCounts(),
+    ]);
     if (error) {
       toast({ title: 'خطأ في جلب الفروع', description: error.message, variant: 'destructive' });
     } else {
       setBranches(data || []);
     }
+    setJuzPages(jp);
     setLoading(false);
   };
 
   useEffect(() => { fetchBranches(); }, []);
 
+  // المستهدف اليومي المحسوب لكل فرع (صفحات الفرع ÷ أيام الدراسة بلا جمعة).
+  const targetFor = (b: Branch) => {
+    const pages = pagesForJuz(juzPages, b.juz_count);
+    const days = studyDaysExcludingFridays(b.program_start_date, b.program_end_date);
+    const daily = dailyPageTarget(juzPages, b.juz_count, b.program_start_date, b.program_end_date);
+    return { pages, days, daily };
+  };
+  const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
+
   const openCreate = () => {
     setEditing(null);
-    setForm({ branch_name: '', juz_count: 5, expected_daily_pages: 3, program_start_date: '', program_end_date: '' });
+    setForm({ branch_name: '', juz_count: 5, program_start_date: '', program_end_date: '' });
     setDialogOpen(true);
   };
 
@@ -72,7 +89,6 @@ export default function BranchesPage() {
     setForm({
       branch_name: b.branch_name,
       juz_count: b.juz_count,
-      expected_daily_pages: b.expected_daily_pages,
       program_start_date: b.program_start_date || '',
       program_end_date: b.program_end_date || '',
     });
@@ -80,10 +96,12 @@ export default function BranchesPage() {
   };
 
   const handleSave = async () => {
+    // المستهدف اليومي محسوب من النظام؛ نخزّنه أيضاً في expected_daily_pages للتوافق.
+    const computed = dailyPageTarget(juzPages, form.juz_count, form.program_start_date || null, form.program_end_date || null);
     const payload = {
       branch_name: form.branch_name,
       juz_count: form.juz_count,
-      expected_daily_pages: form.expected_daily_pages,
+      expected_daily_pages: computed ?? 0,
       program_start_date: form.program_start_date || null,
       program_end_date: form.program_end_date || null,
     };
@@ -114,7 +132,12 @@ export default function BranchesPage() {
           <p className="text-sm text-muted-foreground mt-1">إضافة وتعديل فروع التحفيظ</p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvActions data={branches} columns={branchCsvColumns} tableName="branches" filename="branches" onImportComplete={fetchBranches} />
+          <CsvActions
+            data={branches.map(b => {
+              const { pages, daily } = targetFor(b);
+              return { ...b, total_pages: pages, daily_target: daily != null ? fmt1(daily) : '' };
+            })}
+            columns={branchCsvColumns} tableName="branches" filename="branches" onImportComplete={fetchBranches} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate}>
@@ -131,15 +154,9 @@ export default function BranchesPage() {
                 <Label>اسم الفرع</Label>
                 <Input value={form.branch_name} onChange={e => setForm(f => ({ ...f, branch_name: e.target.value }))} placeholder="مثال: فرع 5 أجزاء" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>عدد الأجزاء</Label>
-                  <Input type="number" min={1} max={30} value={form.juz_count} onChange={e => setForm(f => ({ ...f, juz_count: parseInt(e.target.value) || 0 }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>المستهدف اليومي (صفحات)</Label>
-                  <Input type="number" min={0.5} step={0.5} value={form.expected_daily_pages} onChange={e => setForm(f => ({ ...f, expected_daily_pages: parseFloat(e.target.value) || 0 }))} />
-                </div>
+              <div className="space-y-2">
+                <Label>عدد الأجزاء <span className="text-muted-foreground font-normal">(0 = غير محدد، لا يُحتسب)</span></Label>
+                <Input type="number" min={0} max={30} value={form.juz_count} onChange={e => setForm(f => ({ ...f, juz_count: parseInt(e.target.value) || 0 }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -151,6 +168,16 @@ export default function BranchesPage() {
                   <Input type="date" value={form.program_end_date} onChange={e => setForm(f => ({ ...f, program_end_date: e.target.value }))} dir="ltr" />
                 </div>
               </div>
+              {(() => {
+                const pages = pagesForJuz(juzPages, form.juz_count);
+                const daily = dailyPageTarget(juzPages, form.juz_count, form.program_start_date || null, form.program_end_date || null);
+                return (
+                  <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الصفحات ({form.juz_count} جزء)</span><span className="font-medium">{pages || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (محسوب)</span><span className="font-medium text-primary">{form.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span></div>
+                  </div>
+                );
+              })()}
               <Button onClick={handleSave} className="w-full">{editing ? 'حفظ التعديلات' : 'إضافة'}</Button>
             </div>
           </DialogContent>
@@ -190,18 +217,27 @@ export default function BranchesPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">عدد الأجزاء</span>
-                  <span className="font-medium">{b.juz_count}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">المستهدف اليومي</span>
-                  <span className="font-medium">{b.expected_daily_pages} صفحات</span>
-                </div>
+                {(() => {
+                  const { pages, daily } = targetFor(b);
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">عدد الأجزاء</span>
+                        <span className="font-medium">{b.juz_count} ({pages || '—'} صفحة)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">المستهدف اليومي</span>
+                        <span className="font-medium text-primary">
+                          {b.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
                 {b.program_start_date && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">البداية</span>
-                    <span className="font-medium" dir="ltr">{b.program_start_date}</span>
+                    <span className="text-muted-foreground">المدة</span>
+                    <span className="font-medium" dir="ltr">{b.program_start_date} → {b.program_end_date || '…'}</span>
                   </div>
                 )}
               </CardContent>
