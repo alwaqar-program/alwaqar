@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
+import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
@@ -464,10 +465,13 @@ export default function RecitationPage() {
                       <TableCell className="text-sm">{r.recorded_by}</TableCell>
                       <TableCell>
                         {r.editRec && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
-                            onClick={() => openEditRec(r.editRec!)}>
-                            <Pencil size={14} />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <RecordHistoryButton tableName="recitation_log" rowId={r.editRec.id} title={r.full_name} />
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
+                              onClick={() => openEditRec(r.editRec!)}>
+                              <Pencil size={14} />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </>

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { ClipboardCheck, Save, Download, Plus, Pencil } from 'lucide-react';
+import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 
@@ -373,9 +374,12 @@ export default function AttendancePage() {
                   <TableCell className="text-sm text-muted-foreground">{r.reason || '-'}</TableCell>
                   <TableCell className="text-sm">{r.recorded_by || '-'}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل الحضور" onClick={() => openRowEdit(r)}>
-                      <Pencil size={14} />
-                    </Button>
+                    <div className="flex items-center gap-0.5">
+                      {r.existingId && <RecordHistoryButton tableName="attendance" rowId={r.existingId} title={r.full_name} />}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل الحضور" onClick={() => openRowEdit(r)}>
+                        <Pencil size={14} />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
