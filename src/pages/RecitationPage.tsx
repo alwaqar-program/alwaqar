@@ -16,6 +16,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
 import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
@@ -213,17 +215,37 @@ export default function RecitationPage() {
   const notRecited = overviewAll.length - recitedCount;
 
   // Apply the clickable status filter on top of the other filters.
-  const overview = useMemo(() => {
+  const filteredOverview = useMemo(() => {
     if (!filterStatus) return overviewAll;
     return overviewAll.filter(r => filterStatus === 'recited' ? r.recited : !r.recited);
   }, [overviewAll, filterStatus]);
+
+  // Sortable columns (same behaviour as the students table).
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const overview = useMemo(() => {
+    const acc: Record<string, { get: (r: (typeof filteredOverview)[number]) => unknown; type: 'text' | 'number' }> = {
+      name: { get: (r) => r.full_name, type: 'text' },
+      cohort: { get: (r) => r.kind_label, type: 'text' },
+      circle: { get: (r) => r.circle_name, type: 'text' },
+      range: { get: (r) => r.range, type: 'text' },
+      pages: { get: (r) => r.pages, type: 'number' },
+      errors: { get: (r) => r.errors, type: 'number' },
+      lahn: { get: (r) => r.lahn, type: 'number' },
+      score: { get: (r) => r.score, type: 'number' },
+      grade: { get: (r) => r.grade, type: 'text' },
+      recorded_by: { get: (r) => r.recorded_by, type: 'text' },
+    };
+    const col = sortKey ? acc[sortKey] : null;
+    if (!col) return filteredOverview;
+    return sortRows(filteredOverview, col.get, sortDir, col.type);
+  }, [filteredOverview, sortKey, sortDir]);
 
   // Pagination for the overview table.
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search, sortKey, sortDir]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog helpers -----
@@ -457,16 +479,16 @@ export default function RecitationPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>الفئة</TableHead>
-                <TableHead>الحلقة</TableHead>
-                <TableHead>النطاق</TableHead>
-                <TableHead>الصفحات</TableHead>
-                <TableHead>الأخطاء</TableHead>
-                <TableHead>اللحون</TableHead>
-                <TableHead>الدرجة /20</TableHead>
-                <TableHead>التقدير</TableHead>
-                <TableHead>سجّلها</TableHead>
+                <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الفئة" sortKey="cohort" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="النطاق" sortKey="range" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الصفحات" sortKey="pages" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الأخطاء" sortKey="errors" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="اللحون" sortKey="lahn" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الدرجة /20" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="التقدير" sortKey="grade" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="سجّلها" sortKey="recorded_by" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>

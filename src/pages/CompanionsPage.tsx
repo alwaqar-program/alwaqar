@@ -8,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Search, X, HeartHandshake, Download } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
 // الفئة العمرية — 16_to_35 لا تظهر هنا (تلك تبقى طالبات)
@@ -84,13 +86,28 @@ export default function CompanionsPage() {
   const hasFilters = !!search || !!filterCategory;
   const clearFilters = () => { setSearch(''); setFilterCategory(''); };
 
+  // Sortable columns (same behaviour as the students table).
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (c: Companion) => unknown> = {
+      name: (c) => c.full_name,
+      national_id: (c) => c.national_id,
+      phone: (c) => c.phone,
+      circle: (c) => circleName(c.circle_id),
+      category: (c) => (c.age_category ? (ageCategoryLabel[c.age_category] ?? c.age_category) : ''),
+    };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, 'text');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sortKey, sortDir, circles]);
+
   // Pagination
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [search, filterCategory]);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  useEffect(() => { setPage(1); }, [search, filterCategory, sortKey, sortDir]);
+  const paged = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleExport = () => exportToCsv(
     filtered.map(c => ({
@@ -159,11 +176,11 @@ export default function CompanionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>رقم الهوية</TableHead>
-                  <TableHead>الهاتف</TableHead>
-                  <TableHead>الحلقة</TableHead>
-                  <TableHead>الفئة العمرية</TableHead>
+                  <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="رقم الهوية" sortKey="national_id" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الهاتف" sortKey="phone" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الفئة العمرية" sortKey="category" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>

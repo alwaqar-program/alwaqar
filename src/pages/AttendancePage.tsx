@@ -15,6 +15,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { ClipboardCheck, Save, Download, Plus, Pencil } from 'lucide-react';
 import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
@@ -166,17 +168,32 @@ export default function AttendancePage() {
   }, [overviewAll]);
 
   // Apply the clickable status filter on top of the other filters.
-  const overview = useMemo(() => {
+  const filteredOverview = useMemo(() => {
     if (!filterStatus) return overviewAll;
     return overviewAll.filter(r => filterStatus === 'none' ? !r.status : r.status === filterStatus);
   }, [overviewAll, filterStatus]);
+
+  // Sortable columns (same behaviour as the students table).
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const overview = useMemo(() => {
+    const acc: Record<string, (r: (typeof filteredOverview)[number]) => unknown> = {
+      name: (r) => r.full_name,
+      cohort: (r) => r.kind_label,
+      circle: (r) => r.circle_name,
+      status: (r) => r.status_label,
+      reason: (r) => r.reason,
+      recorded_by: (r) => r.recorded_by,
+    };
+    if (!sortKey || !acc[sortKey]) return filteredOverview;
+    return sortRows(filteredOverview, acc[sortKey], sortDir, 'text');
+  }, [filteredOverview, sortKey, sortDir]);
 
   // Pagination for the overview table.
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search, sortKey, sortDir]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog logic -----
@@ -378,12 +395,12 @@ export default function AttendancePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>الطالبة</TableHead>
-                <TableHead>الفئة</TableHead>
-                <TableHead>الحلقة</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>السبب</TableHead>
-                <TableHead>سجّلها</TableHead>
+                <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الفئة" sortKey="cohort" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحالة" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="السبب" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="سجّلها" sortKey="recorded_by" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
