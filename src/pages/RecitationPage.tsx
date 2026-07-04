@@ -320,8 +320,9 @@ export default function RecitationPage() {
       hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
       lahn_count: lahnCount,
+      recorded_by: adminName, // آخر من سجّل/عدّل — والتاريخ الكامل في سجل التدقيق
     };
-    // تعديل: تحديث بالمعرّف مع الحفاظ على مُدخِل السجل الأصلي. إدخال جديد: recorded_by = المدير.
+    // تعديل: تحديث بالمعرّف. إدخال جديد: نضيف الحلقة والتاريخ والفترة.
     const { error } = editingId
       ? await supabase.from('recitation_log').update(fields).eq('id', editingId)
       : await supabase.from('recitation_log').insert({
@@ -329,7 +330,6 @@ export default function RecitationPage() {
           teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
           circle_id: entryStudentObj?.circle_id ?? null,
           date, period, ...fields,
-          recorded_by: adminName, // اللوق: أدخلها مدير النظام
         });
 
     if (error) {
