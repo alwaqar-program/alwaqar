@@ -155,8 +155,8 @@ export default function BranchesPage() {
                 <Input value={form.branch_name} onChange={e => setForm(f => ({ ...f, branch_name: e.target.value }))} placeholder="مثال: فرع 5 أجزاء" />
               </div>
               <div className="space-y-2">
-                <Label>عدد الأجزاء</Label>
-                <Input type="number" min={1} max={30} value={form.juz_count} onChange={e => setForm(f => ({ ...f, juz_count: parseInt(e.target.value) || 0 }))} />
+                <Label>عدد الأجزاء <span className="text-muted-foreground font-normal">(0 = غير محدد، لا يُحتسب)</span></Label>
+                <Input type="number" min={0} max={30} value={form.juz_count} onChange={e => setForm(f => ({ ...f, juz_count: parseInt(e.target.value) || 0 }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -174,7 +174,7 @@ export default function BranchesPage() {
                 return (
                   <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
                     <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الصفحات ({form.juz_count} جزء)</span><span className="font-medium">{pages || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (محسوب)</span><span className="font-medium text-primary">{daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (محسوب)</span><span className="font-medium text-primary">{form.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span></div>
                   </div>
                 );
               })()}
@@ -227,7 +227,9 @@ export default function BranchesPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المستهدف اليومي</span>
-                        <span className="font-medium text-primary">{daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span>
+                        <span className="font-medium text-primary">
+                          {b.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}
+                        </span>
                       </div>
                     </>
                   );

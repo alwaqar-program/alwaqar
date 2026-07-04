@@ -108,11 +108,11 @@ export default function DashboardPage() {
         if (bid) branchStudentCount.set(bid, (branchStudentCount.get(bid) || 0) + 1);
       }
       let reqPerDay = 0;
-      const breakdown = (branchRes.data || []).map(b => {
+      // فرع «غير محدد» (juz_count = 0) لا يُحتسب في الإحصائيات (يُستبعد من المتطلب والتفصيل).
+      const breakdown = (branchRes.data || []).filter(b => (b.juz_count ?? 0) > 0).map(b => {
         const count = branchStudentCount.get(b.id) || 0;
         // المستهدف اليومي محسوب: صفحات الفرع ÷ أيام الدراسة (بلا جمعة).
-        const edp = dailyPageTarget(juzPages, b.juz_count ?? 0, b.program_start_date, b.program_end_date)
-          ?? b.expected_daily_pages ?? 0;
+        const edp = dailyPageTarget(juzPages, b.juz_count, b.program_start_date, b.program_end_date) ?? b.expected_daily_pages ?? 0;
         const subtotal = count * edp;
         reqPerDay += subtotal;
         return { name: b.branch_name as string, edp, count, subtotal };
