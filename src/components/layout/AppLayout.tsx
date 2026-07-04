@@ -24,6 +24,7 @@ import {
   UserPlus,
   MessagesSquare,
   HeartHandshake,
+  Baby,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ const navItems: NavItem[] = [
   { label: 'الاختبارات', href: '/exams', icon: <FileCheck size={20} /> },
   { label: 'الطالبات', href: '/students', icon: <Users size={20} /> },
   { label: 'المرافقات', href: '/companions', icon: <HeartHandshake size={20} /> },
+  { label: 'المبتدئات', href: '/mubtadiat', icon: <Baby size={20} /> },
   { label: 'الفروع', href: '/branches', icon: <GitBranch size={20} /> },
   { label: 'الحلقات', href: '/circles', icon: <BookOpen size={20} /> },
   { label: 'المعلمات', href: '/teachers', icon: <GraduationCap size={20} /> },

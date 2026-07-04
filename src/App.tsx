@@ -12,6 +12,7 @@ import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import CompanionsPage from "./pages/CompanionsPage";
+import MubtadiatPage from "./pages/MubtadiatPage";
 import StaffPage from "./pages/StaffPage";
 import RoomsPage from "./pages/RoomsPage";
 import RecitationPage from "./pages/RecitationPage";
@@ -91,6 +92,7 @@ const App = () => (
             <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
             <Route path="/students/:id" element={<ProtectedRoute><StudentProfilePage /></ProtectedRoute>} />
             <Route path="/companions" element={<ProtectedRoute><CompanionsPage /></ProtectedRoute>} />
+            <Route path="/mubtadiat" element={<ProtectedRoute><MubtadiatPage /></ProtectedRoute>} />
             <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
             <Route path="/rooms" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
             <Route path="/recitation" element={<ProtectedRoute><RecitationPage /></ProtectedRoute>} />
