@@ -116,12 +116,9 @@ ORDER BY 1,2;
 
 Re-read the file. Confirm: every DDL is `IF [NOT] EXISTS`/guarded; the CHECK names match between DROP and ADD; the anon policies use `TO anon`. No app code depends on this yet, so nothing to build.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: (no commit — root .sql files are not git-tracked)**
 
-```bash
-git add ../32_companion_beginner_recording.sql
-git commit -m "feat(db): أعمدة المرافقات والمبتدئات في الحضور والتسميع (migration)"
-```
+The numbered `*.sql` files at the repo root (`/Users/randaalwassam/Desktop/Alwaqar/`) live **outside** the git repo (which is `app/`); all of `01_…31_*.sql` are untracked, manually-run files. This migration follows that convention — it stays at the repo root, untracked. Nothing to commit.
 
 - [ ] **Step 4: (owner, at rollout) run on test DB**
 
