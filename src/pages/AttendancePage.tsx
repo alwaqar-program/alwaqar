@@ -178,7 +178,6 @@ export default function AttendancePage() {
   const overview = useMemo(() => {
     const acc: Record<string, (r: (typeof filteredOverview)[number]) => unknown> = {
       name: (r) => r.full_name,
-      cohort: (r) => r.kind_label,
       circle: (r) => r.circle_name,
       status: (r) => r.status_label,
       reason: (r) => r.reason,
@@ -396,7 +395,6 @@ export default function AttendancePage() {
             <TableHeader>
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="الفئة" sortKey="cohort" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحالة" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="السبب" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
@@ -408,9 +406,6 @@ export default function AttendancePage() {
               {pagedOverview.map(r => (
                 <TableRow key={r.id} className={!r.status ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">{r.full_name}</TableCell>
-                  <TableCell>
-                    {r.kind !== 'student' && <Badge variant="secondary">{r.kind_label}</Badge>}
-                  </TableCell>
                   <TableCell>{r.circle_name}</TableCell>
                   <TableCell>
                     {r.status

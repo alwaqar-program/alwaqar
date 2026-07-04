@@ -225,7 +225,6 @@ export default function RecitationPage() {
   const overview = useMemo(() => {
     const acc: Record<string, { get: (r: (typeof filteredOverview)[number]) => unknown; type: 'text' | 'number' }> = {
       name: { get: (r) => r.full_name, type: 'text' },
-      cohort: { get: (r) => r.kind_label, type: 'text' },
       circle: { get: (r) => r.circle_name, type: 'text' },
       range: { get: (r) => r.range, type: 'text' },
       pages: { get: (r) => r.pages, type: 'number' },
@@ -480,7 +479,6 @@ export default function RecitationPage() {
             <TableHeader>
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="الفئة" sortKey="cohort" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="النطاق" sortKey="range" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الصفحات" sortKey="pages" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
@@ -498,9 +496,6 @@ export default function RecitationPage() {
                   <TableCell className="font-medium">
                     {r.full_name}
                     {r.count > 1 && <Badge variant="secondary" className="mr-1.5 text-xs">×{r.count}</Badge>}
-                  </TableCell>
-                  <TableCell>
-                    {r.kind !== 'student' && <Badge variant="secondary">{r.kind_label}</Badge>}
                   </TableCell>
                   <TableCell>{r.circle_name}</TableCell>
                   {r.recited ? (
