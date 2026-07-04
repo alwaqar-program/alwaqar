@@ -24,7 +24,6 @@ const branchCsvColumns: CsvColumnDef[] = [
   { key: 'branch_name', header: 'اسم الفرع' },
   { key: 'juz_count', header: 'عدد الأجزاء', importTransform: v => parseInt(v) || 0 },
   { key: 'total_pages', header: 'إجمالي الصفحات' },
-  { key: 'study_days', header: 'أيام الدراسة (بلا جمعة)' },
   { key: 'daily_target', header: 'المستهدف اليومي (محسوب)' },
   { key: 'program_start_date', header: 'تاريخ البداية' },
   { key: 'program_end_date', header: 'تاريخ النهاية' },
@@ -135,8 +134,8 @@ export default function BranchesPage() {
         <div className="flex items-center gap-2">
           <CsvActions
             data={branches.map(b => {
-              const { pages, days, daily } = targetFor(b);
-              return { ...b, total_pages: pages, study_days: days, daily_target: daily != null ? fmt1(daily) : '' };
+              const { pages, daily } = targetFor(b);
+              return { ...b, total_pages: pages, daily_target: daily != null ? fmt1(daily) : '' };
             })}
             columns={branchCsvColumns} tableName="branches" filename="branches" onImportComplete={fetchBranches} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -171,12 +170,10 @@ export default function BranchesPage() {
               </div>
               {(() => {
                 const pages = pagesForJuz(juzPages, form.juz_count);
-                const days = studyDaysExcludingFridays(form.program_start_date || null, form.program_end_date || null);
                 const daily = dailyPageTarget(juzPages, form.juz_count, form.program_start_date || null, form.program_end_date || null);
                 return (
                   <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
                     <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الصفحات ({form.juz_count} جزء)</span><span className="font-medium">{pages || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">أيام الدراسة (بلا جمعة)</span><span className="font-medium">{days || '—'}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (محسوب)</span><span className="font-medium text-primary">{daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span></div>
                   </div>
                 );
@@ -221,16 +218,12 @@ export default function BranchesPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 {(() => {
-                  const { pages, days, daily } = targetFor(b);
+                  const { pages, daily } = targetFor(b);
                   return (
                     <>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">عدد الأجزاء</span>
                         <span className="font-medium">{b.juz_count} ({pages || '—'} صفحة)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">أيام الدراسة (بلا جمعة)</span>
-                        <span className="font-medium">{days || '—'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المستهدف اليومي</span>
