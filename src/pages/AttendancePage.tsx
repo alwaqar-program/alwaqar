@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
-import { ClipboardCheck, Save, Download, Plus } from 'lucide-react';
+import { ClipboardCheck, Save, Download, Plus, Pencil } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 
@@ -81,6 +81,13 @@ export default function AttendancePage() {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [saving, setSaving] = useState(false);
 
+  // ----- Row edit (تعديل سريع لصف واحد) -----
+  const [rowEdit, setRowEdit] = useState<null | {
+    personId: string; kind: Cohort; name: string;
+    status: string; late_reason: string; late_reason_other: string; existingId: string | null;
+  }>(null);
+  const [rowSaving, setRowSaving] = useState(false);
+
   useEffect(() => {
     const loadStatic = async () => {
       const [stRes, coRes, beRes, cRes] = await Promise.all([
@@ -138,6 +145,9 @@ export default function AttendancePage() {
           status_label: a ? (statusLabels[a.status] ?? a.status) : 'لم يُسجّل',
           reason: a?.status === 'late' ? lateReasonLabel(a.late_reason, a.late_reason_other) : '',
           recorded_by: a ? (a.recorded_by || '—') : '',
+          existingId: a?.id ?? null,
+          late_reason: a?.late_reason ?? '',
+          late_reason_other: a?.late_reason_other ?? '',
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -217,6 +227,37 @@ export default function AttendancePage() {
     setEntryOpen(false);
     loadDay();
     setSaving(false);
+  };
+
+  // فتح تعديل صف واحد من جدول الاستعراض.
+  const openRowEdit = (r: (typeof overview)[number]) => {
+    setRowEdit({
+      personId: r.id, kind: r.kind, name: r.full_name,
+      status: r.status ?? 'present',
+      late_reason: r.late_reason, late_reason_other: r.late_reason_other,
+      existingId: r.existingId,
+    });
+  };
+
+  const saveRowEdit = async () => {
+    if (!rowEdit) return;
+    if (rowEdit.status === 'late' && !rowEdit.late_reason) {
+      toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب', variant: 'destructive' });
+      return;
+    }
+    setRowSaving(true);
+    const fields = {
+      status: rowEdit.status,
+      late_reason: rowEdit.status === 'late' ? rowEdit.late_reason : null,
+      late_reason_other: rowEdit.status === 'late' && rowEdit.late_reason === 'other' ? rowEdit.late_reason_other : null,
+      recorded_by: adminName,
+    };
+    const { error } = rowEdit.existingId
+      ? await supabase.from('attendance').update(fields).eq('id', rowEdit.existingId)
+      : await supabase.from('attendance').insert({ ...subjectPayload(rowEdit.kind, rowEdit.personId), date, period, ...fields });
+    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setRowSaving(false); return; }
+    toast({ title: rowEdit.existingId ? 'تم تعديل الحضور' : 'تم تسجيل الحضور' });
+    setRowEdit(null); setRowSaving(false); loadDay();
   };
 
   return (
@@ -313,6 +354,7 @@ export default function AttendancePage() {
                 <TableHead>الحالة</TableHead>
                 <TableHead>السبب</TableHead>
                 <TableHead>سجّلها</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,6 +372,11 @@ export default function AttendancePage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.reason || '-'}</TableCell>
                   <TableCell className="text-sm">{r.recorded_by || '-'}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل الحضور" onClick={() => openRowEdit(r)}>
+                      <Pencil size={14} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -416,6 +463,48 @@ export default function AttendancePage() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* تعديل سريع لصف واحد */}
+      <Dialog open={!!rowEdit} onOpenChange={(o) => { if (!o) setRowEdit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              تعديل الحضور — {rowEdit?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {rowEdit && (
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-muted-foreground">
+                {date} ({period === 'morning' ? 'صباحي' : 'مسائي'}) — سيُسجَّل المدخِل: {adminName}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <button key={value} type="button"
+                    onClick={() => setRowEdit(re => re && ({ ...re, status: value }))}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                      rowEdit.status === value ? statusColors[value] + ' border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {rowEdit.status === 'late' && (
+                <div className="flex gap-2">
+                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons}
+                    value={rowEdit.late_reason} onValueChange={v => setRowEdit(re => re && ({ ...re, late_reason: v }))}
+                    placeholder="السبب" searchPlaceholder="ابحث..." />
+                  {rowEdit.late_reason === 'other' && (
+                    <Input className="h-8 text-xs" placeholder="حدد السبب" value={rowEdit.late_reason_other}
+                      onChange={e => setRowEdit(re => re && ({ ...re, late_reason_other: e.target.value }))} />
+                  )}
+                </div>
+              )}
+              <Button onClick={saveRowEdit} disabled={rowSaving} className="w-full">
+                <Save size={18} /> {rowSaving ? 'جارٍ الحفظ...' : (rowEdit.existingId ? 'حفظ التعديل' : 'تسجيل الحضور')}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
