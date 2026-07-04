@@ -90,6 +90,7 @@ export default function RecitationPage() {
   const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
   const [filterCircle, setFilterCircle] = useState('');
   const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
+  const [filterStatus, setFilterStatus] = useState(''); // '' | recited | notRecited
   const [search, setSearch] = useState('');
 
   const [people, setPeople] = useState<Person[]>([]);
@@ -177,7 +178,8 @@ export default function RecitationPage() {
   };
 
   // Overview: one row per person (any cohort) for date+period.
-  const overview = useMemo(() => {
+  // `overviewAll` ignores the status filter so the summary counts stay totals.
+  const overviewAll = useMemo(() => {
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -207,15 +209,21 @@ export default function RecitationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people, recRows, attRows, period, filterCircle, filterCohort, search, circles]);
 
-  const recitedCount = overview.filter(r => r.recited).length;
-  const notRecited = overview.length - recitedCount;
+  const recitedCount = overviewAll.filter(r => r.recited).length;
+  const notRecited = overviewAll.length - recitedCount;
+
+  // Apply the clickable status filter on top of the other filters.
+  const overview = useMemo(() => {
+    if (!filterStatus) return overviewAll;
+    return overviewAll.filter(r => filterStatus === 'recited' ? r.recited : !r.recited);
+  }, [overviewAll, filterStatus]);
 
   // Pagination for the overview table.
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog helpers -----
@@ -407,10 +415,31 @@ export default function RecitationPage() {
         </CardContent>
       </Card>
 
-      {/* Summary */}
-      <div className="flex gap-2 flex-wrap">
-        <Badge variant="outline" className="bg-success/10 text-success border-success/20">سمّعت: {recitedCount}</Badge>
-        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">لم تُسمِّع: {notRecited}</Badge>
+      {/* Summary — clickable status filters (اضغطي للتصفية) */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {([
+          { key: 'recited', label: 'سمّعت', color: 'bg-success/10 text-success border-success/20', n: recitedCount },
+          { key: 'notRecited', label: 'لم تُسمِّع', color: 'bg-destructive/10 text-destructive border-destructive/20', n: notRecited },
+        ] as const).map(f => {
+          const active = filterStatus === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilterStatus(active ? '' : f.key)}
+              title={active ? 'إلغاء التصفية' : 'تصفية حسب هذه الحالة'}
+              className={`rounded-full transition ${active ? 'ring-2 ring-primary ring-offset-1' : 'opacity-90 hover:opacity-100'}`}
+            >
+              <Badge variant="outline" className={`cursor-pointer ${f.color}`}>{f.label}: {f.n}</Badge>
+            </button>
+          );
+        })}
+        {filterStatus && (
+          <button type="button" onClick={() => setFilterStatus('')}
+            className="text-xs text-muted-foreground underline hover:text-foreground">
+            إظهار الكل
+          </button>
+        )}
       </div>
 
       {/* Overview table */}

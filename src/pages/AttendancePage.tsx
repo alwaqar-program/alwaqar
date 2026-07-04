@@ -68,6 +68,7 @@ export default function AttendancePage() {
   const [period, setPeriod] = useState('morning');
   const [filterCircle, setFilterCircle] = useState('');
   const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
+  const [filterStatus, setFilterStatus] = useState(''); // '' | present | absent | late | excused | exempted | none
   const [search, setSearch] = useState('');
 
   const [people, setPeople] = useState<Person[]>([]);
@@ -129,7 +130,8 @@ export default function AttendancePage() {
     attRows.find(a => (a as any)[cohortSubjectColumn(p.kind)] === p.id && a.period === period);
 
   // Overview rows: every person (filtered) with her status for date+period.
-  const overview = useMemo(() => {
+  // `overviewAll` ignores the status filter so the summary counts stay totals.
+  const overviewAll = useMemo(() => {
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -156,19 +158,25 @@ export default function AttendancePage() {
 
   const counts = useMemo(() => {
     const c = { present: 0, absent: 0, late: 0, excused: 0, exempted: 0, none: 0 };
-    overview.forEach(r => {
+    overviewAll.forEach(r => {
       if (!r.status) c.none++;
       else (c as Record<string, number>)[r.status] = ((c as Record<string, number>)[r.status] || 0) + 1;
     });
     return c;
-  }, [overview]);
+  }, [overviewAll]);
+
+  // Apply the clickable status filter on top of the other filters.
+  const overview = useMemo(() => {
+    if (!filterStatus) return overviewAll;
+    return overviewAll.filter(r => filterStatus === 'none' ? !r.status : r.status === filterStatus);
+  }, [overviewAll, filterStatus]);
 
   // Pagination for the overview table.
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog logic -----
@@ -324,14 +332,35 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Summary */}
-      <div className="flex gap-2 flex-wrap">
-        <Badge variant="outline" className={statusColors.present}>حاضرة: {counts.present}</Badge>
-        <Badge variant="outline" className={statusColors.absent}>غائبة: {counts.absent}</Badge>
-        <Badge variant="outline" className={statusColors.late}>متأخرة: {counts.late}</Badge>
-        <Badge variant="outline" className={statusColors.excused}>مستأذنة: {counts.excused}</Badge>
-        <Badge variant="outline" className={statusColors.exempted}>معذورة: {counts.exempted}</Badge>
-        <Badge variant="outline">لم يُسجّل: {counts.none}</Badge>
+      {/* Summary — clickable status filters (اضغطي للتصفية) */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {([
+          { key: 'present', label: 'حاضرة', color: statusColors.present, n: counts.present },
+          { key: 'absent', label: 'غائبة', color: statusColors.absent, n: counts.absent },
+          { key: 'late', label: 'متأخرة', color: statusColors.late, n: counts.late },
+          { key: 'excused', label: 'مستأذنة', color: statusColors.excused, n: counts.excused },
+          { key: 'exempted', label: 'معذورة', color: statusColors.exempted, n: counts.exempted },
+          { key: 'none', label: 'لم يُسجّل', color: '', n: counts.none },
+        ] as const).map(f => {
+          const active = filterStatus === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilterStatus(active ? '' : f.key)}
+              title={active ? 'إلغاء التصفية' : 'تصفية حسب هذه الحالة'}
+              className={`rounded-full transition ${active ? 'ring-2 ring-primary ring-offset-1' : 'opacity-90 hover:opacity-100'}`}
+            >
+              <Badge variant="outline" className={`cursor-pointer ${f.color}`}>{f.label}: {f.n}</Badge>
+            </button>
+          );
+        })}
+        {filterStatus && (
+          <button type="button" onClick={() => setFilterStatus('')}
+            className="text-xs text-muted-foreground underline hover:text-foreground">
+            إظهار الكل
+          </button>
+        )}
       </div>
 
       {/* Overview table */}

@@ -158,7 +158,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
         <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">متأخرة: {count('late')}</Badge>
       </div>
       <Card>
-        <CardContent className="pt-4 space-y-3">
+        <CardContent className="pt-4 space-y-3 max-h-[65vh] overflow-y-auto">
           {shownPeople.map(s => {
             const entry = entries[s.id]; if (!entry) return null;
             const isEx = existing.has(s.id);
