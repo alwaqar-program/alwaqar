@@ -49,11 +49,12 @@ const overviewCsvColumns: CsvColumnDef[] = [
 interface Person { id: string; full_name: string; circle_id: string | null; kind: Cohort; }
 interface Circle { id: string; circle_name: string; }
 interface AttRow {
+  id: string;
   student_id: string | null; companion_id: string | null; beginner_id: string | null;
   status: string; period: string;
   late_reason: string | null; late_reason_other: string | null; recorded_by: string | null;
 }
-interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; }
+interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; existingId?: string; }
 
 export default function AttendancePage() {
   const { toast } = useToast();
@@ -106,7 +107,7 @@ export default function AttendancePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('attendance')
-      .select('student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
+      .select('id, student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
       .eq('date', date)
       .eq('is_deleted', false);
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -166,10 +167,13 @@ export default function AttendancePage() {
   );
 
   useEffect(() => {
-    // Prepare defaults for people without a record this date+period.
+    // Prefill every person: existing record → its values (for editing); else default present.
     const next: Record<string, Entry> = {};
     entryPeople.forEach(p => {
-      if (!attFor(p)) next[p.id] = { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
+      const a = attFor(p);
+      next[p.id] = a
+        ? { student_id: p.id, status: a.status, late_reason: a.late_reason ?? '', late_reason_other: a.late_reason_other ?? '', existingId: a.id }
+        : { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
     });
     setEntries(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,36 +183,39 @@ export default function AttendancePage() {
     setEntries(prev => ({ ...prev, [studentId]: { ...prev[studentId], [field]: value } }));
 
   const handleSaveEntries = async () => {
-    const toInsert = Object.values(entries);
-    if (toInsert.length === 0) {
-      toast({ title: 'تنبيه', description: `كل ${COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة` });
-      return;
-    }
-    for (const e of toInsert) {
+    const all = Object.values(entries);
+    if (all.length === 0) return;
+    for (const e of all) {
       if (e.status === 'late' && !e.late_reason) {
         toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(entryCohort)} متأخرة`, variant: 'destructive' });
         return;
       }
     }
+    const fields = (e: Entry) => ({
+      status: e.status,
+      late_reason: e.status === 'late' ? e.late_reason : null,
+      late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+      recorded_by: adminName, // اللوق: أدخلها مدير النظام
+    });
+    const toInsert = all.filter(e => !e.existingId);
+    const toUpdate = all.filter(e => e.existingId);
     setSaving(true);
-    const { error } = await supabase.from('attendance').insert(
-      toInsert.map(e => ({
-        ...subjectPayload(entryCohort, e.student_id), // e.student_id holds the person id
-        date,
-        period,
-        status: e.status,
-        late_reason: e.status === 'late' ? e.late_reason : null,
-        late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
-        recorded_by: adminName, // اللوق: أدخلها مدير النظام
-      }))
-    );
-    if (error) {
-      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: `تم تسجيل حضور ${toInsert.length} ${cohortLabel(entryCohort)}` });
-      setEntryOpen(false);
-      loadDay();
+
+    if (toInsert.length) {
+      const { error } = await supabase.from('attendance').insert(
+        toInsert.map(e => ({ ...subjectPayload(entryCohort, e.student_id), date, period, ...fields(e) }))
+      );
+      if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setSaving(false); return; }
     }
+    // تعديل السجلات الموجودة (كل واحدة على حدة عبر معرّفها).
+    for (const e of toUpdate) {
+      const { error } = await supabase.from('attendance').update(fields(e)).eq('id', e.existingId!);
+      if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setSaving(false); return; }
+    }
+
+    toast({ title: `تم حفظ حضور ${all.length} ${cohortLabel(entryCohort)} (${toUpdate.length} تعديل)` });
+    setEntryOpen(false);
+    loadDay();
     setSaving(false);
   };
 
@@ -361,21 +368,24 @@ export default function AttendancePage() {
 
             {entryCircle && Object.keys(entries).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-                كل {COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة
+                لا توجد {COHORT_PLURAL[entryCohort]} في هذه الحلقة
               </p>
             )}
 
             {entryCircle && Object.keys(entries).length > 0 && (
               <>
                 <p className="text-xs text-muted-foreground">
-                  تظهر فقط الطالبات غير المسجّلات لهذا اليوم والفترة. سيُسجَّل في اللوق أن المدخِل: {adminName}
+                  المسجّلات مسبقاً تظهر بحالتها الحالية ويمكن تعديلها. سيُسجَّل في اللوق أن المدخِل: {adminName}
                 </p>
                 <div className="space-y-3">
                   {entryPeople.filter(s => entries[s.id]).map(s => {
                     const entry = entries[s.id];
                     return (
                       <div key={s.id} className="p-3 rounded-lg border space-y-2">
-                        <span className="font-medium text-sm">{s.full_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{s.full_name}</span>
+                          {entry.existingId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">مسجّلة — تعديل</span>}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(statusLabels).map(([value, label]) => (
                             <button key={value} onClick={() => updateEntry(s.id, 'status', value)}
