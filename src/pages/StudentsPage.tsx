@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
+import { sortCircles } from '@/lib/circle-order';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
 import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
@@ -110,7 +111,7 @@ export default function StudentsPage() {
       supabase.from('branches').select('id, branch_name').eq('is_active', true),
     ]);
     setStudents(sRes.data || []);
-    setCircles(cRes.data || []);
+    setCircles(sortCircles(cRes.data || []));
     setBranches(bRes.data || []);
     setLoading(false);
   };
