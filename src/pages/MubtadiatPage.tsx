@@ -12,6 +12,7 @@ import {
 import { TablePagination } from '@/components/ui/table-pagination';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
+import { sortCircles } from '@/lib/circle-order';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
 interface Beginner {
@@ -55,7 +56,7 @@ export default function MubtadiatPage() {
       ]);
       if (bRes.error) toast({ title: 'خطأ', description: bRes.error.message, variant: 'destructive' });
       setBeginners((bRes.data as Beginner[]) || []);
-      setCircles((cRes.data as Circle[]) || []);
+      setCircles(sortCircles((cRes.data as Circle[]) || []));
       setLoading(false);
     };
     load();

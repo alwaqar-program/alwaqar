@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { sortCircles } from '@/lib/circle-order';
 import { BookOpen } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,10 +56,10 @@ export default function CircleGate({ title, subtitle, needsPeriod = false, dateL
     supabase.from('circles').select('id, circle_name, branch_id').eq('is_active', true).order('circle_name')
       .then(({ data, error }) => {
         if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
-        setCircles((data || []).map(c => ({
+        setCircles(sortCircles((data || []).map(c => ({
           id: c.id, circle_name: c.circle_name, branch_id: c.branch_id ?? null,
           periods: ['morning', 'evening'] as Period[],
-        })));
+        }))));
       });
   }, [toast]);
 

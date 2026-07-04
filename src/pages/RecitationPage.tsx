@@ -18,6 +18,7 @@ import {
 import { TablePagination } from '@/components/ui/table-pagination';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
+import { sortCircles } from '@/lib/circle-order';
 import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
 import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
@@ -146,7 +147,7 @@ export default function RecitationPage() {
         ...merge(coRes.data, 'companion'),
         ...merge(beRes.data, 'beginner'),
       ]);
-      setCircles(cRes.data || []);
+      setCircles(sortCircles(cRes.data || []));
       setMushafPages(mRes.data || []);
     };
     loadStatic();

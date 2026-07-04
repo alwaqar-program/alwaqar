@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
+import { sortCircles } from '@/lib/circle-order';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -132,7 +133,7 @@ export default function ExamsPage() {
     if (exRes.error) toast({ title: 'خطأ', description: exRes.error.message, variant: 'destructive' });
     setExams(exRes.data || []);
     setStudents(stRes.data || []);
-    setCircles(cRes.data || []);
+    setCircles(sortCircles(cRes.data || []));
     // Build existing exam keys
     const keys = new Set((exRes.data || []).map(e => `${e.student_id}-${e.exam_type}`));
     setExistingExams(keys);
