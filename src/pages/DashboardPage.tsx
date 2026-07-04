@@ -8,6 +8,7 @@ import {
   BookMarked, ClipboardList, Layers, Percent,
 } from 'lucide-react';
 import DailyFollowUp from '@/components/DailyFollowUp';
+import { fetchJuzPageCounts, dailyPageTarget } from '@/lib/program-target';
 
 const gradeColors: Record<string, string> = {
   'ممتاز': 'bg-success/10 text-success',
@@ -89,14 +90,15 @@ export default function DashboardPage() {
       setStats({ circles: c.count || 0, teachers: t.count || 0, students: s.count || 0 });
 
       // --- Required pages: Σ each active+registered student's branch.expected_daily_pages ---
-      const [studRes, circRes, branchRes, recRes] = await Promise.all([
+      const [studRes, circRes, branchRes, recRes, juzPages] = await Promise.all([
         supabase.from('students').select('circle_id')
           .eq('is_active', true).eq('admission_status', 'registered'),
         supabase.from('circles').select('id, branch_id').eq('is_active', true),
         supabase.from('branches')
-          .select('id, branch_name, expected_daily_pages, program_start_date, program_end_date')
+          .select('id, branch_name, juz_count, expected_daily_pages, program_start_date, program_end_date')
           .eq('is_active', true),
         supabase.from('recitation_log').select('date, pages_recited').eq('is_deleted', false),
+        fetchJuzPageCounts(),
       ]);
 
       const circleToBranch = new Map((circRes.data || []).map(c => [c.id, c.branch_id]));
@@ -108,7 +110,9 @@ export default function DashboardPage() {
       let reqPerDay = 0;
       const breakdown = (branchRes.data || []).map(b => {
         const count = branchStudentCount.get(b.id) || 0;
-        const edp = b.expected_daily_pages ?? 0;
+        // المستهدف اليومي محسوب: صفحات الفرع ÷ أيام الدراسة (بلا جمعة).
+        const edp = dailyPageTarget(juzPages, b.juz_count ?? 0, b.program_start_date, b.program_end_date)
+          ?? b.expected_daily_pages ?? 0;
         const subtotal = count * edp;
         reqPerDay += subtotal;
         return { name: b.branch_name as string, edp, count, subtotal };
