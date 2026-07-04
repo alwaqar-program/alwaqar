@@ -16,15 +16,12 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
-import {
-  fetchJuzPageCounts, pagesForJuz, studyDaysExcludingFridays, dailyPageTarget,
-} from '@/lib/program-target';
+import { dailyNisab } from '@/lib/program-target';
 
 const branchCsvColumns: CsvColumnDef[] = [
   { key: 'branch_name', header: 'اسم الفرع' },
   { key: 'juz_count', header: 'عدد الأجزاء', importTransform: v => parseInt(v) || 0 },
-  { key: 'total_pages', header: 'إجمالي الصفحات' },
-  { key: 'daily_target', header: 'المستهدف اليومي (محسوب)' },
+  { key: 'daily_target', header: 'المستهدف اليومي (نصاب)' },
   { key: 'program_start_date', header: 'تاريخ البداية' },
   { key: 'program_end_date', header: 'تاريخ النهاية' },
 ];
@@ -41,7 +38,6 @@ interface Branch {
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [juzPages, setJuzPages] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
@@ -54,29 +50,16 @@ export default function BranchesPage() {
   const { toast } = useToast();
 
   const fetchBranches = async () => {
-    const [{ data, error }, jp] = await Promise.all([
-      supabase.from('branches').select('*').order('created_at'),
-      fetchJuzPageCounts(),
-    ]);
+    const { data, error } = await supabase.from('branches').select('*').order('created_at');
     if (error) {
       toast({ title: 'خطأ في جلب الفروع', description: error.message, variant: 'destructive' });
     } else {
       setBranches(data || []);
     }
-    setJuzPages(jp);
     setLoading(false);
   };
 
   useEffect(() => { fetchBranches(); }, []);
-
-  // المستهدف اليومي المحسوب لكل فرع (صفحات الفرع ÷ أيام الدراسة بلا جمعة).
-  const targetFor = (b: Branch) => {
-    const pages = pagesForJuz(juzPages, b.juz_count);
-    const days = studyDaysExcludingFridays(b.program_start_date, b.program_end_date);
-    const daily = dailyPageTarget(juzPages, b.juz_count, b.program_start_date, b.program_end_date);
-    return { pages, days, daily };
-  };
-  const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
 
   const openCreate = () => {
     setEditing(null);
@@ -96,12 +79,11 @@ export default function BranchesPage() {
   };
 
   const handleSave = async () => {
-    // المستهدف اليومي محسوب من النظام؛ نخزّنه أيضاً في expected_daily_pages للتوافق.
-    const computed = dailyPageTarget(juzPages, form.juz_count, form.program_start_date || null, form.program_end_date || null);
+    // المستهدف اليومي = نصاب الفرع حسب عدد الأجزاء؛ نخزّنه في expected_daily_pages للتوافق.
     const payload = {
       branch_name: form.branch_name,
       juz_count: form.juz_count,
-      expected_daily_pages: computed ?? 0,
+      expected_daily_pages: dailyNisab(form.juz_count) ?? 0,
       program_start_date: form.program_start_date || null,
       program_end_date: form.program_end_date || null,
     };
@@ -134,8 +116,8 @@ export default function BranchesPage() {
         <div className="flex items-center gap-2">
           <CsvActions
             data={branches.map(b => {
-              const { pages, daily } = targetFor(b);
-              return { ...b, total_pages: pages, daily_target: daily != null ? fmt1(daily) : '' };
+              const n = dailyNisab(b.juz_count);
+              return { ...b, daily_target: n != null ? `${n}` : 'غير محدد' };
             })}
             columns={branchCsvColumns} tableName="branches" filename="branches" onImportComplete={fetchBranches} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -169,12 +151,10 @@ export default function BranchesPage() {
                 </div>
               </div>
               {(() => {
-                const pages = pagesForJuz(juzPages, form.juz_count);
-                const daily = dailyPageTarget(juzPages, form.juz_count, form.program_start_date || null, form.program_end_date || null);
+                const n = dailyNisab(form.juz_count);
                 return (
-                  <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الصفحات ({form.juz_count} جزء)</span><span className="font-medium">{pages || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (محسوب)</span><span className="font-medium text-primary">{form.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}</span></div>
+                  <div className="rounded-md bg-muted/50 p-3 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">المستهدف اليومي (نصاب)</span><span className="font-medium text-primary">{form.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : n != null ? `${n} صفحة/يوم` : 'غير معرّف لهذا العدد'}</span></div>
                   </div>
                 );
               })()}
@@ -218,17 +198,17 @@ export default function BranchesPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 {(() => {
-                  const { pages, daily } = targetFor(b);
+                  const n = dailyNisab(b.juz_count);
                   return (
                     <>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">عدد الأجزاء</span>
-                        <span className="font-medium">{b.juz_count} ({pages || '—'} صفحة)</span>
+                        <span className="font-medium">{b.juz_count}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">المستهدف اليومي</span>
+                        <span className="text-muted-foreground">المستهدف اليومي (نصاب)</span>
                         <span className="font-medium text-primary">
-                          {b.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : daily != null ? `${fmt1(daily)} صفحة/يوم` : 'حدّد التواريخ'}
+                          {b.juz_count <= 0 ? 'لا يُحتسب (غير محدد)' : n != null ? `${n} صفحة/يوم` : 'غير معرّف'}
                         </span>
                       </div>
                     </>

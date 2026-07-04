@@ -1,47 +1,18 @@
-import { supabase } from '@/integrations/supabase/client';
+// المستهدف اليومي = نصاب الحفظ الرسمي لكل فرع (مجموع الفترتين الصباحية والمسائية)
+// حسب عدد الأجزاء. قيم ثابتة معتمدة (وجه = صفحة). النطاقات تُؤخذ بالحدّ الأدنى.
+//   الأول  (30 جزء): 20 صباحي + 20 مسائي = 40
+//   الثاني (20 جزء): 13 + 12            = 25
+//   الثالث (10 أجزاء): (6 أو 7) + 6      = 12 (الأدنى)
+//   الرابع (5 أجزاء): (3 أو 4) + 3       = 6  (الأدنى)
+export const NISAB_BY_JUZ: Record<number, number> = {
+  30: 40,
+  20: 25,
+  10: 12,
+  5: 6,
+};
 
-// المستهدف اليومي للصفحات محسوب من النظام:
-//   صفحات الفرع (حسب عدد الأجزاء من mushaf_reference) ÷ أيام الدراسة (باستثناء الجمعة).
-
-/** عدد صفحات كل جزء من الجدول المرجعي للمصحف (juz_number → عدد الصفحات). */
-export async function fetchJuzPageCounts(): Promise<Record<number, number>> {
-  const { data } = await supabase.from('mushaf_reference').select('juz_number');
-  const map: Record<number, number> = {};
-  (data || []).forEach((r: { juz_number: number | null }) => {
-    if (r.juz_number != null) map[r.juz_number] = (map[r.juz_number] || 0) + 1;
-  });
-  return map;
-}
-
-/** إجمالي صفحات أول `juzCount` جزءًا. */
-export function pagesForJuz(juzPages: Record<number, number>, juzCount: number): number {
-  let total = 0;
-  for (let j = 1; j <= juzCount; j++) total += juzPages[j] || 0;
-  return total;
-}
-
-/** أيام [start, end] شاملةً، باستثناء الجمعة (getDay() === 5). */
-export function studyDaysExcludingFridays(startISO: string | null, endISO: string | null): number {
-  if (!startISO || !endISO) return 0;
-  const start = new Date(startISO + 'T00:00:00');
-  const end = new Date(endISO + 'T00:00:00');
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
-  let days = 0;
-  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 5) days++; // 5 = الجمعة
-  }
-  return days;
-}
-
-/** المستهدف اليومي = صفحات الفرع ÷ أيام الدراسة. null إذا تعذّر الحساب. */
-export function dailyPageTarget(
-  juzPages: Record<number, number>,
-  juzCount: number,
-  startISO: string | null,
-  endISO: string | null,
-): number | null {
-  const pages = pagesForJuz(juzPages, juzCount);
-  const days = studyDaysExcludingFridays(startISO, endISO);
-  if (!pages || !days) return null;
-  return pages / days;
+/** المستهدف اليومي (صفحات) للفرع حسب عدد الأجزاء. null إذا غير محدد (0 أو غير معروف). */
+export function dailyNisab(juzCount: number | null | undefined): number | null {
+  if (!juzCount || juzCount <= 0) return null;
+  return NISAB_BY_JUZ[juzCount] ?? null;
 }
