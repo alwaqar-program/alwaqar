@@ -21,7 +21,11 @@ const gradeColors: Record<string, string> = {
 const PAGES_PER_JUZ = 20;
 const PAGES_PER_KHATMA = 604;
 
-const toISO = (d: Date) => d.toISOString().split('T')[0];
+// تنسيق التاريخ بمكوّناته المحلية (لا UTC) حتى يتطابق مع التحليل المحلي في addDays
+// ومع تواريخ التسميع المخزّنة كـ YYYY-MM-DD؛ استخدام toISOString هنا يُزحزح اليوم
+// يوماً كاملاً في التوقيت السعودي (UTC+3).
+const toISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00');
   d.setDate(d.getDate() + n);
