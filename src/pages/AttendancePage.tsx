@@ -17,15 +17,17 @@ import {
 import { TablePagination } from '@/components/ui/table-pagination';
 import { ClipboardCheck, Save, Download, Plus } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
+import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 
 const statusLabels: Record<string, string> = {
-  present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة',
+  present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
 };
 const statusColors: Record<string, string> = {
   present: 'bg-success/10 text-success border-success/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
   late: 'bg-warning/10 text-warning border-warning/20',
   excused: 'bg-info/10 text-info border-info/20',
+  exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
 };
 const lateReasons = [
   { value: 'illness', label: 'مرض' },
@@ -44,10 +46,11 @@ const overviewCsvColumns: CsvColumnDef[] = [
   { key: 'recorded_by', header: 'سجّلها' },
 ];
 
-interface Student { id: string; full_name: string; circle_id: string | null; }
+interface Person { id: string; full_name: string; circle_id: string | null; kind: Cohort; }
 interface Circle { id: string; circle_name: string; }
 interface AttRow {
-  student_id: string; status: string; period: string;
+  student_id: string | null; companion_id: string | null; beginner_id: string | null;
+  status: string; period: string;
   late_reason: string | null; late_reason_other: string | null; recorded_by: string | null;
 }
 interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; }
@@ -62,27 +65,38 @@ export default function AttendancePage() {
   const [date, setDate] = useState(today);
   const [period, setPeriod] = useState('morning');
   const [filterCircle, setFilterCircle] = useState('');
+  const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
   const [search, setSearch] = useState('');
 
-  const [students, setStudents] = useState<Student[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [attRows, setAttRows] = useState<AttRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ----- Entry dialog (إدخال تحضير) -----
   const [entryOpen, setEntryOpen] = useState(false);
+  const [entryCohort, setEntryCohort] = useState<Cohort>('student');
   const [entryCircle, setEntryCircle] = useState('');
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loadStatic = async () => {
-      const [stRes, cRes] = await Promise.all([
-        supabase.from('students').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
+      const [stRes, coRes, beRes, cRes] = await Promise.all([
+        supabase.from('students').select('id, full_name, circle_id, is_active').eq('is_active', true).order('full_name'),
+        supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
+        supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('circles').select('id, circle_name').eq('is_active', true),
       ]);
       if (stRes.error) toast({ title: 'خطأ', description: stRes.error.message, variant: 'destructive' });
-      setStudents(stRes.data || []);
+      const merge = (rows: any[] | null, kind: Cohort): Person[] =>
+        (rows || []).filter(r => r.is_active !== false)
+          .map(r => ({ id: r.id, full_name: r.full_name, circle_id: r.circle_id, kind }));
+      setPeople([
+        ...merge(stRes.data, 'student'),
+        ...merge(coRes.data, 'companion'),
+        ...merge(beRes.data, 'beginner'),
+      ]);
       setCircles(cRes.data || []);
     };
     loadStatic();
@@ -92,7 +106,7 @@ export default function AttendancePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('attendance')
-      .select('student_id, status, period, late_reason, late_reason_other, recorded_by')
+      .select('student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
       .eq('date', date)
       .eq('is_deleted', false);
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -102,19 +116,23 @@ export default function AttendancePage() {
   useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
 
   const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
-  const attFor = (studentId: string) => attRows.find(a => a.student_id === studentId && a.period === period);
+  const attFor = (p: Person) =>
+    attRows.find(a => (a as any)[cohortSubjectColumn(p.kind)] === p.id && a.period === period);
 
-  // Overview rows: every student (filtered) with her status for date+period.
+  // Overview rows: every person (filtered) with her status for date+period.
   const overview = useMemo(() => {
-    return students
-      .filter(s => !filterCircle || s.circle_id === filterCircle)
-      .filter(s => !search || s.full_name.includes(search))
-      .map(s => {
-        const a = attFor(s.id);
+    return people
+      .filter(p => !filterCohort || p.kind === filterCohort)
+      .filter(p => !filterCircle || p.circle_id === filterCircle)
+      .filter(p => !search || p.full_name.includes(search))
+      .map(p => {
+        const a = attFor(p);
         return {
-          id: s.id,
-          full_name: s.full_name,
-          circle_name: circleName(s.circle_id),
+          id: p.id,
+          kind: p.kind,
+          kind_label: cohortLabel(p.kind),
+          full_name: p.full_name,
+          circle_name: circleName(p.circle_id),
           status: a?.status ?? null,
           status_label: a ? (statusLabels[a.status] ?? a.status) : 'لم يُسجّل',
           reason: a?.status === 'late' ? lateReasonLabel(a.late_reason, a.late_reason_other) : '',
@@ -122,10 +140,10 @@ export default function AttendancePage() {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, attRows, period, filterCircle, search, circles]);
+  }, [people, attRows, period, filterCircle, filterCohort, search, circles]);
 
   const counts = useMemo(() => {
-    const c = { present: 0, absent: 0, late: 0, excused: 0, none: 0 };
+    const c = { present: 0, absent: 0, late: 0, excused: 0, exempted: 0, none: 0 };
     overview.forEach(r => {
       if (!r.status) c.none++;
       else (c as Record<string, number>)[r.status] = ((c as Record<string, number>)[r.status] || 0) + 1;
@@ -138,24 +156,24 @@ export default function AttendancePage() {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, search]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog logic -----
-  const entryStudents = useMemo(
-    () => students.filter(s => s.circle_id === entryCircle),
-    [students, entryCircle],
+  const entryPeople = useMemo(
+    () => people.filter(p => p.kind === entryCohort && p.circle_id === entryCircle),
+    [people, entryCohort, entryCircle],
   );
 
   useEffect(() => {
-    // Prepare defaults for students without a record this date+period.
+    // Prepare defaults for people without a record this date+period.
     const next: Record<string, Entry> = {};
-    entryStudents.forEach(s => {
-      if (!attFor(s.id)) next[s.id] = { student_id: s.id, status: 'present', late_reason: '', late_reason_other: '' };
+    entryPeople.forEach(p => {
+      if (!attFor(p)) next[p.id] = { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
     });
     setEntries(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryCircle, entryStudents, attRows, period]);
+  }, [entryCohort, entryCircle, entryPeople, attRows, period]);
 
   const updateEntry = (studentId: string, field: keyof Entry, value: string) =>
     setEntries(prev => ({ ...prev, [studentId]: { ...prev[studentId], [field]: value } }));
@@ -163,19 +181,19 @@ export default function AttendancePage() {
   const handleSaveEntries = async () => {
     const toInsert = Object.values(entries);
     if (toInsert.length === 0) {
-      toast({ title: 'تنبيه', description: 'كل طالبات هذه الحلقة مسجّلات لهذه الفترة' });
+      toast({ title: 'تنبيه', description: `كل ${COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة` });
       return;
     }
     for (const e of toInsert) {
       if (e.status === 'late' && !e.late_reason) {
-        toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(entryCohort)} متأخرة`, variant: 'destructive' });
         return;
       }
     }
     setSaving(true);
     const { error } = await supabase.from('attendance').insert(
       toInsert.map(e => ({
-        student_id: e.student_id,
+        ...subjectPayload(entryCohort, e.student_id), // e.student_id holds the person id
         date,
         period,
         status: e.status,
@@ -187,7 +205,7 @@ export default function AttendancePage() {
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: `تم تسجيل حضور ${toInsert.length} طالبة` });
+      toast({ title: `تم تسجيل حضور ${toInsert.length} ${cohortLabel(entryCohort)}` });
       setEntryOpen(false);
       loadDay();
     }
@@ -207,7 +225,7 @@ export default function AttendancePage() {
           }>
             <Download size={14} /> تصدير CSV
           </Button>
-          <Button onClick={() => { setEntryCircle(''); setEntryOpen(true); }}>
+          <Button onClick={() => { setEntryCohort('student'); setEntryCircle(''); setEntryOpen(true); }}>
             <Plus size={18} /> إدخال تحضير
           </Button>
         </div>
@@ -232,6 +250,17 @@ export default function AttendancePage() {
               ))}
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">الفئة</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              {(['', ...COHORTS] as const).map(k => (
+                <button key={k || 'all'} type="button" onClick={() => setFilterCohort(k as '' | Cohort)}
+                  className={`px-3 h-10 transition-colors ${filterCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  {k === '' ? 'الكل' : COHORT_PLURAL[k as Cohort]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1.5 min-w-[180px]">
             <Label className="text-xs">الحلقة</Label>
             <SearchableSelect
@@ -241,7 +270,7 @@ export default function AttendancePage() {
           </div>
           <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
             <Label className="text-xs">بحث</Label>
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم الطالبة..." />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="الاسم..." />
           </div>
         </CardContent>
       </Card>
@@ -252,6 +281,7 @@ export default function AttendancePage() {
         <Badge variant="outline" className={statusColors.absent}>غائبة: {counts.absent}</Badge>
         <Badge variant="outline" className={statusColors.late}>متأخرة: {counts.late}</Badge>
         <Badge variant="outline" className={statusColors.excused}>مستأذنة: {counts.excused}</Badge>
+        <Badge variant="outline" className={statusColors.exempted}>معذورة: {counts.exempted}</Badge>
         <Badge variant="outline">لم يُسجّل: {counts.none}</Badge>
       </div>
 
@@ -262,7 +292,7 @@ export default function AttendancePage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <ClipboardCheck size={40} className="text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">لا توجد طالبات مطابقات</p>
+            <p className="text-muted-foreground">لا يوجد أعضاء مطابقون</p>
           </CardContent>
         </Card>
       ) : (
@@ -271,6 +301,7 @@ export default function AttendancePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>الطالبة</TableHead>
+                <TableHead>الفئة</TableHead>
                 <TableHead>الحلقة</TableHead>
                 <TableHead>الحالة</TableHead>
                 <TableHead>السبب</TableHead>
@@ -281,6 +312,9 @@ export default function AttendancePage() {
               {pagedOverview.map(r => (
                 <TableRow key={r.id} className={!r.status ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">{r.full_name}</TableCell>
+                  <TableCell>
+                    {r.kind !== 'student' && <Badge variant="secondary">{r.kind_label}</Badge>}
+                  </TableCell>
                   <TableCell>{r.circle_name}</TableCell>
                   <TableCell>
                     {r.status
@@ -307,6 +341,17 @@ export default function AttendancePage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
+              <Label>الفئة</Label>
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                {COHORTS.map(k => (
+                  <button key={k} type="button" onClick={() => setEntryCohort(k)}
+                    className={`flex-1 px-3 h-10 transition-colors ${entryCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    {COHORT_PLURAL[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label>الحلقة</Label>
               <SearchableSelect
                 options={circles.map(c => ({ value: c.id, label: c.circle_name }))}
@@ -316,7 +361,7 @@ export default function AttendancePage() {
 
             {entryCircle && Object.keys(entries).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-                كل طالبات هذه الحلقة مسجّلات لهذه الفترة
+                كل {COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة
               </p>
             )}
 
@@ -326,7 +371,7 @@ export default function AttendancePage() {
                   تظهر فقط الطالبات غير المسجّلات لهذا اليوم والفترة. سيُسجَّل في اللوق أن المدخِل: {adminName}
                 </p>
                 <div className="space-y-3">
-                  {entryStudents.filter(s => entries[s.id]).map(s => {
+                  {entryPeople.filter(s => entries[s.id]).map(s => {
                     const entry = entries[s.id];
                     return (
                       <div key={s.id} className="p-3 rounded-lg border space-y-2">

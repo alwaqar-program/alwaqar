@@ -21,6 +21,7 @@ import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
 } from '@/lib/quran-verses';
+import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -52,8 +53,8 @@ const overviewCsvColumns: CsvColumnDef[] = [
   { key: 'recorded_by', header: 'سجّلها' },
 ];
 
-interface Student {
-  id: string; full_name: string; circle_id: string | null;
+interface Person {
+  id: string; full_name: string; circle_id: string | null; kind: Cohort;
   from_surah: string | null; to_surah: string | null;
 }
 interface Circle { id: string; circle_name: string; }
@@ -62,7 +63,8 @@ interface MushafPage {
   juz_number: number; sort_order: number; verse_start: number; verse_end: number;
 }
 interface RecRow {
-  id: string; student_id: string | null; period: string;
+  id: string; student_id: string | null; companion_id: string | null; beginner_id: string | null;
+  period: string;
   from_surah: string | null; from_verse: number | null;
   to_surah: string | null; to_verse: number | null;
   pages_recited: number | null; error_count: number; lahn_count: number | null;
@@ -70,7 +72,10 @@ interface RecRow {
   recorded_by: string | null;
   teachers?: { teacher_name: string } | null;
 }
-interface AttRow { student_id: string; status: string; period: string; }
+interface AttRow {
+  student_id: string | null; companion_id: string | null; beginner_id: string | null;
+  status: string; period: string;
+}
 
 export default function RecitationPage() {
   const { toast } = useToast();
@@ -82,9 +87,10 @@ export default function RecitationPage() {
   const [date, setDate] = useState(today);
   const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
   const [filterCircle, setFilterCircle] = useState('');
+  const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
   const [search, setSearch] = useState('');
 
-  const [students, setStudents] = useState<Student[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [recRows, setRecRows] = useState<RecRow[]>([]);
@@ -93,6 +99,7 @@ export default function RecitationPage() {
 
   // ----- Entry dialog (إدخال تسميع) -----
   const [entryOpen, setEntryOpen] = useState(false);
+  const [entryCohort, setEntryCohort] = useState<Cohort>('student');
   const [entryStudent, setEntryStudent] = useState('');
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
@@ -105,17 +112,29 @@ export default function RecitationPage() {
 
   useEffect(() => {
     const loadStatic = async () => {
-      const [stRes, cRes, mRes] = await Promise.all([
+      const [stRes, coRes, beRes, cRes, mRes] = await Promise.all([
         supabase.from('students')
-          .select('id, full_name, circle_id, from_surah, to_surah')
+          .select('id, full_name, circle_id, from_surah, to_surah, is_active')
           .eq('is_active', true).order('full_name'),
+        supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
+        supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('circles').select('id, circle_name').eq('is_active', true),
         supabase.from('mushaf_reference')
           .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
           .order('sort_order'),
       ]);
       if (stRes.error) toast({ title: 'خطأ', description: stRes.error.message, variant: 'destructive' });
-      setStudents(stRes.data || []);
+      const merge = (rows: any[] | null, kind: Cohort): Person[] =>
+        (rows || []).filter(r => r.is_active !== false)
+          .map(r => ({
+            id: r.id, full_name: r.full_name, circle_id: r.circle_id, kind,
+            from_surah: r.from_surah ?? null, to_surah: r.to_surah ?? null,
+          }));
+      setPeople([
+        ...merge(stRes.data, 'student'),
+        ...merge(coRes.data, 'companion'),
+        ...merge(beRes.data, 'beginner'),
+      ]);
       setCircles(cRes.data || []);
       setMushafPages(mRes.data || []);
     };
@@ -126,9 +145,9 @@ export default function RecitationPage() {
     setLoading(true);
     const [recRes, attRes] = await Promise.all([
       supabase.from('recitation_log')
-        .select('id, student_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, recorded_by, teachers(teacher_name)')
+        .select('id, student_id, companion_id, beginner_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, recorded_by, teachers(teacher_name)')
         .eq('date', date).eq('is_deleted', false),
-      supabase.from('attendance').select('student_id, status, period').eq('date', date).eq('is_deleted', false),
+      supabase.from('attendance').select('student_id, companion_id, beginner_id, status, period').eq('date', date).eq('is_deleted', false),
     ]);
     if (recRes.error) toast({ title: 'خطأ', description: recRes.error.message, variant: 'destructive' });
     setRecRows((recRes.data as RecRow[] | null) || []);
@@ -138,9 +157,14 @@ export default function RecitationPage() {
   useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
 
   const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
-  const recsFor = (studentId: string) => recRows.filter(r => r.student_id === studentId && r.period === period);
-  const isAbsent = (studentId: string) =>
-    attRows.some(a => a.student_id === studentId && a.period === period && a.status === 'absent');
+  const recsFor = (personId: string, kind: Cohort) => {
+    const col = cohortSubjectColumn(kind);
+    return recRows.filter(r => (r as any)[col] === personId && r.period === period);
+  };
+  const isAbsent = (personId: string, kind: Cohort) => {
+    const col = cohortSubjectColumn(kind);
+    return attRows.some(a => (a as any)[col] === personId && a.period === period && a.status === 'absent');
+  };
 
   const fmtRange = (r: RecRow) => {
     const from = r.from_surah ? `${r.from_surah}${r.from_verse ? `|${r.from_verse}` : ''}` : '';
@@ -148,18 +172,21 @@ export default function RecitationPage() {
     return from || to ? `${from} ← ${to}` : '-';
   };
 
-  // Overview: one row per student for date+period.
+  // Overview: one row per person (any cohort) for date+period.
   const overview = useMemo(() => {
-    return students
-      .filter(s => !filterCircle || s.circle_id === filterCircle)
-      .filter(s => !search || s.full_name.includes(search))
-      .map(s => {
-        const recs = recsFor(s.id);
+    return people
+      .filter(p => !filterCohort || p.kind === filterCohort)
+      .filter(p => !filterCircle || p.circle_id === filterCircle)
+      .filter(p => !search || p.full_name.includes(search))
+      .map(p => {
+        const recs = recsFor(p.id, p.kind);
         const last = recs[recs.length - 1];
         return {
-          id: s.id,
-          full_name: s.full_name,
-          circle_name: circleName(s.circle_id),
+          id: p.id,
+          kind: p.kind,
+          kind_label: cohortLabel(p.kind),
+          full_name: p.full_name,
+          circle_name: circleName(p.circle_id),
           recited: recs.length > 0,
           count: recs.length,
           range: last ? fmtRange(last) : '',
@@ -169,11 +196,11 @@ export default function RecitationPage() {
           score: last?.score ?? '',
           grade: last?.grade ?? '',
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
-          absent: isAbsent(s.id),
+          absent: isAbsent(p.id, p.kind),
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, recRows, attRows, period, filterCircle, search, circles]);
+  }, [people, recRows, attRows, period, filterCircle, filterCohort, search, circles]);
 
   const recitedCount = overview.filter(r => r.recited).length;
   const notRecited = overview.length - recitedCount;
@@ -183,11 +210,15 @@ export default function RecitationPage() {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, search]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, search]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog helpers -----
-  const entryStudentObj = students.find(s => s.id === entryStudent);
+  const entryPeople = useMemo(
+    () => people.filter(p => p.kind === entryCohort),
+    [people, entryCohort],
+  );
+  const entryStudentObj = people.find(p => p.id === entryStudent && p.kind === entryCohort);
   const verseOpts = useMemo(() => {
     if (entryStudentObj?.from_surah && entryStudentObj?.to_surah) {
       return verseOptionsInRange(entryStudentObj.from_surah, entryStudentObj.to_surah);
@@ -198,6 +229,8 @@ export default function RecitationPage() {
     && verseOpts.length < allVerseOptions().length;
 
   useEffect(() => { setFromVerse(''); setToVerse(''); }, [entryStudent]);
+  // Switching cohort clears the selected person (ids don't cross cohorts).
+  useEffect(() => { setEntryStudent(''); }, [entryCohort]);
 
   const pageRefs = useMemo(() => mushafPages.map(p => ({
     page_number: p.page_number, surah_number: p.surah_number,
@@ -215,13 +248,13 @@ export default function RecitationPage() {
   const grade = getGrade(totalErrors);
 
   const resetEntry = () => {
-    setEntryStudent(''); setFromVerse(''); setToVerse('');
+    setEntryCohort('student'); setEntryStudent(''); setFromVerse(''); setToVerse('');
     setErrorCount(0); setLahnCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
   };
 
   const handleSaveEntry = async () => {
     if (!entryStudent || !fromRef || !toRef) {
-      toast({ title: 'تنبيه', description: 'اختر الطالبة ونطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: `اختر ${cohortLabel(entryCohort)} ونطاق التسميع (من/إلى سورة وآية)`, variant: 'destructive' });
       return;
     }
     if (!isOrderValid) {
@@ -232,14 +265,14 @@ export default function RecitationPage() {
       toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
       return;
     }
-    if (isAbsent(entryStudent)) {
-      toast({ title: 'تنبيه', description: 'لا يمكن تسجيل تسميع لطالبة غائبة', variant: 'destructive' });
+    if (isAbsent(entryStudent, entryCohort)) {
+      toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ${cohortLabel(entryCohort)} غائبة`, variant: 'destructive' });
       return;
     }
 
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
-      student_id: entryStudent,
+      ...subjectPayload(entryCohort, entryStudent),
       teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
       circle_id: entryStudentObj?.circle_id ?? null,
       date,
@@ -310,6 +343,17 @@ export default function RecitationPage() {
               ))}
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">الفئة</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              {(['', ...COHORTS] as const).map(k => (
+                <button key={k || 'all'} type="button" onClick={() => setFilterCohort(k as '' | Cohort)}
+                  className={`px-3 h-10 transition-colors ${filterCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  {k === '' ? 'الكل' : COHORT_PLURAL[k as Cohort]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1.5 min-w-[180px]">
             <Label className="text-xs">الحلقة</Label>
             <SearchableSelect
@@ -319,7 +363,7 @@ export default function RecitationPage() {
           </div>
           <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
             <Label className="text-xs">بحث</Label>
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم الطالبة..." />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="الاسم..." />
           </div>
         </CardContent>
       </Card>
@@ -337,7 +381,7 @@ export default function RecitationPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <BookOpen size={40} className="text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">لا توجد طالبات مطابقات</p>
+            <p className="text-muted-foreground">لا يوجد أعضاء مطابقون</p>
           </CardContent>
         </Card>
       ) : (
@@ -346,6 +390,7 @@ export default function RecitationPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>الطالبة</TableHead>
+                <TableHead>الفئة</TableHead>
                 <TableHead>الحلقة</TableHead>
                 <TableHead>النطاق</TableHead>
                 <TableHead>الصفحات</TableHead>
@@ -362,6 +407,9 @@ export default function RecitationPage() {
                   <TableCell className="font-medium">
                     {r.full_name}
                     {r.count > 1 && <Badge variant="secondary" className="mr-1.5 text-xs">×{r.count}</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    {r.kind !== 'student' && <Badge variant="secondary">{r.kind_label}</Badge>}
                   </TableCell>
                   <TableCell>{r.circle_name}</TableCell>
                   {r.recited ? (
@@ -404,16 +452,27 @@ export default function RecitationPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label>الطالبة</Label>
+              <Label>الفئة</Label>
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                {COHORTS.map(k => (
+                  <button key={k} type="button" onClick={() => setEntryCohort(k)}
+                    className={`flex-1 px-3 h-10 transition-colors ${entryCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    {COHORT_PLURAL[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{cohortLabel(entryCohort)}</Label>
               <SearchableSelect
-                options={students.map(s => ({ value: s.id, label: `${s.full_name} — ${circleName(s.circle_id)}` }))}
+                options={entryPeople.map(p => ({ value: p.id, label: `${p.full_name} — ${circleName(p.circle_id)}` }))}
                 value={entryStudent} onValueChange={setEntryStudent}
-                placeholder="اختر الطالبة" searchPlaceholder="ابحث عن طالبة..." />
+                placeholder={`اختر ${cohortLabel(entryCohort)}`} searchPlaceholder={`ابحث عن ${cohortLabel(entryCohort)}...`} />
             </div>
 
-            {entryStudent && isAbsent(entryStudent) && (
+            {entryStudent && isAbsent(entryStudent, entryCohort) && (
               <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
-                <AlertCircle size={16} /> هذه الطالبة غائبة في هذه الفترة — لا يمكن تسجيل تسميع لها
+                <AlertCircle size={16} /> هذه {cohortLabel(entryCohort)} غائبة في هذه الفترة — لا يمكن تسجيل تسميع لها
               </div>
             )}
 
@@ -421,7 +480,7 @@ export default function RecitationPage() {
               <>
                 {isRestricted && (
                   <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                    نطاق حفظ الطالبة: <strong>{entryStudentObj?.from_surah}</strong> ← <strong>{entryStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
+                    نطاق حفظ {cohortLabel(entryCohort)}: <strong>{entryStudentObj?.from_surah}</strong> ← <strong>{entryStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
                   </p>
                 )}
 
@@ -491,7 +550,7 @@ export default function RecitationPage() {
                   سيُسجَّل في اللوق أن المدخِل: {adminName}
                 </p>
 
-                <Button onClick={handleSaveEntry} disabled={saving || !isOrderValid || isAbsent(entryStudent)} className="w-full">
+                <Button onClick={handleSaveEntry} disabled={saving || !isOrderValid || isAbsent(entryStudent, entryCohort)} className="w-full">
                   {saving ? 'جارٍ الحفظ...' : 'حفظ التسميع'}
                 </Button>
               </>

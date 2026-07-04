@@ -14,6 +14,7 @@ const statusLabel: Record<string, string> = {
   absent: 'غائبة',
   late: 'متأخرة',
   excused: 'مستأذنة',
+  exempted: 'معذورة',
   none: 'بلا تحضير',
 };
 const statusColor: Record<string, string> = {
@@ -21,6 +22,7 @@ const statusColor: Record<string, string> = {
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
   late: 'bg-warning/10 text-warning border-warning/20',
   excused: 'bg-info/10 text-info border-info/20',
+  exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
   none: 'bg-muted text-muted-foreground',
 };
 const reasonLabel: Record<string, string> = {

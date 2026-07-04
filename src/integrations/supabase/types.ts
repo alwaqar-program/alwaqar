@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       attendance: {
         Row: {
+          beginner_id: string | null
+          companion_id: string | null
           created_at: string
           date: string
           id: string
@@ -25,9 +27,11 @@ export type Database = {
           period: string
           recorded_by: string | null
           status: string
-          student_id: string
+          student_id: string | null
         }
         Insert: {
+          beginner_id?: string | null
+          companion_id?: string | null
           created_at?: string
           date?: string
           id?: string
@@ -37,9 +41,11 @@ export type Database = {
           period: string
           recorded_by?: string | null
           status: string
-          student_id: string
+          student_id?: string | null
         }
         Update: {
+          beginner_id?: string | null
+          companion_id?: string | null
           created_at?: string
           date?: string
           id?: string
@@ -49,7 +55,7 @@ export type Database = {
           period?: string
           recorded_by?: string | null
           status?: string
-          student_id?: string
+          student_id?: string | null
         }
         Relationships: [
           {
@@ -450,7 +456,9 @@ export type Database = {
       }
       recitation_log: {
         Row: {
+          beginner_id: string | null
           circle_id: string
+          companion_id: string | null
           created_at: string
           date: string
           deleted_at: string | null
@@ -480,7 +488,9 @@ export type Database = {
           to_verse: number | null
         }
         Insert: {
+          beginner_id?: string | null
           circle_id: string
+          companion_id?: string | null
           created_at?: string
           date?: string
           deleted_at?: string | null
@@ -510,7 +520,9 @@ export type Database = {
           to_verse?: number | null
         }
         Update: {
+          beginner_id?: string | null
           circle_id?: string
+          companion_id?: string | null
           created_at?: string
           date?: string
           deleted_at?: string | null
