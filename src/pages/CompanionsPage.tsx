@@ -187,8 +187,8 @@ export default function CompanionsPage() {
                 {paged.map(c => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.full_name}</TableCell>
-                    <TableCell dir="ltr">{c.national_id || '-'}</TableCell>
-                    <TableCell dir="ltr">{c.phone || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{c.national_id || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{c.phone || '-'}</TableCell>
                     <TableCell>{circleName(c.circle_id)}</TableCell>
                     <TableCell>
                       {c.age_category

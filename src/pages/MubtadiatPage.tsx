@@ -169,9 +169,9 @@ export default function MubtadiatPage() {
                 {paged.map(b => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.full_name}</TableCell>
-                    <TableCell dir="ltr">{b.national_id || '-'}</TableCell>
-                    <TableCell dir="ltr">{b.phone || '-'}</TableCell>
-                    <TableCell dir="ltr">{b.guardian_phone || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.national_id || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.phone || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.guardian_phone || '-'}</TableCell>
                     <TableCell>{circleName(b.circle_id)}</TableCell>
                   </TableRow>
                 ))}
