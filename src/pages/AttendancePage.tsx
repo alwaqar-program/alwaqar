@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
-import { ClipboardCheck, Save, Download, Plus } from 'lucide-react';
+import { ClipboardCheck, Save, Download, Plus, Pencil } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 
@@ -49,11 +49,12 @@ const overviewCsvColumns: CsvColumnDef[] = [
 interface Person { id: string; full_name: string; circle_id: string | null; kind: Cohort; }
 interface Circle { id: string; circle_name: string; }
 interface AttRow {
+  id: string;
   student_id: string | null; companion_id: string | null; beginner_id: string | null;
   status: string; period: string;
   late_reason: string | null; late_reason_other: string | null; recorded_by: string | null;
 }
-interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; }
+interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; existingId?: string; }
 
 export default function AttendancePage() {
   const { toast } = useToast();
@@ -79,6 +80,13 @@ export default function AttendancePage() {
   const [entryCircle, setEntryCircle] = useState('');
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [saving, setSaving] = useState(false);
+
+  // ----- Row edit (تعديل سريع لصف واحد) -----
+  const [rowEdit, setRowEdit] = useState<null | {
+    personId: string; kind: Cohort; name: string;
+    status: string; late_reason: string; late_reason_other: string; existingId: string | null;
+  }>(null);
+  const [rowSaving, setRowSaving] = useState(false);
 
   useEffect(() => {
     const loadStatic = async () => {
@@ -106,7 +114,7 @@ export default function AttendancePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('attendance')
-      .select('student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
+      .select('id, student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
       .eq('date', date)
       .eq('is_deleted', false);
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -137,6 +145,9 @@ export default function AttendancePage() {
           status_label: a ? (statusLabels[a.status] ?? a.status) : 'لم يُسجّل',
           reason: a?.status === 'late' ? lateReasonLabel(a.late_reason, a.late_reason_other) : '',
           recorded_by: a ? (a.recorded_by || '—') : '',
+          existingId: a?.id ?? null,
+          late_reason: a?.late_reason ?? '',
+          late_reason_other: a?.late_reason_other ?? '',
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,10 +177,13 @@ export default function AttendancePage() {
   );
 
   useEffect(() => {
-    // Prepare defaults for people without a record this date+period.
+    // Prefill every person: existing record → its values (for editing); else default present.
     const next: Record<string, Entry> = {};
     entryPeople.forEach(p => {
-      if (!attFor(p)) next[p.id] = { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
+      const a = attFor(p);
+      next[p.id] = a
+        ? { student_id: p.id, status: a.status, late_reason: a.late_reason ?? '', late_reason_other: a.late_reason_other ?? '', existingId: a.id }
+        : { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
     });
     setEntries(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,37 +193,71 @@ export default function AttendancePage() {
     setEntries(prev => ({ ...prev, [studentId]: { ...prev[studentId], [field]: value } }));
 
   const handleSaveEntries = async () => {
-    const toInsert = Object.values(entries);
-    if (toInsert.length === 0) {
-      toast({ title: 'تنبيه', description: `كل ${COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة` });
-      return;
-    }
-    for (const e of toInsert) {
+    const all = Object.values(entries);
+    if (all.length === 0) return;
+    for (const e of all) {
       if (e.status === 'late' && !e.late_reason) {
         toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(entryCohort)} متأخرة`, variant: 'destructive' });
         return;
       }
     }
+    const fields = (e: Entry) => ({
+      status: e.status,
+      late_reason: e.status === 'late' ? e.late_reason : null,
+      late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+      recorded_by: adminName, // اللوق: أدخلها مدير النظام
+    });
+    const toInsert = all.filter(e => !e.existingId);
+    const toUpdate = all.filter(e => e.existingId);
     setSaving(true);
-    const { error } = await supabase.from('attendance').insert(
-      toInsert.map(e => ({
-        ...subjectPayload(entryCohort, e.student_id), // e.student_id holds the person id
-        date,
-        period,
-        status: e.status,
-        late_reason: e.status === 'late' ? e.late_reason : null,
-        late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
-        recorded_by: adminName, // اللوق: أدخلها مدير النظام
-      }))
-    );
-    if (error) {
-      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: `تم تسجيل حضور ${toInsert.length} ${cohortLabel(entryCohort)}` });
-      setEntryOpen(false);
-      loadDay();
+
+    if (toInsert.length) {
+      const { error } = await supabase.from('attendance').insert(
+        toInsert.map(e => ({ ...subjectPayload(entryCohort, e.student_id), date, period, ...fields(e) }))
+      );
+      if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setSaving(false); return; }
     }
+    // تعديل السجلات الموجودة (كل واحدة على حدة عبر معرّفها).
+    for (const e of toUpdate) {
+      const { error } = await supabase.from('attendance').update(fields(e)).eq('id', e.existingId!);
+      if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setSaving(false); return; }
+    }
+
+    toast({ title: `تم حفظ حضور ${all.length} ${cohortLabel(entryCohort)} (${toUpdate.length} تعديل)` });
+    setEntryOpen(false);
+    loadDay();
     setSaving(false);
+  };
+
+  // فتح تعديل صف واحد من جدول الاستعراض.
+  const openRowEdit = (r: (typeof overview)[number]) => {
+    setRowEdit({
+      personId: r.id, kind: r.kind, name: r.full_name,
+      status: r.status ?? 'present',
+      late_reason: r.late_reason, late_reason_other: r.late_reason_other,
+      existingId: r.existingId,
+    });
+  };
+
+  const saveRowEdit = async () => {
+    if (!rowEdit) return;
+    if (rowEdit.status === 'late' && !rowEdit.late_reason) {
+      toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب', variant: 'destructive' });
+      return;
+    }
+    setRowSaving(true);
+    const fields = {
+      status: rowEdit.status,
+      late_reason: rowEdit.status === 'late' ? rowEdit.late_reason : null,
+      late_reason_other: rowEdit.status === 'late' && rowEdit.late_reason === 'other' ? rowEdit.late_reason_other : null,
+      recorded_by: adminName,
+    };
+    const { error } = rowEdit.existingId
+      ? await supabase.from('attendance').update(fields).eq('id', rowEdit.existingId)
+      : await supabase.from('attendance').insert({ ...subjectPayload(rowEdit.kind, rowEdit.personId), date, period, ...fields });
+    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setRowSaving(false); return; }
+    toast({ title: rowEdit.existingId ? 'تم تعديل الحضور' : 'تم تسجيل الحضور' });
+    setRowEdit(null); setRowSaving(false); loadDay();
   };
 
   return (
@@ -306,6 +354,7 @@ export default function AttendancePage() {
                 <TableHead>الحالة</TableHead>
                 <TableHead>السبب</TableHead>
                 <TableHead>سجّلها</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -323,6 +372,11 @@ export default function AttendancePage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.reason || '-'}</TableCell>
                   <TableCell className="text-sm">{r.recorded_by || '-'}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل الحضور" onClick={() => openRowEdit(r)}>
+                      <Pencil size={14} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -361,21 +415,24 @@ export default function AttendancePage() {
 
             {entryCircle && Object.keys(entries).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-                كل {COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة
+                لا توجد {COHORT_PLURAL[entryCohort]} في هذه الحلقة
               </p>
             )}
 
             {entryCircle && Object.keys(entries).length > 0 && (
               <>
                 <p className="text-xs text-muted-foreground">
-                  تظهر فقط الطالبات غير المسجّلات لهذا اليوم والفترة. سيُسجَّل في اللوق أن المدخِل: {adminName}
+                  المسجّلات مسبقاً تظهر بحالتها الحالية ويمكن تعديلها. سيُسجَّل في اللوق أن المدخِل: {adminName}
                 </p>
                 <div className="space-y-3">
                   {entryPeople.filter(s => entries[s.id]).map(s => {
                     const entry = entries[s.id];
                     return (
                       <div key={s.id} className="p-3 rounded-lg border space-y-2">
-                        <span className="font-medium text-sm">{s.full_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{s.full_name}</span>
+                          {entry.existingId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">مسجّلة — تعديل</span>}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(statusLabels).map(([value, label]) => (
                             <button key={value} onClick={() => updateEntry(s.id, 'status', value)}
@@ -406,6 +463,48 @@ export default function AttendancePage() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* تعديل سريع لصف واحد */}
+      <Dialog open={!!rowEdit} onOpenChange={(o) => { if (!o) setRowEdit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              تعديل الحضور — {rowEdit?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {rowEdit && (
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-muted-foreground">
+                {date} ({period === 'morning' ? 'صباحي' : 'مسائي'}) — سيُسجَّل المدخِل: {adminName}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <button key={value} type="button"
+                    onClick={() => setRowEdit(re => re && ({ ...re, status: value }))}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                      rowEdit.status === value ? statusColors[value] + ' border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {rowEdit.status === 'late' && (
+                <div className="flex gap-2">
+                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons}
+                    value={rowEdit.late_reason} onValueChange={v => setRowEdit(re => re && ({ ...re, late_reason: v }))}
+                    placeholder="السبب" searchPlaceholder="ابحث..." />
+                  {rowEdit.late_reason === 'other' && (
+                    <Input className="h-8 text-xs" placeholder="حدد السبب" value={rowEdit.late_reason_other}
+                      onChange={e => setRowEdit(re => re && ({ ...re, late_reason_other: e.target.value }))} />
+                  )}
+                </div>
+              )}
+              <Button onClick={saveRowEdit} disabled={rowSaving} className="w-full">
+                <Save size={18} /> {rowSaving ? 'جارٍ الحفظ...' : (rowEdit.existingId ? 'حفظ التعديل' : 'تسجيل الحضور')}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

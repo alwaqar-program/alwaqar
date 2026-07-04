@@ -49,6 +49,7 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   className?: string;
   allowClear?: boolean;
+  disabled?: boolean;
   /** Cap rendered rows (for very large lists); the rest is reachable by typing. */
   maxVisible?: number;
 }
@@ -62,6 +63,7 @@ export function SearchableSelect({
   emptyMessage = 'لا توجد نتائج',
   className,
   allowClear = false,
+  disabled = false,
   maxVisible,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
@@ -85,12 +87,13 @@ export function SearchableSelect({
   }, [open]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground', className)}
         >
           <span className="truncate">{selectedLabel || placeholder}</span>
@@ -120,7 +123,7 @@ export function SearchableSelect({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-60 overflow-y-auto p-1">
+        <div className="max-h-[min(15rem,50vh)] overflow-y-auto p-1">
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
           ) : (

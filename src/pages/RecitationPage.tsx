@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
-import { BookOpen, AlertCircle, Download, Plus } from 'lucide-react';
+import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
@@ -69,6 +69,7 @@ interface RecRow {
   to_surah: string | null; to_verse: number | null;
   pages_recited: number | null; error_count: number; lahn_count: number | null;
   score: number | null; grade: string | null;
+  thabit_confirmed: boolean | null; hifz_confirmed: boolean | null; is_extra_memorization: boolean | null;
   recorded_by: string | null;
   teachers?: { teacher_name: string } | null;
 }
@@ -109,6 +110,8 @@ export default function RecitationPage() {
   const [thabitConfirmed, setThabitConfirmed] = useState(false);
   const [hifzConfirmed, setHifzConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // set = تعديل سجل موجود
+  const loadingEditRef = useRef(false); // يمنع مسح الحقول عند تعبئة نموذج التعديل
 
   useEffect(() => {
     const loadStatic = async () => {
@@ -145,7 +148,7 @@ export default function RecitationPage() {
     setLoading(true);
     const [recRes, attRes] = await Promise.all([
       supabase.from('recitation_log')
-        .select('id, student_id, companion_id, beginner_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, recorded_by, teachers(teacher_name)')
+        .select('id, student_id, companion_id, beginner_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, thabit_confirmed, hifz_confirmed, is_extra_memorization, recorded_by, teachers(teacher_name)')
         .eq('date', date).eq('is_deleted', false),
       supabase.from('attendance').select('student_id, companion_id, beginner_id, status, period').eq('date', date).eq('is_deleted', false),
     ]);
@@ -197,6 +200,7 @@ export default function RecitationPage() {
           grade: last?.grade ?? '',
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
           absent: isAbsent(p.id, p.kind),
+          editRec: last ?? null, // آخر سجل تسميع (للتعديل)
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,9 +232,11 @@ export default function RecitationPage() {
   const isRestricted = entryStudentObj?.from_surah && entryStudentObj?.to_surah
     && verseOpts.length < allVerseOptions().length;
 
-  useEffect(() => { setFromVerse(''); setToVerse(''); }, [entryStudent]);
+  useEffect(() => { if (loadingEditRef.current) return; setFromVerse(''); setToVerse(''); }, [entryStudent]);
   // Switching cohort clears the selected person (ids don't cross cohorts).
-  useEffect(() => { setEntryStudent(''); }, [entryCohort]);
+  useEffect(() => { if (loadingEditRef.current) return; setEntryStudent(''); }, [entryCohort]);
+  // بعد تعبئة نموذج التعديل (كل التغييرات في نفس الدورة) نُعيد تفعيل المسح للتغييرات اللاحقة.
+  useEffect(() => { loadingEditRef.current = false; });
 
   const pageRefs = useMemo(() => mushafPages.map(p => ({
     page_number: p.page_number, surah_number: p.surah_number,
@@ -248,8 +254,27 @@ export default function RecitationPage() {
   const grade = getGrade(totalErrors);
 
   const resetEntry = () => {
+    setEditingId(null);
     setEntryCohort('student'); setEntryStudent(''); setFromVerse(''); setToVerse('');
     setErrorCount(0); setLahnCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
+  };
+
+  // فتح نموذج التعديل معبّأً بقيم سجل موجود.
+  const openEditRec = (r: RecRow) => {
+    loadingEditRef.current = true; // امنع مسح الحقول أثناء التعبئة
+    const kind: Cohort = r.student_id ? 'student' : r.companion_id ? 'companion' : 'beginner';
+    const subjectId = r.student_id || r.companion_id || r.beginner_id || '';
+    setEditingId(r.id);
+    setEntryCohort(kind);
+    setEntryStudent(subjectId);
+    setFromVerse(r.from_surah ? `${r.from_surah}${r.from_verse ? `|${r.from_verse}` : ''}` : '');
+    setToVerse(r.to_surah ? `${r.to_surah}${r.to_verse ? `|${r.to_verse}` : ''}` : '');
+    setErrorCount(r.error_count || 0);
+    setLahnCount(r.lahn_count || 0);
+    setIsExtra(!!r.is_extra_memorization);
+    setThabitConfirmed(!!r.thabit_confirmed);
+    setHifzConfirmed(!!r.hifz_confirmed);
+    setEntryOpen(true);
   };
 
   const handleSaveEntry = async () => {
@@ -271,12 +296,8 @@ export default function RecitationPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase.from('recitation_log').insert({
-      ...subjectPayload(entryCohort, entryStudent),
-      teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
-      circle_id: entryStudentObj?.circle_id ?? null,
-      date,
-      period,
+    // الحقول القابلة للتحرير (grade + score /20 يحسبهما DB كأعمدة مولّدة).
+    const fields = {
       from_page: fromPageInfo?.page_number ?? null,
       to_page: toPageInfo?.page_number ?? null,
       from_surah: fromRef.surah,
@@ -290,14 +311,22 @@ export default function RecitationPage() {
       hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
       lahn_count: lahnCount,
-      recorded_by: adminName, // اللوق: أدخلها مدير النظام
-      // grade + score (/20) are computed by the database (generated columns).
-    });
+    };
+    // تعديل: تحديث بالمعرّف مع الحفاظ على مُدخِل السجل الأصلي. إدخال جديد: recorded_by = المدير.
+    const { error } = editingId
+      ? await supabase.from('recitation_log').update(fields).eq('id', editingId)
+      : await supabase.from('recitation_log').insert({
+          ...subjectPayload(entryCohort, entryStudent),
+          teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
+          circle_id: entryStudentObj?.circle_id ?? null,
+          date, period, ...fields,
+          recorded_by: adminName, // اللوق: أدخلها مدير النظام
+        });
 
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'تم حفظ التسميع بنجاح' });
+      toast({ title: editingId ? 'تم تعديل التسميع بنجاح' : 'تم حفظ التسميع بنجاح' });
       setEntryOpen(false);
       resetEntry();
       loadDay();
@@ -399,6 +428,7 @@ export default function RecitationPage() {
                 <TableHead>الدرجة /20</TableHead>
                 <TableHead>التقدير</TableHead>
                 <TableHead>سجّلها</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -423,6 +453,14 @@ export default function RecitationPage() {
                         <Badge variant="outline" className={gradeColors[r.grade] || ''}>{r.grade}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">{r.recorded_by}</TableCell>
+                      <TableCell>
+                        {r.editRec && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
+                            onClick={() => openEditRec(r.editRec!)}>
+                            <Pencil size={14} />
+                          </Button>
+                        )}
+                      </TableCell>
                     </>
                   ) : (
                     <>
@@ -431,6 +469,7 @@ export default function RecitationPage() {
                           {r.absent ? 'غائبة — لا تسميع' : 'لم تُسمِّع'}
                         </span>
                       </TableCell>
+                      <TableCell />
                       <TableCell />
                     </>
                   )}
@@ -443,11 +482,11 @@ export default function RecitationPage() {
       )}
 
       {/* إدخال تسميع */}
-      <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
+      <Dialog open={entryOpen} onOpenChange={(o) => { setEntryOpen(o); if (!o) resetEntry(); }}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">
-              إدخال تسميع — {date} ({period === 'morning' ? 'صباحي' : 'مسائي'})
+              {editingId ? 'تعديل تسميع' : 'إدخال تسميع'} — {date} ({period === 'morning' ? 'صباحي' : 'مسائي'})
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
@@ -455,8 +494,8 @@ export default function RecitationPage() {
               <Label>الفئة</Label>
               <div className="flex rounded-md border border-border overflow-hidden text-sm">
                 {COHORTS.map(k => (
-                  <button key={k} type="button" onClick={() => setEntryCohort(k)}
-                    className={`flex-1 px-3 h-10 transition-colors ${entryCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  <button key={k} type="button" disabled={!!editingId} onClick={() => setEntryCohort(k)}
+                    className={`flex-1 px-3 h-10 transition-colors ${entryCohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'} ${editingId ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     {COHORT_PLURAL[k]}
                   </button>
                 ))}
@@ -465,6 +504,7 @@ export default function RecitationPage() {
             <div className="space-y-2">
               <Label>{cohortLabel(entryCohort)}</Label>
               <SearchableSelect
+                disabled={!!editingId}
                 options={entryPeople.map(p => ({ value: p.id, label: `${p.full_name} — ${circleName(p.circle_id)}` }))}
                 value={entryStudent} onValueChange={setEntryStudent}
                 placeholder={`اختر ${cohortLabel(entryCohort)}`} searchPlaceholder={`ابحث عن ${cohortLabel(entryCohort)}...`} />
@@ -551,7 +591,7 @@ export default function RecitationPage() {
                 </p>
 
                 <Button onClick={handleSaveEntry} disabled={saving || !isOrderValid || isAbsent(entryStudent, entryCohort)} className="w-full">
-                  {saving ? 'جارٍ الحفظ...' : 'حفظ التسميع'}
+                  {saving ? 'جارٍ الحفظ...' : editingId ? 'حفظ التعديل' : 'حفظ التسميع'}
                 </Button>
               </>
             )}
