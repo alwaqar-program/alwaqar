@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
+import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
@@ -277,6 +278,15 @@ export default function RecitationPage() {
     setEntryOpen(true);
   };
 
+  // فتح نموذج إدخال جديد مضبوطاً على شخص معيّن (من زر الصف).
+  const openEntryForPerson = (personId: string, kind: Cohort) => {
+    loadingEditRef.current = true; // امنع مسح الحقول أثناء الضبط
+    resetEntry();
+    setEntryCohort(kind);
+    setEntryStudent(personId);
+    setEntryOpen(true);
+  };
+
   const handleSaveEntry = async () => {
     if (!entryStudent || !fromRef || !toRef) {
       toast({ title: 'تنبيه', description: `اختر ${cohortLabel(entryCohort)} ونطاق التسميع (من/إلى سورة وآية)`, variant: 'destructive' });
@@ -311,8 +321,9 @@ export default function RecitationPage() {
       hifz_confirmed: hifzConfirmed,
       error_count: errorCount,
       lahn_count: lahnCount,
+      recorded_by: adminName, // آخر من سجّل/عدّل — والتاريخ الكامل في سجل التدقيق
     };
-    // تعديل: تحديث بالمعرّف مع الحفاظ على مُدخِل السجل الأصلي. إدخال جديد: recorded_by = المدير.
+    // تعديل: تحديث بالمعرّف. إدخال جديد: نضيف الحلقة والتاريخ والفترة.
     const { error } = editingId
       ? await supabase.from('recitation_log').update(fields).eq('id', editingId)
       : await supabase.from('recitation_log').insert({
@@ -320,7 +331,6 @@ export default function RecitationPage() {
           teacher_id: null, // إدخال إداري — الإسناد عبر recorded_by
           circle_id: entryStudentObj?.circle_id ?? null,
           date, period, ...fields,
-          recorded_by: adminName, // اللوق: أدخلها مدير النظام
         });
 
     if (error) {
@@ -455,10 +465,13 @@ export default function RecitationPage() {
                       <TableCell className="text-sm">{r.recorded_by}</TableCell>
                       <TableCell>
                         {r.editRec && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
-                            onClick={() => openEditRec(r.editRec!)}>
-                            <Pencil size={14} />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <RecordHistoryButton tableName="recitation_log" rowId={r.editRec.id} title={r.full_name} />
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
+                              onClick={() => openEditRec(r.editRec!)}>
+                              <Pencil size={14} />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </>
@@ -470,7 +483,14 @@ export default function RecitationPage() {
                         </span>
                       </TableCell>
                       <TableCell />
-                      <TableCell />
+                      <TableCell>
+                        {!r.absent && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="تسجيل تسميع"
+                            onClick={() => openEntryForPerson(r.id, r.kind)}>
+                            <Pencil size={14} />
+                          </Button>
+                        )}
+                      </TableCell>
                     </>
                   )}
                 </TableRow>
