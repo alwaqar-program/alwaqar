@@ -277,6 +277,15 @@ export default function RecitationPage() {
     setEntryOpen(true);
   };
 
+  // فتح نموذج إدخال جديد مضبوطاً على شخص معيّن (من زر الصف).
+  const openEntryForPerson = (personId: string, kind: Cohort) => {
+    loadingEditRef.current = true; // امنع مسح الحقول أثناء الضبط
+    resetEntry();
+    setEntryCohort(kind);
+    setEntryStudent(personId);
+    setEntryOpen(true);
+  };
+
   const handleSaveEntry = async () => {
     if (!entryStudent || !fromRef || !toRef) {
       toast({ title: 'تنبيه', description: `اختر ${cohortLabel(entryCohort)} ونطاق التسميع (من/إلى سورة وآية)`, variant: 'destructive' });
@@ -470,7 +479,14 @@ export default function RecitationPage() {
                         </span>
                       </TableCell>
                       <TableCell />
-                      <TableCell />
+                      <TableCell>
+                        {!r.absent && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="تسجيل تسميع"
+                            onClick={() => openEntryForPerson(r.id, r.kind)}>
+                            <Pencil size={14} />
+                          </Button>
+                        )}
+                      </TableCell>
                     </>
                   )}
                 </TableRow>
