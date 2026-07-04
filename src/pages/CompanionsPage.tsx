@@ -22,11 +22,6 @@ const ageCategoryColor: Record<string, string> = {
   under_16: 'bg-info/10 text-info border-info/20',
   over_35: 'bg-accent/10 text-accent border-accent/20',
 };
-const reasonLabel: Record<string, string> = {
-  not_16_to_35: 'خارج 16-35',
-  unknown_age: 'فئة غير معروفة',
-};
-
 interface Companion {
   id: string;
   original_student_id: string | null;
@@ -50,8 +45,6 @@ const csvColumns: CsvColumnDef[] = [
   { key: 'nationality', header: 'الجنسية' },
   { key: 'circle_name', header: 'الحلقة' },
   { key: 'age_category_label', header: 'الفئة العمرية' },
-  { key: 'reason_label', header: 'سبب النقل' },
-  { key: 'moved_at', header: 'تاريخ النقل' },
 ];
 
 export default function CompanionsPage() {
@@ -62,7 +55,6 @@ export default function CompanionsPage() {
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterReason, setFilterReason] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -86,19 +78,18 @@ export default function CompanionsPage() {
   const filtered = useMemo(() => companions.filter(c => {
     if (search && !c.full_name.includes(search) && !c.national_id?.includes(search) && !c.phone?.includes(search)) return false;
     if (filterCategory && (c.age_category ?? '') !== filterCategory) return false;
-    if (filterReason && c.move_reason !== filterReason) return false;
     return true;
-  }), [companions, search, filterCategory, filterReason]);
+  }), [companions, search, filterCategory]);
 
-  const hasFilters = !!search || !!filterCategory || !!filterReason;
-  const clearFilters = () => { setSearch(''); setFilterCategory(''); setFilterReason(''); };
+  const hasFilters = !!search || !!filterCategory;
+  const clearFilters = () => { setSearch(''); setFilterCategory(''); };
 
   // Pagination
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [search, filterCategory, filterReason]);
+  useEffect(() => { setPage(1); }, [search, filterCategory]);
   const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleExport = () => exportToCsv(
@@ -106,8 +97,6 @@ export default function CompanionsPage() {
       ...c,
       circle_name: circleName(c.circle_id),
       age_category_label: c.age_category ? (ageCategoryLabel[c.age_category] ?? c.age_category) : 'غير معروفة',
-      reason_label: reasonLabel[c.move_reason] ?? c.move_reason,
-      moved_at: c.moved_at?.split('T')[0] ?? '',
     })),
     csvColumns,
     'companions',
@@ -142,15 +131,11 @@ export default function CompanionsPage() {
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SearchableSelect
               options={[{ value: '', label: 'كل الفئات' }, ...Object.entries(ageCategoryLabel).map(([v, l]) => ({ value: v, label: l }))]}
               value={filterCategory} onValueChange={setFilterCategory}
               placeholder="كل الفئات" searchPlaceholder="ابحث..." allowClear />
-            <SearchableSelect
-              options={[{ value: '', label: 'كل الأسباب' }, ...Object.entries(reasonLabel).map(([v, l]) => ({ value: v, label: l }))]}
-              value={filterReason} onValueChange={setFilterReason}
-              placeholder="كل الأسباب" searchPlaceholder="ابحث..." allowClear />
           </div>
         </CardContent>
       </Card>
@@ -179,7 +164,6 @@ export default function CompanionsPage() {
                   <TableHead>الهاتف</TableHead>
                   <TableHead>الحلقة</TableHead>
                   <TableHead>الفئة العمرية</TableHead>
-                  <TableHead>سبب النقل</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -193,9 +177,6 @@ export default function CompanionsPage() {
                       {c.age_category
                         ? <Badge variant="outline" className={ageCategoryColor[c.age_category] || ''}>{ageCategoryLabel[c.age_category] ?? c.age_category}</Badge>
                         : <span className="text-muted-foreground text-sm">غير معروفة</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{reasonLabel[c.move_reason] ?? c.move_reason}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
