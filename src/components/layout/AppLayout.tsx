@@ -34,13 +34,14 @@ interface NavItem {
   label: string;
   href: string;
   icon: ReactNode;
-  roles?: string[];
+  roles?: string[];       // allowlist: يظهر فقط لهذه الأدوار
+  hideForRoles?: string[]; // قائمة منع: يُخفى عمّن يملك أياً من هذه الأدوار (المدير يرى دائماً)
 }
 
 const navItems: NavItem[] = [
   { label: 'لوحة المعلومات', href: '/', icon: <LayoutDashboard size={20} /> },
-  { label: 'المتقدمات', href: '/applicants', icon: <UserPlus size={20} /> },
-  { label: 'المقابلات', href: '/interviews', icon: <MessagesSquare size={20} /> },
+  { label: 'المتقدمات', href: '/applicants', icon: <UserPlus size={20} />, hideForRoles: ['student_affairs'] },
+  { label: 'المقابلات', href: '/interviews', icon: <MessagesSquare size={20} />, hideForRoles: ['student_affairs'] },
   { label: 'لجنة المقابلات', href: '/interview-committee', icon: <MessagesSquare size={20} />, roles: ['admin'] },
   { label: 'التسميع', href: '/recitation', icon: <Mic size={20} /> },
   { label: 'الحضور', href: '/attendance', icon: <ClipboardCheck size={20} /> },
@@ -51,7 +52,7 @@ const navItems: NavItem[] = [
   { label: 'الفروع', href: '/branches', icon: <GitBranch size={20} /> },
   { label: 'الحلقات', href: '/circles', icon: <BookOpen size={20} /> },
   { label: 'المعلمات', href: '/teachers', icon: <GraduationCap size={20} /> },
-  { label: 'المشرفات', href: '/staff', icon: <UserCheck size={20} /> },
+  { label: 'المشرفات', href: '/staff', icon: <UserCheck size={20} />, hideForRoles: ['student_affairs'] },
   { label: 'الغرف', href: '/rooms', icon: <DoorOpen size={20} /> },
   { label: 'التعهدات', href: '/pledges', icon: <FileSignature size={20} /> },
   { label: 'المخالفات', href: '/violations', icon: <AlertTriangle size={20} /> },
@@ -67,6 +68,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const filteredItems = navItems.filter(item => {
+    const isAdmin = roles.includes('admin' as any);
+    // قائمة المنع تُخفي العنصر عمّن يملك دوراً ممنوعاً (إلا المدير يرى دائماً).
+    if (!isAdmin && item.hideForRoles && item.hideForRoles.some(r => roles.includes(r as any))) return false;
     if (!item.roles) return true;
     return item.roles.some(r => roles.includes(r as any));
   });
