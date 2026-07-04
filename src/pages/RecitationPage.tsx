@@ -115,6 +115,10 @@ export default function RecitationPage() {
   const [hifzConfirmed, setHifzConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null); // set = تعديل سجل موجود
+
+  // ----- حل التكرار: عرض سجلات فترة واحدة واعتماد سجل وحذف الباقي -----
+  const [dupResolve, setDupResolve] = useState<{ name: string; recs: RecRow[] } | null>(null);
+  const [resolving, setResolving] = useState(false);
   const loadingEditRef = useRef(false); // يمنع مسح الحقول عند تعبئة نموذج التعديل
 
   useEffect(() => {
@@ -206,6 +210,7 @@ export default function RecitationPage() {
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
           absent: isAbsent(p.id, p.kind),
           editRec: last ?? null, // آخر سجل تسميع (للتعديل)
+          recs, // كل سجلات هذه الفترة (لحل التكرار)
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,6 +378,21 @@ export default function RecitationPage() {
     setSaving(false);
   };
 
+  // اعتماد سجل واحد وحذف باقي سجلات التكرار (حذف ناعم — قابل للاسترجاع من سجل التدقيق).
+  const confirmRecord = async (keepId: string) => {
+    if (!dupResolve) return;
+    const toDelete = dupResolve.recs.filter(r => r.id !== keepId);
+    if (toDelete.length === 0) { setDupResolve(null); return; }
+    setResolving(true);
+    for (const r of toDelete) {
+      const { error } = await supabase.from('recitation_log')
+        .update({ is_deleted: true }).eq('id', r.id);
+      if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); setResolving(false); return; }
+    }
+    toast({ title: `تم اعتماد سجل واحد وحذف ${toDelete.length} سجل مكرر` });
+    setDupResolve(null); setResolving(false); loadDay();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -495,7 +515,12 @@ export default function RecitationPage() {
                 <TableRow key={r.id} className={!r.recited ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">
                     {r.full_name}
-                    {r.count > 1 && <Badge variant="secondary" className="mr-1.5 text-xs">×{r.count}</Badge>}
+                    {r.count > 1 && (
+                      <button type="button" onClick={() => setDupResolve({ name: r.full_name, recs: r.recs })}
+                        title="سجلات مكررة — اضغطي للمراجعة واعتماد سجل واحد">
+                        <Badge variant="secondary" className="mr-1.5 text-xs cursor-pointer hover:bg-warning/20 hover:text-warning">×{r.count}</Badge>
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell>{r.circle_name}</TableCell>
                   {r.recited ? (
@@ -661,6 +686,44 @@ export default function RecitationPage() {
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* حل التكرار: مراجعة السجلات المكررة واعتماد سجل واحد وحذف الباقي */}
+      <Dialog open={!!dupResolve} onOpenChange={(o) => { if (!o) setDupResolve(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              سجلات مكررة — {dupResolve?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              يوجد {dupResolve?.recs.length} سجلات لهذه الفترة. اعتمدي السجل الصحيح — وسيُحذف الباقي (حذف قابل للاسترجاع من سجل التدقيق).
+            </p>
+            {dupResolve?.recs.map((rec, i) => (
+              <div key={rec.id} className="p-3 rounded-lg border space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">سجل {i + 1}</span>
+                  {rec.grade && <Badge variant="outline" className={gradeColors[rec.grade] || ''}>{rec.grade}</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <div><span className="text-muted-foreground">النطاق:</span> {fmtRange(rec)}</div>
+                  <div><span className="text-muted-foreground">الصفحات:</span> {rec.pages_recited ?? '-'}</div>
+                  <div><span className="text-muted-foreground">الأخطاء:</span> {rec.error_count}</div>
+                  <div><span className="text-muted-foreground">اللحون:</span> {rec.lahn_count ?? 0}</div>
+                  <div><span className="text-muted-foreground">الدرجة:</span> <strong>{rec.score ?? '-'}</strong></div>
+                  <div className="col-span-2"><span className="text-muted-foreground">سجّلها:</span> {rec.recorded_by || rec.teachers?.teacher_name || '—'}</div>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Button size="sm" className="flex-1" disabled={resolving} onClick={() => confirmRecord(rec.id)}>
+                    اعتماد هذا السجل وحذف الباقي
+                  </Button>
+                  <RecordHistoryButton tableName="recitation_log" rowId={rec.id} title={dupResolve.name} />
+                </div>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
