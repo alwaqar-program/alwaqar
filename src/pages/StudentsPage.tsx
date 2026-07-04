@@ -26,14 +26,6 @@ import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { SURAHS } from '@/lib/quran-verses';
-import { HOUSING_AR, HousingAnswer } from '@/lib/interview-types';
-
-// نوع السكن مطابق لإجابة المقابلة (تقبل السكن المشترك / لا تقبل / معها مرافقات).
-const housingOptions = (Object.keys(HOUSING_AR) as HousingAnswer[]).map(k => ({ value: k, label: HOUSING_AR[k] }));
-const housingLabel = (v: string | null | undefined) =>
-  v && HOUSING_AR[v as HousingAnswer] ? HOUSING_AR[v as HousingAnswer] : 'غير محدد';
-const housingFromLabel = (s: string) =>
-  (Object.keys(HOUSING_AR) as HousingAnswer[]).find(k => HOUSING_AR[k] === s?.trim()) ?? null;
 
 const studentCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الاسم الكامل' },
@@ -43,7 +35,6 @@ const studentCsvColumns: CsvColumnDef[] = [
   { key: 'guardian_phone', header: 'هاتف ولي الأمر' },
   { key: 'nationality', header: 'الجنسية' },
   { key: 'qualification', header: 'المؤهل' },
-  { key: 'housing_type', header: 'نوع السكن', transform: housingLabel, importTransform: housingFromLabel },
   { key: 'admission_status', header: 'حالة القبول' },
 ];
 
@@ -103,10 +94,9 @@ export default function StudentsPage() {
   const [filterCircle, setFilterCircle] = useUrlMultiFilter('circle');
   const [filterBranch, setFilterBranch] = useUrlMultiFilter('branch');
   const [filterStatus, setFilterStatus] = useUrlMultiFilter('status');
-  const [filterHousing, setFilterHousing] = useUrlMultiFilter('housing');
 
   const [form, setForm] = useState({
-    full_name: '', national_id: '', phone: '', circle_id: '', housing_type: '',
+    full_name: '', national_id: '', phone: '', circle_id: '',
     admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '',
     from_surah: '', to_surah: '',
   });
@@ -134,29 +124,26 @@ export default function StudentsPage() {
       if (filterCircle.length > 0 && !filterCircle.includes(s.circle_id ?? '')) return false;
       if (filterBranch.length > 0 && !filterBranch.includes(s.circles?.branches?.id ?? '')) return false;
       if (filterStatus.length > 0 && !filterStatus.includes(s.admission_status ?? '')) return false;
-      if (filterHousing.length > 0 && !filterHousing.includes(s.housing_type ?? '')) return false;
       return true;
     });
-  }, [students, searchQuery, filterCircle, filterBranch, filterStatus, filterHousing]);
+  }, [students, searchQuery, filterCircle, filterBranch, filterStatus]);
 
   const hasActiveFilters =
     !!searchQuery ||
     filterCircle.length > 0 ||
     filterBranch.length > 0 ||
-    filterStatus.length > 0 ||
-    filterHousing.length > 0;
+    filterStatus.length > 0;
 
   const clearFilters = () => {
     setSearchQuery('');
     setFilterCircle([]);
     setFilterBranch([]);
     setFilterStatus([]);
-    setFilterHousing([]);
   };
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', housing_type: '', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '', from_surah: '', to_surah: '' });
+    setForm({ full_name: '', national_id: '', phone: '', circle_id: '', admission_status: 'candidate', email: '', guardian_phone: '', nationality: '', qualification: '', from_surah: '', to_surah: '' });
     setDialogOpen(true);
   };
 
@@ -164,7 +151,7 @@ export default function StudentsPage() {
     setEditing(s);
     setForm({
       full_name: s.full_name, national_id: s.national_id || '', phone: s.phone || '',
-      circle_id: s.circle_id || '', housing_type: s.housing_type || '',
+      circle_id: s.circle_id || '',
       admission_status: s.admission_status, email: s.email || '',
       guardian_phone: s.guardian_phone || '', nationality: s.nationality || '',
       qualification: s.qualification || '',
@@ -196,7 +183,7 @@ export default function StudentsPage() {
     const payload = {
       full_name: form.full_name, national_id: form.national_id || null,
       phone: form.phone || null, circle_id: form.circle_id || null,
-      housing_type: form.housing_type || null, admission_status: form.admission_status,
+      admission_status: form.admission_status,
       email: form.email || null, guardian_phone: form.guardian_phone || null,
       nationality: form.nationality || null, qualification: form.qualification || null,
       from_surah: fromSurah, to_surah: toSurah,
@@ -234,7 +221,6 @@ export default function StudentsPage() {
       circle: (s) => s.circles?.circle_name,
       branch: (s) => s.circles?.branches?.branch_name,
       status: (s) => statusLabels[s.admission_status] || s.admission_status,
-      housing: (s) => housingLabel(s.housing_type),
     };
     if (!sortKey || !acc[sortKey]) return filteredStudents;
     return sortRows(filteredStudents, acc[sortKey], sortDir, 'text');
@@ -245,7 +231,7 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(sortedStudents.length / PAGE_SIZE));
   // Back to page 1 whenever the visible set changes (filters/search/sort).
-  useEffect(() => { setPage(1); }, [searchQuery, filterCircle, filterBranch, filterStatus, filterHousing, sortKey, sortDir]);
+  useEffect(() => { setPage(1); }, [searchQuery, filterCircle, filterBranch, filterStatus, sortKey, sortDir]);
   const safePage = Math.min(page, pageCount);
   const pagedStudents = useMemo(
     () => sortedStudents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
@@ -313,29 +299,16 @@ export default function StudentsPage() {
                   <Input value={form.qualification} onChange={e => setForm(f => ({ ...f, qualification: e.target.value }))} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>الحلقة</Label>
-                  <SearchableSelect
-                    options={circleOptions}
-                    value={form.circle_id}
-                    onValueChange={v => setForm(f => ({ ...f, circle_id: v }))}
-                    placeholder="اختر الحلقة"
-                    searchPlaceholder="ابحث عن حلقة..."
-                    allowClear
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>نوع السكن</Label>
-                  <SearchableSelect
-                    options={housingOptions}
-                    value={form.housing_type}
-                    onValueChange={v => setForm(f => ({ ...f, housing_type: v }))}
-                    placeholder="نوع السكن"
-                    searchPlaceholder="ابحث..."
-                    allowClear
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>الحلقة</Label>
+                <SearchableSelect
+                  options={circleOptions}
+                  value={form.circle_id}
+                  onValueChange={v => setForm(f => ({ ...f, circle_id: v }))}
+                  placeholder="اختر الحلقة"
+                  searchPlaceholder="ابحث عن حلقة..."
+                  allowClear
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -398,7 +371,7 @@ export default function StudentsPage() {
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <MultiSearchableSelect
               options={branchOptions}
               values={filterBranch}
@@ -419,13 +392,6 @@ export default function StudentsPage() {
               onValuesChange={setFilterStatus}
               placeholder="كل الحالات"
               searchPlaceholder="ابحث عن حالة..."
-            />
-            <MultiSearchableSelect
-              options={housingOptions}
-              values={filterHousing}
-              onValuesChange={setFilterHousing}
-              placeholder="كل أنواع السكن"
-              searchPlaceholder="ابحث..."
             />
           </div>
         </CardContent>
@@ -456,7 +422,6 @@ export default function StudentsPage() {
                   <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                   <SortableHead label="الفرع" sortKey="branch" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                   <SortableHead label="حالة القبول" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                  <SortableHead label="السكن" sortKey="housing" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -471,7 +436,6 @@ export default function StudentsPage() {
                         {statusLabels[s.admission_status] || s.admission_status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{housingLabel(s.housing_type)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(s); }}>
