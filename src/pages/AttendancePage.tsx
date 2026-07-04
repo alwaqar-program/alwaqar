@@ -181,12 +181,12 @@ export default function AttendancePage() {
   const handleSaveEntries = async () => {
     const toInsert = Object.values(entries);
     if (toInsert.length === 0) {
-      toast({ title: 'تنبيه', description: 'كل طالبات هذه الحلقة مسجّلات لهذه الفترة' });
+      toast({ title: 'تنبيه', description: `كل ${COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة` });
       return;
     }
     for (const e of toInsert) {
       if (e.status === 'late' && !e.late_reason) {
-        toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب لكل طالبة متأخرة', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(entryCohort)} متأخرة`, variant: 'destructive' });
         return;
       }
     }
@@ -205,7 +205,7 @@ export default function AttendancePage() {
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: `تم تسجيل حضور ${toInsert.length} طالبة` });
+      toast({ title: `تم تسجيل حضور ${toInsert.length} ${cohortLabel(entryCohort)}` });
       setEntryOpen(false);
       loadDay();
     }
@@ -270,7 +270,7 @@ export default function AttendancePage() {
           </div>
           <div className="space-y-1.5 min-w-[180px] flex-1 max-w-xs">
             <Label className="text-xs">بحث</Label>
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم الطالبة..." />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="الاسم..." />
           </div>
         </CardContent>
       </Card>
@@ -292,7 +292,7 @@ export default function AttendancePage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <ClipboardCheck size={40} className="text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">لا توجد طالبات مطابقات</p>
+            <p className="text-muted-foreground">لا يوجد أعضاء مطابقون</p>
           </CardContent>
         </Card>
       ) : (
@@ -361,7 +361,7 @@ export default function AttendancePage() {
 
             {entryCircle && Object.keys(entries).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-                كل طالبات هذه الحلقة مسجّلات لهذه الفترة
+                كل {COHORT_PLURAL[entryCohort]} هذه الحلقة مسجّلات لهذه الفترة
               </p>
             )}
 
