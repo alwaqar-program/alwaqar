@@ -169,9 +169,9 @@ export default function TeachersPage() {
               {sortedTeachers.map(t => (
                 <TableRow key={t.id} className={!t.is_active ? 'opacity-50' : ''}>
                   <TableCell className="font-medium">{t.teacher_name}</TableCell>
-                  <TableCell dir="ltr">{t.national_id || '-'}</TableCell>
-                  <TableCell dir="ltr">{t.phone || '-'}</TableCell>
-                  <TableCell dir="ltr">{t.email || '-'}</TableCell>
+                  <TableCell dir="ltr" className="text-right">{t.national_id || '-'}</TableCell>
+                  <TableCell dir="ltr" className="text-right">{t.phone || '-'}</TableCell>
+                  <TableCell dir="ltr" className="text-right">{t.email || '-'}</TableCell>
                   <TableCell>
                     <Switch checked={t.is_active} onCheckedChange={() => toggleActive(t)} />
                   </TableCell>

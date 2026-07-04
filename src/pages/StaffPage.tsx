@@ -239,7 +239,7 @@ export default function StaffPage() {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell dir="ltr">{s.phone || '-'}</TableCell>
+                  <TableCell dir="ltr" className="text-right">{s.phone || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={s.is_active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
                       {s.is_active ? 'نشطة' : 'غير نشطة'}

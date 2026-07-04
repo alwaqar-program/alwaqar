@@ -230,7 +230,7 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
         </Card>
       ) : (
       <Card>
-        <CardContent className="pt-4 space-y-2">
+        <CardContent className="pt-4 space-y-2 max-h-[65vh] overflow-y-auto">
           {shownPeople.map(s => {
             const recited = recitedThisPeriod(s.id);
             const absent = isAbsent(s.id);

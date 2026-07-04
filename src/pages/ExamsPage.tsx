@@ -220,13 +220,24 @@ export default function ExamsPage() {
   }, [students, exams, coverageCircle, circles]);
   const missingCount = (t: string) => coverage.filter(r => !r.types[t]).length;
 
+  // Coverage sorting — distinct keys (cov_*) so it never collides with the
+  // log table's sort, since both tables share the one useTableSort.
+  const sortedCoverage = (() => {
+    const acc: Record<string, (r: (typeof coverage)[number]) => unknown> = {
+      cov_student: (r) => r.full_name,
+      cov_circle: (r) => r.circle_name,
+    };
+    if (!sortKey || !acc[sortKey]) return coverage;
+    return sortRows(coverage, acc[sortKey], sortDir, 'text');
+  })();
+
   // Pagination — coverage tab and log tab paginate independently.
   const PAGE_SIZE = 25;
   const [covPage, setCovPage] = useState(1);
-  const covPageCount = Math.max(1, Math.ceil(coverage.length / PAGE_SIZE));
+  const covPageCount = Math.max(1, Math.ceil(sortedCoverage.length / PAGE_SIZE));
   const covSafePage = Math.min(covPage, covPageCount);
-  useEffect(() => { setCovPage(1); }, [coverageCircle]);
-  const pagedCoverage = coverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
+  useEffect(() => { setCovPage(1); }, [coverageCircle, sortKey, sortDir]);
+  const pagedCoverage = sortedCoverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
 
   const [logPage, setLogPage] = useState(1);
   const logPageCount = Math.max(1, Math.ceil(sortedExams.length / PAGE_SIZE));
@@ -353,9 +364,9 @@ export default function ExamsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>الطالبة</TableHead>
-                    <TableHead>الحلقة</TableHead>
-                    {newExamTypes.map(t => <TableHead key={t}>{examTypes[t]}</TableHead>)}
+                    <SortableHead label="الطالبة" sortKey="cov_student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="الحلقة" sortKey="cov_circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    {newExamTypes.map(t => <TableHead key={t} className="text-right">{examTypes[t]}</TableHead>)}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -405,7 +416,7 @@ export default function ExamsPage() {
                       <SortableHead label="الأخطاء" sortKey="errors" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                       <SortableHead label="الدرجة" sortKey="score" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                       <SortableHead label="المختبرة" sortKey="examiner" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                      <TableHead>سجّلها</TableHead>
+                      <TableHead className="text-right">سجّلها</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -413,7 +424,7 @@ export default function ExamsPage() {
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.students?.full_name}</TableCell>
                         <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
-                        <TableCell dir="ltr">{e.date}</TableCell>
+                        <TableCell dir="ltr" className="text-right">{e.date}</TableCell>
                         <TableCell>{e.total_errors}</TableCell>
                         <TableCell className={getScoreColor(e.total_score, e.max_score)}>
                           <span className="font-bold">{e.total_score}</span>

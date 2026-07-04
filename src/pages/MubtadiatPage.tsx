@@ -7,9 +7,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, X, Baby, Download } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { SortableHead } from '@/components/ui/sortable-head';
+import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
 interface Beginner {
@@ -70,13 +72,28 @@ export default function MubtadiatPage() {
   const hasFilters = !!search || !!filterCircle;
   const clearFilters = () => { setSearch(''); setFilterCircle(''); };
 
+  // Sortable columns (same behaviour as the students table).
+  const { sortKey, sortDir, toggleSort } = useTableSort();
+  const sorted = useMemo(() => {
+    const acc: Record<string, (b: Beginner) => unknown> = {
+      name: (b) => b.full_name,
+      national_id: (b) => b.national_id,
+      phone: (b) => b.phone,
+      guardian_phone: (b) => b.guardian_phone,
+      circle: (b) => circleName(b.circle_id),
+    };
+    if (!sortKey || !acc[sortKey]) return filtered;
+    return sortRows(filtered, acc[sortKey], sortDir, 'text');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sortKey, sortDir, circles]);
+
   // Pagination
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [search, filterCircle]);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  useEffect(() => { setPage(1); }, [search, filterCircle, sortKey, sortDir]);
+  const paged = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleExport = () => exportToCsv(
     filtered.map(b => ({ ...b, circle_name: circleName(b.circle_id) })),
@@ -141,20 +158,20 @@ export default function MubtadiatPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>رقم الهوية</TableHead>
-                  <TableHead>الهاتف</TableHead>
-                  <TableHead>هاتف ولي الأمر</TableHead>
-                  <TableHead>الحلقة</TableHead>
+                  <SortableHead label="الاسم" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="رقم الهوية" sortKey="national_id" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الهاتف" sortKey="phone" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="هاتف ولي الأمر" sortKey="guardian_phone" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.map(b => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.full_name}</TableCell>
-                    <TableCell dir="ltr">{b.national_id || '-'}</TableCell>
-                    <TableCell dir="ltr">{b.phone || '-'}</TableCell>
-                    <TableCell dir="ltr">{b.guardian_phone || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.national_id || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.phone || '-'}</TableCell>
+                    <TableCell dir="ltr" className="text-right">{b.guardian_phone || '-'}</TableCell>
                     <TableCell>{circleName(b.circle_id)}</TableCell>
                   </TableRow>
                 ))}
