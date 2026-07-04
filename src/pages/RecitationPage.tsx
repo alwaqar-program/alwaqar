@@ -538,8 +538,9 @@ export default function RecitationPage() {
                         {r.editRec && (
                           <div className="flex items-center gap-0.5">
                             <RecordHistoryButton tableName="recitation_log" rowId={r.editRec.id} title={r.full_name} />
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="تعديل التسميع"
-                              onClick={() => openEditRec(r.editRec!)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8"
+                              title={r.count > 1 ? 'سجلات مكررة — مراجعة واعتماد سجل واحد' : 'تعديل التسميع'}
+                              onClick={() => r.count > 1 ? setDupResolve({ name: r.full_name, recs: r.recs }) : openEditRec(r.editRec!)}>
                               <Pencil size={14} />
                             </Button>
                           </div>
