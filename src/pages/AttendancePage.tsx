@@ -19,13 +19,14 @@ import { ClipboardCheck, Save, Download, Plus } from 'lucide-react';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 
 const statusLabels: Record<string, string> = {
-  present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة',
+  present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
 };
 const statusColors: Record<string, string> = {
   present: 'bg-success/10 text-success border-success/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
   late: 'bg-warning/10 text-warning border-warning/20',
   excused: 'bg-info/10 text-info border-info/20',
+  exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
 };
 const lateReasons = [
   { value: 'illness', label: 'مرض' },
@@ -125,7 +126,7 @@ export default function AttendancePage() {
   }, [students, attRows, period, filterCircle, search, circles]);
 
   const counts = useMemo(() => {
-    const c = { present: 0, absent: 0, late: 0, excused: 0, none: 0 };
+    const c = { present: 0, absent: 0, late: 0, excused: 0, exempted: 0, none: 0 };
     overview.forEach(r => {
       if (!r.status) c.none++;
       else (c as Record<string, number>)[r.status] = ((c as Record<string, number>)[r.status] || 0) + 1;
@@ -252,6 +253,7 @@ export default function AttendancePage() {
         <Badge variant="outline" className={statusColors.absent}>غائبة: {counts.absent}</Badge>
         <Badge variant="outline" className={statusColors.late}>متأخرة: {counts.late}</Badge>
         <Badge variant="outline" className={statusColors.excused}>مستأذنة: {counts.excused}</Badge>
+        <Badge variant="outline" className={statusColors.exempted}>معذورة: {counts.exempted}</Badge>
         <Badge variant="outline">لم يُسجّل: {counts.none}</Badge>
       </div>
 

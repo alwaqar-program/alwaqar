@@ -15,6 +15,7 @@ const statusOptions = [
   { value: 'absent', label: 'غائبة', color: 'bg-destructive/10 text-destructive' },
   { value: 'late', label: 'متأخرة', color: 'bg-warning/10 text-warning' },
   { value: 'excused', label: 'مستأذنة', color: 'bg-info/10 text-info' },
+  { value: 'exempted', label: 'معذورة', color: 'bg-accent/15 text-accent-foreground' },
 ];
 const lateReasons = [
   { value: 'illness', label: 'مرض' }, { value: 'transport', label: 'مواصلات' },
