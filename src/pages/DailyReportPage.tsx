@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Printer } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { dailyNisab } from '@/lib/program-target';
@@ -17,6 +16,14 @@ import {
 // ثوابت التحويل (مطابقة للوحة المعلومات).
 const PAGES_PER_JUZ = 20;
 const PAGES_PER_KHATMA = 604;
+
+// ألوان الهوية (حبر/ذهب/رَق) — تُستعمل في الرسوم الداخلية.
+const INK = 'hsl(158 35% 25%)';
+const GOLD = 'hsl(43 60% 50%)';
+const GOLD_SOFT = 'hsl(43 55% 88%)';
+const PAPER = 'hsl(43 45% 97%)';
+const GREEN = 'hsl(145 63% 42%)';
+const RED = 'hsl(0 72% 51%)';
 
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -37,34 +44,63 @@ const greg = (iso: string) => {
   } catch { return iso; }
 };
 
-// ---------- charts (CSS/SVG، صديقة للطباعة) ----------
-function Donut({ pct, label, color }: { pct: number; label: string; color: string }) {
-  const r = 52, c = 2 * Math.PI * r;
+// ---------- الميدالية المُذهَّبة (العنصر المميّز — على غرار روندل ۝) ----------
+function Medallion({ pct }: { pct: number }) {
+  const R = 78, r = 62, c = 2 * Math.PI * r;
   const shown = Math.max(0, Math.min(100, pct));
   return (
+    <svg viewBox="0 0 180 180" className="w-44 h-44">
+      {/* حلقتان ذهبيتان + مسنّنات دقيقة كالتذهيب */}
+      <circle cx="90" cy="90" r={R} fill={PAPER} stroke={GOLD} strokeWidth="2.5" />
+      <circle cx="90" cy="90" r={R - 7} fill="none" stroke={GOLD} strokeWidth="1" opacity="0.7" />
+      {Array.from({ length: 48 }).map((_, i) => {
+        const a = (i / 48) * 2 * Math.PI, x1 = 90 + (R - 2) * Math.cos(a), y1 = 90 + (R - 2) * Math.sin(a),
+          x2 = 90 + (R - 5) * Math.cos(a), y2 = 90 + (R - 5) * Math.sin(a);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={GOLD} strokeWidth="0.6" opacity="0.55" />;
+      })}
+      {/* نجمة ثمانية باهتة (زخرفة هندسية) */}
+      <g stroke={GOLD} strokeWidth="0.7" fill="none" opacity="0.18">
+        <rect x="44" y="44" width="92" height="92" transform="rotate(45 90 90)" />
+        <rect x="44" y="44" width="92" height="92" />
+      </g>
+      {/* مسار الإنجاز بالحبر */}
+      <circle cx="90" cy="90" r={r - 14} fill="none" stroke="hsl(43 30% 90%)" strokeWidth="7" />
+      <circle cx="90" cy="90" r={r - 14} fill="none" stroke={INK} strokeWidth="7" strokeLinecap="round"
+        transform="rotate(-90 90 90)" strokeDasharray={`${(shown / 100) * (2 * Math.PI * (r - 14))} ${2 * Math.PI * (r - 14)}`} />
+      {/* القيمة */}
+      <text x="90" y="84" textAnchor="middle" style={{ fontFamily: 'Amiri, serif', fontSize: 34, fontWeight: 700, fill: INK }}>{ar(Math.round(pct))}٪</text>
+      <text x="90" y="106" textAnchor="middle" style={{ fontFamily: 'Cairo, sans-serif', fontSize: 11, fill: 'hsl(158 20% 40%)' }}>نسبة الإنجاز</text>
+    </svg>
+  );
+}
+
+// حلقة مؤشر صغيرة أنيقة
+function Ring({ pct, label, color }: { pct: number; label: string; color: string }) {
+  const r = 40, c = 2 * Math.PI * r, shown = Math.max(0, Math.min(100, pct));
+  return (
     <div className="flex flex-col items-center gap-2">
-      <svg viewBox="0 0 120 120" className="w-32 h-32 -rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="12" />
-        <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
-          strokeDasharray={`${(shown / 100) * c} ${c}`} />
-        <text x="60" y="60" transform="rotate(90 60 60)" textAnchor="middle" dominantBaseline="central"
-          className="fill-foreground font-bold" style={{ fontSize: 22 }}>{ar(Math.round(pct))}٪</text>
+      <svg viewBox="0 0 100 100" className="w-24 h-24">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="hsl(43 30% 90%)" strokeWidth="8" />
+        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+          transform="rotate(-90 50 50)" strokeDasharray={`${(shown / 100) * c} ${c}`} />
+        <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
+          style={{ fontFamily: 'Amiri, serif', fontSize: 19, fontWeight: 700, fill: INK }}>{ar(Math.round(pct))}٪</text>
       </svg>
-      <span className="text-sm font-medium text-center">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   );
 }
 
-function HBar({ label, value, max, right, color }: { label: string; value: number; max: number; right: string; color: string }) {
+function HBar({ label, value, max, right }: { label: string; value: number; max: number; right: string }) {
   const w = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div className="flex items-center gap-3 text-sm">
-      <span className="w-28 shrink-0 font-medium">{label}</span>
-      <div className="flex-1 h-6 rounded bg-muted overflow-hidden">
-        <div className="h-full rounded flex items-center justify-end pl-2 text-[11px] text-white"
-          style={{ width: `${w}%`, backgroundColor: color }}>{value > 0 ? ar(value) : ''}</div>
+      <span className="w-32 shrink-0">{label}</span>
+      <div className="flex-1 h-7 rounded-sm overflow-hidden" style={{ background: 'hsl(43 30% 92%)' }}>
+        <div className="h-full flex items-center justify-end pl-2 text-[11px] font-semibold"
+          style={{ width: `${w}%`, background: INK, color: PAPER }}>{value > 0 ? ar(value) : ''}</div>
       </div>
-      <span className="w-14 shrink-0 text-left font-semibold">{right}</span>
+      <span className="w-14 shrink-0 text-left font-bold" style={{ color: INK }}>{right}</span>
     </div>
   );
 }
@@ -72,14 +108,14 @@ function HBar({ label, value, max, right, color }: { label: string; value: numbe
 // ---------- types ----------
 interface Circle { id: string; circle_name: string; branch_id: string; circle_type: string; }
 interface Branch { id: string; branch_name: string; juz_count: number; }
-interface Member {
-  key: string; id: string; cohort: Cohort; full_name: string; circle_id: string | null; room_id: string | null;
-}
+interface Member { key: string; id: string; cohort: Cohort; full_name: string; circle_id: string | null; room_id: string | null; }
 interface RecRow { circle_id: string | null; pages: number; thabit: boolean; subj: Record<string, string | null>; }
 interface AttRow { status: string; subj: Record<string, string | null>; }
 
-const TIER_COLOR: Record<EvalTier, string> = {
-  'ممتاز': 'hsl(var(--success))', 'جيد': 'hsl(var(--accent))', 'ضعيف': 'hsl(var(--destructive))',
+const TIER_STYLE: Record<EvalTier, { bg: string; fg: string }> = {
+  'ممتاز': { bg: 'hsl(145 50% 92%)', fg: 'hsl(145 63% 28%)' },
+  'جيد': { bg: 'hsl(43 60% 90%)', fg: 'hsl(38 70% 32%)' },
+  'ضعيف': { bg: 'hsl(0 65% 94%)', fg: 'hsl(0 65% 42%)' },
 };
 
 export default function DailyReportPage() {
@@ -140,7 +176,6 @@ export default function DailyReportPage() {
   const report = useMemo(() => {
     const branchById = new Map(branches.map(b => [b.id, b]));
     const circleById = new Map(circles.map(c => [c.id, c]));
-    // فهرسة سجلات اليوم حسب معرّف الفاعل لكل فئة.
     const recBy = new Map<string, { pages: number; thabit: boolean }>();
     for (const r of recRows) {
       for (const c of COHORTS) {
@@ -168,7 +203,6 @@ export default function DailyReportPage() {
       const present = hasAtt && [...statuses].some(s => PRESENTISH.has(s));
       const absent = hasAtt && !present;
       const attPct = present ? 100 : 0;
-      // المطلوب اليومي: الحرم = ما أنجزته (تُتمّ دائماً)؛ العادية = نصاب الفرع.
       const target = sponsor ? rec.pages : (dailyNisab(juz) ?? 0);
       const hasTarget = sponsor ? rec.pages > 0 : (dailyNisab(juz) ?? 0) > 0;
       const hifzPct = sponsor ? 100 : (target > 0 ? (rec.pages / target) * 100 : 0);
@@ -185,7 +219,6 @@ export default function DailyReportPage() {
       };
     });
 
-    // إجماليات
     const completed = rows.reduce((s, r) => s + r.pages, 0);
     const required = rows.reduce((s, r) => s + (r.sponsor ? r.pages : (r.hasTarget ? r.target : 0)), 0);
     const withTarget = rows.filter(r => r.hasTarget || r.sponsor);
@@ -193,8 +226,7 @@ export default function DailyReportPage() {
     const presentCount = rows.filter(r => r.present).length;
     const pct = required > 0 ? (completed / required) * 100 : 0;
 
-    // حسب الفرع
-    const byBranch = branches.filter(b => true).map(b => {
+    const byBranch = branches.map(b => {
       const rs = rows.filter(r => circleById.get(r.circle_id || '')?.branch_id === b.id);
       const comp = rs.reduce((s, r) => s + r.pages, 0);
       const req = rs.reduce((s, r) => s + (r.sponsor ? r.pages : (r.hasTarget ? r.target : 0)), 0);
@@ -203,7 +235,6 @@ export default function DailyReportPage() {
       return { id: b.id, name: b.branch_name, juz: b.juz_count, count: rs.length, nCircles, completed: comp, required: req, done, pct: req > 0 ? (comp / req) * 100 : 0 };
     }).filter(x => x.count > 0).sort((a, b) => b.juz - a.juz);
 
-    // حسب الحلقة
     const byCircle = circles.map(c => {
       const rs = rows.filter(r => r.circle_id === c.id);
       const comp = rs.reduce((s, r) => s + r.pages, 0);
@@ -211,15 +242,12 @@ export default function DailyReportPage() {
       return { id: c.id, name: c.circle_name, branch: branchById.get(c.branch_id)?.branch_name ?? '—', juz: branchById.get(c.branch_id)?.juz_count ?? 0, count: rs.length, completed: comp, pct: req > 0 ? (comp / req) * 100 : 0 };
     }).filter(x => x.count > 0).sort((a, b) => b.pct - a.pct);
 
-    // توزيع الحفظ (لأصحاب المطلوب فقط)
     const hifzHist = HIFZ_BUCKETS.map(() => 0);
     withTarget.forEach(r => { hifzHist[hifzBucketIndex(r.hifzPct)]++; });
 
-    // التقييم
     const tierCount: Record<EvalTier, number> = { 'ممتاز': 0, 'جيد': 0, 'ضعيف': 0 };
     rows.forEach(r => { tierCount[r.tier]++; });
 
-    // المتعثرات (عجز في الحفظ)
     const struggling = rows.filter(r => !r.sponsor && r.hasTarget && r.pages < r.target)
       .sort((a, b) => a.deficit - b.deficit)
       .map(r => ({
@@ -245,6 +273,14 @@ export default function DailyReportPage() {
 
   return (
     <div className="space-y-6">
+      <style>{`
+        #daily-report { color: ${INK}; }
+        #daily-report .fig-num { font-variant-numeric: tabular-nums; }
+        @media print {
+          #daily-report, #daily-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
+
       {/* أدوات التحكم — تختفي عند الطباعة */}
       <div className="flex items-end justify-between flex-wrap gap-3 print:hidden">
         <div>
@@ -264,214 +300,242 @@ export default function DailyReportPage() {
       {loading ? (
         <Card className="animate-pulse"><CardContent className="h-96" /></Card>
       ) : (
-        <div id="daily-report" className="space-y-8 bg-background">
-          {/* ترويسة التقرير */}
-          <section className="text-center border-b pb-6">
-            <img src={logoImg} alt="" className="h-16 w-16 object-contain mx-auto mb-3" />
-            <h2 className="text-2xl font-display text-primary">التقرير اليومي التفصيلي — دورة الوقار</h2>
-            <p className="text-muted-foreground mt-1">جمعية تعلَّم للقرآن الكريم وعلومه</p>
-            <p className="text-foreground font-medium mt-3">{hijri(date)}</p>
-            <p className="text-sm text-muted-foreground">{greg(date)}</p>
-          </section>
+        <div id="daily-report" className="mx-auto max-w-4xl rounded-lg shadow-sm border print:border-0 print:shadow-none"
+          style={{ background: PAPER, borderColor: GOLD_SOFT }}>
+          {/* المسطرة العلوية الذهبية */}
+          <div style={{ height: 6, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_SOFT}, ${GOLD})` }} />
 
-          {/* منجزات اليوم */}
-          <section>
-            <SectionTitle>منجزات اليوم</SectionTitle>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Stat label="عدد الطالبات" value={ar(report.totalMembers)} />
-              <Stat label="عدد الحلقات" value={ar(report.nCircles)} />
-              <Stat label="عدد المعلمات" value={ar(teacherCount)} />
-              <Stat label="عدد الغرف" value={ar(report.nRooms)} />
-              <Stat label="الأوجه المطلوبة" value={ar(report.required, 1)} />
-              <Stat label="الأوجه المنجزة" value={ar(report.completed, 1)} accent />
-              <Stat label="الأجزاء المنجزة" value={ar(report.juz, 1)} />
-              <Stat label="تعادل من الختمات" value={ar(report.khatma, 2)} />
-            </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              بلغت نسبة الإنجاز في الحفظ <strong className="text-primary">{ar(Math.round(report.pct))}٪</strong>،
-              بإجمالي {ar(report.completed, 1)} وجهًا، أي ما يعادل {ar(report.khatma, 2)} ختمة و{ar(report.juz, 1)} جزءًا.
-            </p>
-          </section>
+          <div className="px-8 py-8 space-y-10">
+            {/* الترويسة */}
+            <header className="text-center">
+              <img src={logoImg} alt="" className="h-16 w-16 object-contain mx-auto mb-3" />
+              <p className="text-xs tracking-widest" style={{ color: GOLD }}>جمعية تعلَّم للقرآن الكريم وعلومه</p>
+              <h2 className="font-display text-4xl mt-2 leading-tight" style={{ color: INK }}>التقرير اليومي التفصيلي</h2>
+              <p className="font-display text-xl mt-1" style={{ color: 'hsl(158 25% 35%)' }}>دورة الوقار</p>
+              <div className="flex items-center justify-center gap-3 my-4">
+                <span className="h-px w-16" style={{ background: GOLD }} />
+                <span style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 20 }}>۝</span>
+                <span className="h-px w-16" style={{ background: GOLD }} />
+              </div>
+              <p className="font-display text-lg" style={{ color: INK }}>{hijri(date)}</p>
+              <p className="text-sm text-muted-foreground">{greg(date)}</p>
+            </header>
 
-          {/* لوحة المؤشرات */}
-          <section>
-            <SectionTitle>لوحة المؤشرات التنفيذية</SectionTitle>
-            <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
-              <Donut pct={report.donePct} label="نسبة إتمام المطلوب" color="hsl(var(--success))" />
-              <Donut pct={report.attPct} label="متوسط الحضور" color="hsl(var(--primary))" />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-              <Stat label="نسبة الإنجاز" value={`${ar(Math.round(report.pct))}٪`} accent />
-              <Stat label="نسبة إتمام المطلوب" value={`${ar(Math.round(report.donePct))}٪`} />
-              <Stat label="متوسط الحضور" value={`${ar(Math.round(report.attPct))}٪`} />
-              <Stat label="تعادل من الختمات" value={ar(report.khatma, 2)} />
-            </div>
-          </section>
-
-          {/* أداء الفروع */}
-          <section>
-            <SectionTitle>مؤشر أداء الفروع</SectionTitle>
-            <div className="space-y-2">
-              {report.byBranch.map(b => (
-                <HBar key={b.id} label={b.name} value={b.done} max={b.count}
-                  right={`${ar(Math.round(b.pct))}٪`} color="hsl(var(--primary))" />
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">الشريط: عدد من أتممن المطلوب مقابل إجمالي الطالبات في الفرع · النسبة = نسبة الإنجاز.</p>
-          </section>
-
-          {/* الإنجاز الكلي */}
-          <section className="text-center">
-            <SectionTitle>الإنجاز الكلي: المطلوب مقابل المنجز</SectionTitle>
-            <div className="flex items-end justify-center gap-8 h-48">
-              <Bar label="المنجز" value={report.completed} max={Math.max(report.completed, report.required)} color="hsl(var(--primary))" />
-              <Bar label="المطلوب" value={report.required} max={Math.max(report.completed, report.required)} color="hsl(var(--accent))" />
-            </div>
-            <div className="mt-3 inline-flex items-center justify-center h-20 w-20 rounded-full text-white font-bold text-lg"
-              style={{ backgroundColor: 'hsl(var(--success))' }}>{ar(Math.round(report.pct))}٪</div>
-          </section>
-
-          {/* توزيع نسبة إنجاز الحفظ */}
-          <section>
-            <SectionTitle>توزيع نسبة إنجاز الحفظ</SectionTitle>
-            <div className="flex items-end justify-around gap-2 h-56 border-b pb-1">
-              {report.hifzHist.map((n, i) => (
-                <div key={i} className="flex flex-col items-center justify-end gap-1 flex-1">
-                  <span className="text-sm font-semibold">{ar(n)}</span>
-                  <div className="w-full max-w-[56px] rounded-t"
-                    style={{ height: `${(n / maxHist) * 100}%`, backgroundColor: i === 0 ? 'hsl(var(--destructive))' : i <= 2 ? 'hsl(var(--accent))' : 'hsl(var(--success))', minHeight: n > 0 ? 6 : 0 }} />
-                  <span className="text-[10px] text-muted-foreground text-center leading-tight">{HIFZ_BUCKETS[i].label}</span>
+            {/* الميدالية + المؤشرات */}
+            <section className="rounded-lg p-6" style={{ background: 'hsl(158 30% 97%)', border: `1px solid ${GOLD_SOFT}` }}>
+              <div className="grid md:grid-cols-3 gap-6 items-center">
+                <div className="flex justify-center"><Medallion pct={report.pct} /></div>
+                <div className="md:col-span-2 grid grid-cols-3 gap-y-5 gap-x-2 text-center">
+                  <Fig value={ar(report.completed, 1)} label="الأوجه المنجزة" hero />
+                  <Fig value={ar(report.required, 1)} label="الأوجه المطلوبة" />
+                  <Fig value={ar(report.juz, 1)} label="الأجزاء المنجزة" />
+                  <Fig value={ar(report.khatma, 2)} label="تعادل من الختمات" />
+                  <Fig value={`${ar(Math.round(report.donePct))}٪`} label="أتممن المطلوب" />
+                  <Fig value={`${ar(Math.round(report.attPct))}٪`} label="متوسط الحضور" />
                 </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 text-center">عدد الطالبات في كل شريحة من شرائح نسبة إنجاز الحفظ.</p>
-          </section>
+              </div>
+            </section>
 
-          {/* المتعثرات */}
-          <section>
-            <SectionTitle danger>الطالبات المتعثرات في التسميع</SectionTitle>
-            {report.struggling.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">لا توجد متعثرات — أتمّت الجميع المطلوب. ما شاء الله.</p>
-            ) : (
-              <Card><Table>
-                <TableHeader><TableRow>
-                  <TableHead>الطالبة</TableHead><TableHead>الحلقة</TableHead><TableHead>مقدار العجز</TableHead>
-                  <TableHead>سبب العجز</TableHead><TableHead>خطة التعويض</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {report.struggling.map(r => (
-                    <TableRow key={r.key}>
-                      <TableCell className="font-medium">{r.full_name}</TableCell>
-                      <TableCell className="text-sm">{r.circleName}</TableCell>
-                      <TableCell className="text-destructive font-semibold">{ar(r.deficit, 1)}</TableCell>
-                      <TableCell className="text-sm">{r.reason}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{r.plan}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table></Card>
-            )}
-            <p className="text-sm font-medium mt-3">عدد المتعثرات في الحفظ: {ar(report.struggling.length)} من أصل {ar(report.totalMembers)} طالبة.</p>
-          </section>
+            {/* أرقام الدورة */}
+            <section>
+              <SecHead title="منجزات اليوم" />
+              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-x-reverse text-center" style={{ borderColor: GOLD_SOFT }}>
+                <Tally value={ar(report.totalMembers)} label="الطالبات" />
+                <Tally value={ar(report.nCircles)} label="الحلقات" />
+                <Tally value={ar(teacherCount)} label="المعلمات" />
+                <Tally value={ar(report.nRooms)} label="الغرف" />
+              </div>
+              <p className="text-sm leading-relaxed mt-4" style={{ color: 'hsl(158 20% 30%)' }}>
+                بلغت نسبة الإنجاز في الحفظ <strong style={{ color: INK }}>{ar(Math.round(report.pct))}٪</strong>،
+                بإجمالي {ar(report.completed, 1)} وجهًا، أي ما يعادل {ar(report.khatma, 2)} ختمة و{ar(report.juz, 1)} جزءًا.
+              </p>
+            </section>
 
-          {/* أداء الحلقات */}
-          <section>
-            <SectionTitle>مؤشر أداء الحلقات</SectionTitle>
-            <Card><Table>
-              <TableHeader><TableRow>
-                <TableHead>الحلقة</TableHead><TableHead>الفرع</TableHead><TableHead>عدد الطالبات</TableHead>
-                <TableHead>الأوجه المنجزة</TableHead><TableHead>نسبة الإنجاز</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {report.byCircle.map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="text-sm">{c.branch}</TableCell>
-                    <TableCell>{ar(c.count)}</TableCell>
-                    <TableCell>{ar(c.completed, 1)}</TableCell>
-                    <TableCell className="font-semibold">{ar(Math.round(c.pct))}٪</TableCell>
-                  </TableRow>
+            {/* أداء الفروع */}
+            <section>
+              <SecHead title="مؤشر أداء الفروع" />
+              <div className="space-y-2.5">
+                {report.byBranch.map(b => (
+                  <HBar key={b.id} label={b.name} value={b.done} max={b.count} right={`${ar(Math.round(b.pct))}٪`} />
                 ))}
-              </TableBody>
-            </Table></Card>
-          </section>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">الشريط: عدد من أتممن المطلوب مقابل إجمالي الطالبات في الفرع · النسبة على اليسار = نسبة الإنجاز.</p>
+            </section>
 
-          {/* التقييم — عدّادات */}
-          <section>
-            <SectionTitle>مؤشرات التقييم (النسبة الموزونة)</SectionTitle>
-            <div className="grid grid-cols-3 gap-3">
-              <Stat label="ممتاز" value={ar(report.tierCount['ممتاز'])} color="hsl(var(--success))" />
-              <Stat label="جيد" value={ar(report.tierCount['جيد'])} color="hsl(var(--accent))" />
-              <Stat label="ضعيف" value={ar(report.tierCount['ضعيف'])} color="hsl(var(--destructive))" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              النسبة الموزونة = ٢٠٪ حضور + الحفظ + التثبيت + بند الإنذارات (١٠٪ ثابتة — لا يوجد نظام إنذارات بعد).
-              السُّلّم: ممتاز ٨٠–١٠٠+ · جيد ٦٠–٧٩ · ضعيف أقل من ٦٠.
-            </p>
-          </section>
+            {/* المؤشرات التنفيذية */}
+            <section>
+              <SecHead title="المؤشرات التنفيذية" />
+              <div className="flex items-start justify-center gap-12">
+                <Ring pct={report.donePct} label="نسبة إتمام المطلوب" color={GREEN} />
+                <Ring pct={report.attPct} label="متوسط الحضور" color={INK} />
+                <Ring pct={Math.min(100, report.pct)} label="نسبة الإنجاز" color={GOLD} />
+              </div>
+            </section>
 
-          {/* الحصيلة التفصيلية */}
-          <section>
-            <SectionTitle>الحصيلة التفصيلية للطالبات</SectionTitle>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>الطالبة</TableHead><TableHead>الفرع</TableHead><TableHead>الحلقة</TableHead>
-                  <TableHead>الغرفة</TableHead><TableHead>الحضور</TableHead><TableHead>الأوجه</TableHead>
-                  <TableHead>نسبة الحفظ</TableHead><TableHead>المطلوب</TableHead>
-                  <TableHead>الموزونة</TableHead><TableHead>التقييم</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {report.rows.map(r => (
-                    <TableRow key={r.key}>
-                      <TableCell className="font-medium whitespace-nowrap">{r.full_name}</TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{r.branchName}</TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{r.circleName}</TableCell>
-                      <TableCell className="text-sm">{r.room || '—'}</TableCell>
-                      <TableCell>{r.hasAtt ? `${ar(r.attPct)}٪` : '—'}</TableCell>
-                      <TableCell>{ar(r.pages, 1)}</TableCell>
-                      <TableCell>{r.sponsor || r.hasTarget ? `${ar(Math.round(r.hifzPct))}٪` : '—'}</TableCell>
-                      <TableCell className="text-sm">{r.done === null ? '—' : r.done ? 'أتمّت' : 'لم تُتم'}</TableCell>
-                      <TableCell className="font-semibold">{ar(Math.round(r.weighted))}٪</TableCell>
-                      <TableCell><span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: TIER_COLOR[r.tier] }}>{r.tier}</span></TableCell>
-                    </TableRow>
+            {/* توزيع نسبة إنجاز الحفظ */}
+            <section>
+              <SecHead title="توزيع نسبة إنجاز الحفظ" />
+              <div className="flex items-end justify-around gap-2 h-52 border-b pt-2" style={{ borderColor: GOLD_SOFT }}>
+                {report.hifzHist.map((n, i) => (
+                  <div key={i} className="flex flex-col items-center justify-end gap-1 flex-1 h-full">
+                    <span className="text-sm font-bold" style={{ color: INK }}>{ar(n)}</span>
+                    <div className="w-full max-w-[52px] rounded-t-sm"
+                      style={{ height: `${(n / maxHist) * 100}%`, background: i === 0 ? RED : i <= 2 ? GOLD : INK, minHeight: n > 0 ? 6 : 0 }} />
+                    <span className="text-[10px] text-muted-foreground text-center leading-tight">{HIFZ_BUCKETS[i].label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center">عدد الطالبات في كل شريحة من شرائح نسبة إنجاز الحفظ.</p>
+            </section>
+
+            {/* المتعثرات */}
+            <section>
+              <SecHead title="الطالبات المتعثرات في التسميع" danger />
+              {report.struggling.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-5 text-center rounded-lg" style={{ border: `1px dashed ${GOLD_SOFT}` }}>
+                  لا توجد متعثرات — أتمّت الجميع المطلوب. ما شاء الله.
+                </p>
+              ) : (
+                <RepTable head={['الطالبة', 'الحلقة', 'مقدار العجز', 'سبب العجز', 'خطة التعويض']}>
+                  {report.struggling.map(r => (
+                    <tr key={r.key}>
+                      <Td bold>{r.full_name}</Td>
+                      <Td>{r.circleName}</Td>
+                      <Td><span style={{ color: RED, fontWeight: 700 }}>{ar(r.deficit, 1)}</span></Td>
+                      <Td>{r.reason}</Td>
+                      <Td muted>{r.plan}</Td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
+                </RepTable>
+              )}
+              <p className="text-sm font-medium mt-3" style={{ color: INK }}>
+                عدد المتعثرات في الحفظ: {ar(report.struggling.length)} من أصل {ar(report.totalMembers)} طالبة.
+              </p>
+            </section>
 
-          <p className="text-xs text-muted-foreground text-center border-t pt-4">
-            تقرير دورة الوقار · جمعية تعلَّم للقرآن الكريم وعلومه · حلقات الحرم مستهدفها اليومي = ما أنجزته (تُتمّ دائماً).
-          </p>
+            {/* أداء الحلقات */}
+            <section>
+              <SecHead title="مؤشر أداء الحلقات" />
+              <RepTable head={['الحلقة', 'الفرع', 'الطالبات', 'الأوجه المنجزة', 'نسبة الإنجاز']}>
+                {report.byCircle.map(c => (
+                  <tr key={c.id}>
+                    <Td bold>{c.name}</Td>
+                    <Td>{c.branch}</Td>
+                    <Td>{ar(c.count)}</Td>
+                    <Td>{ar(c.completed, 1)}</Td>
+                    <Td><span style={{ fontWeight: 700, color: INK }}>{ar(Math.round(c.pct))}٪</span></Td>
+                  </tr>
+                ))}
+              </RepTable>
+            </section>
+
+            {/* التقييم */}
+            <section>
+              <SecHead title="مؤشرات التقييم" />
+              <div className="grid grid-cols-3 gap-3">
+                <TierStat tier="ممتاز" n={report.tierCount['ممتاز']} />
+                <TierStat tier="جيد" n={report.tierCount['جيد']} />
+                <TierStat tier="ضعيف" n={report.tierCount['ضعيف']} />
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                النسبة الموزونة = ٢٠٪ حضور + الحفظ + التثبيت + بند الإنذارات (١٠٪ ثابتة — لا يوجد نظام إنذارات بعد).
+                السُّلّم: ممتاز ٨٠–١٠٠ فأكثر · جيد ٦٠–٧٩ · ضعيف أقل من ٦٠.
+              </p>
+            </section>
+
+            {/* الحصيلة التفصيلية */}
+            <section>
+              <SecHead title="الحصيلة التفصيلية للطالبات" />
+              <div className="overflow-x-auto">
+                <RepTable head={['الطالبة', 'الفرع', 'الحلقة', 'الغرفة', 'الحضور', 'الأوجه', 'نسبة الحفظ', 'المطلوب', 'الموزونة', 'التقييم']}>
+                  {report.rows.map(r => (
+                    <tr key={r.key}>
+                      <Td bold nowrap>{r.full_name}</Td>
+                      <Td nowrap>{r.branchName}</Td>
+                      <Td nowrap>{r.circleName}</Td>
+                      <Td>{r.room || '—'}</Td>
+                      <Td>{r.hasAtt ? `${ar(r.attPct)}٪` : '—'}</Td>
+                      <Td>{ar(r.pages, 1)}</Td>
+                      <Td>{r.sponsor || r.hasTarget ? `${ar(Math.round(r.hifzPct))}٪` : '—'}</Td>
+                      <Td>{r.done === null ? '—' : r.done ? 'أتمّت' : 'لم تُتم'}</Td>
+                      <Td><span style={{ fontWeight: 700, color: INK }}>{ar(Math.round(r.weighted))}٪</span></Td>
+                      <Td><TierPill tier={r.tier} /></Td>
+                    </tr>
+                  ))}
+                </RepTable>
+              </div>
+            </section>
+
+            <footer className="text-center pt-4" style={{ borderTop: `1px solid ${GOLD_SOFT}` }}>
+              <span style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 18 }}>۝</span>
+              <p className="text-xs text-muted-foreground mt-1">
+                جمعية تعلَّم للقرآن الكريم وعلومه · حلقات الحرم مستهدفها اليومي = ما أنجزته (تُتمّ دائماً).
+              </p>
+            </footer>
+          </div>
+          <div style={{ height: 6, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_SOFT}, ${GOLD})` }} />
         </div>
       )}
     </div>
   );
 }
 
-// ---------- small presentational helpers ----------
-function SectionTitle({ children, danger }: { children: ReactNode; danger?: boolean }) {
+// ---------- presentational helpers ----------
+function SecHead({ title, danger }: { title: string; danger?: boolean }) {
   return (
-    <h3 className="text-lg font-display text-white px-4 py-2 rounded-md mb-4"
-      style={{ backgroundColor: danger ? 'hsl(var(--destructive))' : 'hsl(var(--primary))' }}>{children}</h3>
-  );
-}
-function Stat({ label, value, accent, color }: { label: string; value: string; accent?: boolean; color?: string }) {
-  return (
-    <div className="rounded-lg border p-3 text-center">
-      <div className="text-xs text-muted-foreground mb-1">{label}</div>
-      <div className="text-xl font-bold" style={{ color: color ?? (accent ? 'hsl(var(--primary))' : undefined) }}>{value}</div>
+    <div className="flex items-center gap-3 mb-5">
+      <span style={{ color: danger ? RED : GOLD, fontFamily: 'Amiri, serif', fontSize: 22, lineHeight: 1 }}>۝</span>
+      <h3 className="font-display text-2xl whitespace-nowrap" style={{ color: danger ? RED : INK }}>{title}</h3>
+      <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${GOLD_SOFT}, transparent)` }} />
     </div>
   );
 }
-function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const h = max > 0 ? Math.max(4, (value / max) * 100) : 0;
+function Fig({ value, label, hero }: { value: string; label: string; hero?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-end gap-1 h-full">
-      <span className="text-sm font-semibold">{ar(Math.round(value))}</span>
-      <div className="w-16 rounded-t" style={{ height: `${h}%`, backgroundColor: color }} />
-      <span className="text-sm">{label}</span>
+    <div>
+      <div className={`fig-num font-display ${hero ? 'text-3xl' : 'text-2xl'}`} style={{ color: hero ? INK : 'hsl(158 30% 30%)' }}>{value}</div>
+      <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
     </div>
+  );
+}
+function Tally({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="px-3 py-2">
+      <div className="fig-num font-display text-3xl" style={{ color: INK }}>{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+function TierStat({ tier, n }: { tier: EvalTier; n: number }) {
+  const s = TIER_STYLE[tier];
+  return (
+    <div className="rounded-lg py-4 text-center" style={{ background: s.bg }}>
+      <div className="fig-num font-display text-3xl" style={{ color: s.fg }}>{ar(n)}</div>
+      <div className="text-sm font-medium mt-1" style={{ color: s.fg }}>{tier}</div>
+    </div>
+  );
+}
+function TierPill({ tier }: { tier: EvalTier }) {
+  const s = TIER_STYLE[tier];
+  return <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: s.bg, color: s.fg }}>{tier}</span>;
+}
+function RepTable({ head, children }: { head: string[]; children: ReactNode }) {
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${GOLD_SOFT}` }}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ background: INK }}>
+            {head.map((h, i) => <th key={i} className="text-right font-medium px-3 py-2.5" style={{ color: PAPER }}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+function Td({ children, bold, muted, nowrap }: { children: ReactNode; bold?: boolean; muted?: boolean; nowrap?: boolean }) {
+  return (
+    <td className={`px-3 py-2 border-t ${nowrap ? 'whitespace-nowrap' : ''} ${bold ? 'font-medium' : ''}`}
+      style={{ borderColor: GOLD_SOFT, color: muted ? 'hsl(158 12% 45%)' : undefined }}>{children}</td>
   );
 }
