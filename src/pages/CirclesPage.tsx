@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
-import { CircleType, isSponsor, CIRCLE_TYPE_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { CircleType, circleTypeLabel, CIRCLE_TYPE_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const circleCsvColumns: CsvColumnDef[] = [
   { key: 'circle_name', header: 'اسم الحلقة' },
@@ -447,7 +447,7 @@ export default function CirclesPage() {
                   <Badge variant="secondary">{c.branches?.branch_name}</Badge>
                   <Badge variant="outline">صباحي ومسائي</Badge>
                   <Badge variant="outline" className="gap-1"><Users size={11} /> {circleMembers(c.id).length}</Badge>
-                  {isSponsor(c.circle_type) && <Badge variant="secondary">تابعة للحرم</Badge>}
+                  {circleTypeLabel(c.circle_type) && <Badge variant="secondary">{circleTypeLabel(c.circle_type)}</Badge>}
                 </div>
                 {(() => {
                   const a = assignments[c.id];
