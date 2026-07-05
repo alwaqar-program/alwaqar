@@ -13,6 +13,8 @@ export interface TeacherCircle {
   id: string;
   circle_name: string;
   branch_id: string | null;
+  /** 'regular' (our circles) | 'sponsor' (تابعة للحرم). */
+  circle_type?: string | null;
   /** Periods this teacher covers on this circle (from her active assignments). */
   periods: Period[];
 }

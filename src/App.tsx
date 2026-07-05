@@ -83,8 +83,10 @@ const App = () => (
             <Route path="/teacher/recitation" element={<TeacherRecitationPage />} />
             <Route path="/teacher/attendance" element={<TeacherAttendancePage />} />
             <Route path="/teacher/exam" element={<TeacherExamPage />} />
-            <Route path="/recite" element={<PublicRecitationPage />} />
-            <Route path="/attend" element={<PublicAttendancePage />} />
+            <Route path="/recite" element={<PublicRecitationPage circleType="regular" />} />
+            <Route path="/attend" element={<PublicAttendancePage circleType="regular" />} />
+            <Route path="/recite-haram" element={<PublicRecitationPage circleType="sponsor" />} />
+            <Route path="/attend-haram" element={<PublicAttendancePage circleType="sponsor" />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
             <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />
