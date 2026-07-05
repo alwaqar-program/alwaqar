@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
+import { CircleType, isSponsor, CIRCLE_TYPE_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const circleCsvColumns: CsvColumnDef[] = [
   { key: 'circle_name', header: 'اسم الحلقة' },
@@ -28,6 +29,7 @@ interface Circle {
   circle_name: string;
   branch_id: string;
   is_active: boolean;
+  circle_type: string;
   branches?: { branch_name: string } | null;
 }
 
@@ -81,7 +83,8 @@ export default function CirclesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
-  const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '' });
+  const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '', circle_type: 'regular' as CircleType });
+  const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
   // Roster dialog (add/remove members of one circle)
   const [rosterCircle, setRosterCircle] = useState<Circle | null>(null);
   const [memberToAdd, setMemberToAdd] = useState('');
@@ -132,14 +135,20 @@ export default function CirclesPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ circle_name: '', branch_id: branches[0]?.id || '', morning: '', evening: '' });
+    setForm({ circle_name: '', branch_id: branches[0]?.id || '', morning: '', evening: '', circle_type: 'regular' });
     setDialogOpen(true);
   };
 
   const openEdit = (c: Circle) => {
     setEditing(c);
     const a = assignments[c.id];
-    setForm({ circle_name: c.circle_name, branch_id: c.branch_id, morning: a?.morning || '', evening: a?.evening || '' });
+    setForm({
+      circle_name: c.circle_name,
+      branch_id: c.branch_id,
+      morning: a?.morning || '',
+      evening: a?.evening || '',
+      circle_type: (c.circle_type as CircleType) || 'regular',
+    });
     setDialogOpen(true);
   };
 
@@ -163,7 +172,7 @@ export default function CirclesPage() {
     // `period` is vestigial: a circle runs both periods, the period is chosen at
     // recitation/attendance time. Sent only to satisfy the legacy NOT NULL column
     // until 19_tasmee_exams.sql makes it nullable.
-    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning' };
+    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning', circle_type: form.circle_type };
     let circleId = editing?.id;
     if (editing) {
       const { error } = await supabase.from('circles').update(payload).eq('id', editing.id);
@@ -240,6 +249,23 @@ export default function CirclesPage() {
                   placeholder="اختر الفرع"
                   searchPlaceholder="ابحث عن فرع..."
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>نوع الحلقة</Label>
+                <div className="flex gap-1.5">
+                  {(Object.keys(CIRCLE_TYPE_LABEL) as CircleType[]).map(t => (
+                    <Button
+                      key={t}
+                      type="button"
+                      size="sm"
+                      variant={form.circle_type === t ? 'default' : 'outline'}
+                      className="h-8 px-3 text-xs flex-1"
+                      onClick={() => setForm(f => ({ ...f, circle_type: t }))}
+                    >
+                      {CIRCLE_TYPE_LABEL[t]}
+                    </Button>
+                  ))}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 الحلقة تعمل في الفترتين الصباحية والمسائية؛ تُحدَّد الفترة عند تسجيل التسميع أو الحضور.
@@ -369,6 +395,21 @@ export default function CirclesPage() {
         </DialogContent>
       </Dialog>
 
+      <div className="flex flex-wrap gap-1.5">
+        {CIRCLE_TYPE_FILTERS.map(([val, label]) => (
+          <Button
+            key={val}
+            type="button"
+            size="sm"
+            variant={filterCircleType === val ? 'default' : 'outline'}
+            className="h-7 px-3 text-xs"
+            onClick={() => setFilterCircleType(val as '' | CircleType)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => <Card key={i} className="animate-pulse"><CardContent className="h-24" /></Card>)}
@@ -382,7 +423,9 @@ export default function CirclesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {circles.map(c => (
+          {circles
+            .filter(c => !filterCircleType || c.circle_type === filterCircleType)
+            .map(c => (
             <Card key={c.id} className={!c.is_active ? 'opacity-60' : ''}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
@@ -404,6 +447,7 @@ export default function CirclesPage() {
                   <Badge variant="secondary">{c.branches?.branch_name}</Badge>
                   <Badge variant="outline">صباحي ومسائي</Badge>
                   <Badge variant="outline" className="gap-1"><Users size={11} /> {circleMembers(c.id).length}</Badge>
+                  {isSponsor(c.circle_type) && <Badge variant="secondary">تابعة للحرم</Badge>}
                 </div>
                 {(() => {
                   const a = assignments[c.id];

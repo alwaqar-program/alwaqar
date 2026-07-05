@@ -7,8 +7,11 @@ import {
   BookOpen, GraduationCap, Users, Mic, TrendingUp,
   BookMarked, ClipboardList, Layers, Percent,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import DailyFollowUp from '@/components/DailyFollowUp';
 import { dailyNisab } from '@/lib/program-target';
+import { splitHarvest } from '@/lib/harvest';
+import { isSponsor } from '@/lib/circle-type';
 
 const gradeColors: Record<string, string> = {
   'ممتاز': 'bg-success/10 text-success',
@@ -68,8 +71,12 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ circles: 0, teachers: 0, students: 0 });
 
   // Course harvest source data (fetched once, recomputed client-side by day).
-  const [recRows, setRecRows] = useState<{ date: string; pages: number }[]>([]);
+  const [recRows, setRecRows] = useState<{ date: string; pages: number; circleId: string | null }[]>([]);
   const [dailyRequired, setDailyRequired] = useState(0);
+  // معرّفات حلقات «الحرم» — في الحالة (state) لثبات الهوية ومنع إعادة الحساب في الـ memos.
+  const [sponsorCircleIds, setSponsorCircleIds] = useState<Set<string>>(new Set());
+  // دمج الحرم في الإجماليات افتراضياً، مع إمكانية العرض بدونه.
+  const [includeHaram, setIncludeHaram] = useState(true);
   const [targetBreakdown, setTargetBreakdown] = useState<
     { name: string; edp: number; count: number; subtotal: number }[]
   >([]);
@@ -97,16 +104,22 @@ export default function DashboardPage() {
       const [studRes, circRes, branchRes, recRes] = await Promise.all([
         supabase.from('students').select('circle_id')
           .eq('is_active', true).eq('admission_status', 'registered'),
-        supabase.from('circles').select('id, branch_id').eq('is_active', true),
+        supabase.from('circles').select('id, branch_id, circle_type').eq('is_active', true),
         supabase.from('branches')
           .select('id, branch_name, juz_count, expected_daily_pages, program_start_date, program_end_date')
           .eq('is_active', true),
-        supabase.from('recitation_log').select('date, pages_recited').eq('is_deleted', false),
+        supabase.from('recitation_log').select('date, pages_recited, circle_id').eq('is_deleted', false),
       ]);
 
       const circleToBranch = new Map((circRes.data || []).map(c => [c.id, c.branch_id]));
+      const sponsorIds = new Set<string>(
+        (circRes.data || []).filter(c => isSponsor(c.circle_type)).map(c => c.id as string),
+      );
+      setSponsorCircleIds(sponsorIds);
       const branchStudentCount = new Map<string, number>();
       for (const st of studRes.data || []) {
+        // استبعاد طالبات حلقات الحرم من نصاب حلقاتنا الثابت.
+        if (st.circle_id && sponsorIds.has(st.circle_id)) continue;
         const bid = st.circle_id ? circleToBranch.get(st.circle_id) : null;
         if (bid) branchStudentCount.set(bid, (branchStudentCount.get(bid) || 0) + 1);
       }
@@ -123,7 +136,11 @@ export default function DashboardPage() {
       setDailyRequired(reqPerDay);
       setTargetBreakdown(breakdown);
 
-      const recs = (recRes.data || []).map(r => ({ date: r.date as string, pages: r.pages_recited || 0 }));
+      const recs = (recRes.data || []).map(r => ({
+        date: r.date as string,
+        pages: r.pages_recited || 0,
+        circleId: (r.circle_id as string | null) ?? null,
+      }));
       setRecRows(recs);
 
       // --- Course timeline ---
@@ -178,18 +195,16 @@ export default function DashboardPage() {
   const dayDate = useMemo(() => addDays(startDate, day - 1), [startDate, day]);
 
   const daily = useMemo(() => {
-    const completed = recRows
-      .filter(r => r.date === dayDate)
-      .reduce((sum, r) => sum + r.pages, 0);
-    return computeHarvest(completed, dailyRequired);
-  }, [recRows, dayDate, dailyRequired]);
+    const rows = recRows.filter(r => r.date === dayDate);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired, includeHaram);
+    return computeHarvest(completed, required);
+  }, [recRows, dayDate, dailyRequired, sponsorCircleIds, includeHaram]);
 
   const cumulative = useMemo(() => {
-    const completed = recRows
-      .filter(r => r.date >= startDate && r.date <= dayDate)
-      .reduce((sum, r) => sum + r.pages, 0);
-    return computeHarvest(completed, dailyRequired * day);
-  }, [recRows, startDate, dayDate, dailyRequired, day]);
+    const rows = recRows.filter(r => r.date >= startDate && r.date <= dayDate);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * day, includeHaram);
+    return computeHarvest(completed, required);
+  }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, includeHaram]);
 
   const summaryCards = [
     { label: 'عدد الطالبات', value: stats.students, icon: <Users size={22} />, color: 'text-success' },
@@ -277,6 +292,30 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* توجيه الحرم: دمج/استبعاد حلقات الحرم في الحصيلة (يظهر فقط عند وجود حلقات حرم) */}
+      {sponsorCircleIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={includeHaram ? 'default' : 'outline'}
+            className="h-7 px-3 text-xs"
+            onClick={() => setIncludeHaram(true)}
+          >
+            شامل الحرم
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={!includeHaram ? 'default' : 'outline'}
+            className="h-7 px-3 text-xs"
+            onClick={() => setIncludeHaram(false)}
+          >
+            بدون الحرم
+          </Button>
+        </div>
+      )}
 
       {/* Daily harvest */}
       <HarvestSection

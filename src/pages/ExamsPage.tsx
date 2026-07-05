@@ -22,6 +22,7 @@ import { FileCheck, Plus, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
+import { CircleType, isSponsor, SPONSOR_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const examTypes: Record<string, string> = {
   weekly_1: 'الأسبوع الأول',
@@ -64,7 +65,7 @@ interface Student {
   circle_id: string | null;
 }
 
-interface Circle { id: string; circle_name: string; }
+interface Circle { id: string; circle_name: string; circle_type: string; }
 
 interface Exam {
   id: string;
@@ -93,6 +94,7 @@ export default function ExamsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [coverageCircle, setCoverageCircle] = useState('');
+  const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [existingExams, setExistingExams] = useState<Set<string>>(new Set());
@@ -128,7 +130,7 @@ export default function ExamsPage() {
     const [exRes, stRes, cRes] = await Promise.all([
       supabase.from('exams').select('*, students(full_name)').eq('is_deleted', false).order('date', { ascending: false }),
       supabase.from('students').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
-      supabase.from('circles').select('id, circle_name').eq('is_active', true),
+      supabase.from('circles').select('id, circle_name, circle_type').eq('is_active', true),
     ]);
     if (exRes.error) toast({ title: 'خطأ', description: exRes.error.message, variant: 'destructive' });
     setExams(exRes.data || []);
@@ -203,6 +205,7 @@ export default function ExamsPage() {
 
   // ----- التغطية: من اختُبرت ومن لا، لكل نوع -----
   const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
+  const circleTypeOf = (id: string | null) => circles.find(c => c.id === id)?.circle_type;
   const coverage = useMemo(() => {
     const byStudent = new Map<string, Record<string, Exam>>();
     exams.forEach(e => {
@@ -211,14 +214,16 @@ export default function ExamsPage() {
     });
     return students
       .filter(s => !coverageCircle || s.circle_id === coverageCircle)
+      .filter(s => !filterCircleType || circleTypeOf(s.circle_id) === filterCircleType)
       .map(s => ({
         id: s.id,
         full_name: s.full_name,
+        circle_id: s.circle_id,
         circle_name: circleName(s.circle_id),
         types: byStudent.get(s.id) ?? {},
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, exams, coverageCircle, circles]);
+  }, [students, exams, coverageCircle, filterCircleType, circles]);
   const missingCount = (t: string) => coverage.filter(r => !r.types[t]).length;
 
   // Coverage sorting — distinct keys (cov_*) so it never collides with the
@@ -237,7 +242,7 @@ export default function ExamsPage() {
   const [covPage, setCovPage] = useState(1);
   const covPageCount = Math.max(1, Math.ceil(sortedCoverage.length / PAGE_SIZE));
   const covSafePage = Math.min(covPage, covPageCount);
-  useEffect(() => { setCovPage(1); }, [coverageCircle, sortKey, sortDir]);
+  useEffect(() => { setCovPage(1); }, [coverageCircle, filterCircleType, sortKey, sortDir]);
   const pagedCoverage = sortedCoverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
 
   const [logPage, setLogPage] = useState(1);
@@ -348,6 +353,14 @@ export default function ExamsPage() {
 
           <TabsContent value="coverage" className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                {CIRCLE_TYPE_FILTERS.map(([value, label]) => (
+                  <button key={value || 'all'} type="button" onClick={() => setFilterCircleType(value as '' | CircleType)}
+                    className={`px-3 h-10 transition-colors ${filterCircleType === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <SearchableSelect
                 className="w-56"
                 options={[{ value: '', label: 'كل الحلقات' }, ...circles.map(c => ({ value: c.id, label: c.circle_name }))]}
@@ -374,7 +387,12 @@ export default function ExamsPage() {
                   {pagedCoverage.map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
-                      <TableCell>{r.circle_name}</TableCell>
+                      <TableCell>
+                        {r.circle_name}
+                        {isSponsor(circleTypeOf(r.circle_id)) && (
+                          <Badge variant="secondary" className="mr-1.5 text-[10px]">{SPONSOR_LABEL}</Badge>
+                        )}
+                      </TableCell>
                       {newExamTypes.map(t => {
                         const e = r.types[t];
                         return (

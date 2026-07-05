@@ -26,6 +26,7 @@ import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
+import { CircleType, isSponsor, SPONSOR_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -61,7 +62,7 @@ interface Person {
   id: string; full_name: string; circle_id: string | null; kind: Cohort;
   from_surah: string | null; to_surah: string | null;
 }
-interface Circle { id: string; circle_name: string; }
+interface Circle { id: string; circle_name: string; circle_type: string; }
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
   juz_number: number; sort_order: number; verse_start: number; verse_end: number;
@@ -93,6 +94,7 @@ export default function RecitationPage() {
   const [period, setPeriod] = useState<'morning' | 'evening'>('morning');
   const [filterCircle, setFilterCircle] = useState('');
   const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
+  const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
   const [filterStatus, setFilterStatus] = useState(''); // '' | recited | notRecited
   const [search, setSearch] = useState('');
 
@@ -130,7 +132,7 @@ export default function RecitationPage() {
           .eq('is_active', true).order('full_name'),
         supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
-        supabase.from('circles').select('id, circle_name').eq('is_active', true),
+        supabase.from('circles').select('id, circle_name, circle_type').eq('is_active', true),
         supabase.from('mushaf_reference')
           .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
           .order('sort_order'),
@@ -169,6 +171,7 @@ export default function RecitationPage() {
   useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
 
   const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
+  const circleTypeOf = (id: string | null) => circles.find(c => c.id === id)?.circle_type;
   const recsFor = (personId: string, kind: Cohort) => {
     const col = cohortSubjectColumn(kind);
     return recRows.filter(r => (r as any)[col] === personId && r.period === period);
@@ -190,6 +193,7 @@ export default function RecitationPage() {
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
+      .filter(p => !filterCircleType || circleTypeOf(p.circle_id) === filterCircleType)
       .filter(p => !search || p.full_name.includes(search))
       .map(p => {
         const recs = recsFor(p.id, p.kind);
@@ -200,6 +204,7 @@ export default function RecitationPage() {
           kind_label: cohortLabel(p.kind),
           full_name: p.full_name,
           circle_name: circleName(p.circle_id),
+          circle_id: p.circle_id,
           recited: recs.length > 0,
           count: recs.length,
           range: last ? fmtRange(last) : '',
@@ -215,7 +220,7 @@ export default function RecitationPage() {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, recRows, attRows, period, filterCircle, filterCohort, search, circles]);
+  }, [people, recRows, attRows, period, filterCircle, filterCohort, filterCircleType, search, circles]);
 
   const recitedCount = overviewAll.filter(r => r.recited).length;
   const notRecited = overviewAll.length - recitedCount;
@@ -250,7 +255,7 @@ export default function RecitationPage() {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search, sortKey, sortDir]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterCircleType, filterStatus, search, sortKey, sortDir]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog helpers -----
@@ -259,6 +264,8 @@ export default function RecitationPage() {
     [people, entryCohort],
   );
   const entryStudentObj = people.find(p => p.id === entryStudent && p.kind === entryCohort);
+  // حلقات الحرم لا تتبع النِّصاب: تُخفى حقول (زيادة/تثبيت/حفظ) ولا تُشترط.
+  const entrySponsor = isSponsor(circleTypeOf(entryStudentObj?.circle_id ?? null));
   const verseOpts = useMemo(() => {
     if (entryStudentObj?.from_surah && entryStudentObj?.to_surah) {
       return verseOptionsInRange(entryStudentObj.from_surah, entryStudentObj.to_surah);
@@ -331,7 +338,7 @@ export default function RecitationPage() {
       toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
       return;
     }
-    if (!thabitConfirmed || !hifzConfirmed) {
+    if (!entrySponsor && (!thabitConfirmed || !hifzConfirmed)) {
       toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
       return;
     }
@@ -351,9 +358,9 @@ export default function RecitationPage() {
       to_verse: toRef.verse,
       from_sort_order: fromPageInfo?.sort_order ?? null,
       to_sort_order: toPageInfo?.sort_order ?? null,
-      is_extra_memorization: isExtra,
-      thabit_confirmed: thabitConfirmed,
-      hifz_confirmed: hifzConfirmed,
+      is_extra_memorization: entrySponsor ? false : isExtra,
+      thabit_confirmed: entrySponsor ? false : thabitConfirmed,
+      hifz_confirmed: entrySponsor ? false : hifzConfirmed,
       error_count: errorCount,
       lahn_count: lahnCount,
       recorded_by: adminName, // آخر من سجّل/عدّل — والتاريخ الكامل في سجل التدقيق
@@ -443,6 +450,17 @@ export default function RecitationPage() {
               ))}
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">نوع الحلقة</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              {CIRCLE_TYPE_FILTERS.map(([value, label]) => (
+                <button key={value || 'all'} type="button" onClick={() => setFilterCircleType(value as '' | CircleType)}
+                  className={`px-3 h-10 transition-colors ${filterCircleType === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1.5 min-w-[180px]">
             <Label className="text-xs">الحلقة</Label>
             <SearchableSelect
@@ -523,7 +541,12 @@ export default function RecitationPage() {
                       </button>
                     )}
                   </TableCell>
-                  <TableCell>{r.circle_name}</TableCell>
+                  <TableCell>
+                    {r.circle_name}
+                    {isSponsor(circleTypeOf(r.circle_id)) && (
+                      <Badge variant="secondary" className="mr-1.5 text-[10px]">{SPONSOR_LABEL}</Badge>
+                    )}
+                  </TableCell>
                   {r.recited ? (
                     <>
                       <TableCell className="text-sm">{r.range}</TableCell>
@@ -642,6 +665,8 @@ export default function RecitationPage() {
                   </div>
                 )}
 
+                {/* حقول النِّصاب تُخفى لحلقات الحرم (لا تتبع النِّصاب) */}
+                {!entrySponsor && (
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة خارج النصاب
@@ -653,6 +678,7 @@ export default function RecitationPage() {
                     <Checkbox checked={hifzConfirmed} onCheckedChange={v => setHifzConfirmed(!!v)} /> نصاب الحفظ (سرد على شخص) *
                   </label>
                 </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
