@@ -19,6 +19,7 @@ import { TablePagination } from '@/components/ui/table-pagination';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { sortCircles } from '@/lib/circle-order';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import { BookOpen, AlertCircle, Download, Plus, Pencil } from 'lucide-react';
 import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
@@ -683,13 +684,11 @@ export default function RecitationPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>عدد الأخطاء</Label>
-                    <Input type="number" min={0} value={errorCount}
-                      onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
+                    <NumberStepper value={errorCount} onChange={setErrorCount} />
                   </div>
                   <div className="space-y-2">
                     <Label>عدد اللحون</Label>
-                    <Input type="number" min={0} value={lahnCount}
-                      onChange={e => setLahnCount(parseInt(e.target.value) || 0)} />
+                    <NumberStepper value={lahnCount} onChange={setLahnCount} />
                   </div>
                   <div className="space-y-2">
                     <Label>الدرجة /20</Label>
