@@ -27,7 +27,7 @@ import {
   allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse,
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
-import { CircleType, isSponsor, SPONSOR_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { CircleType, isSponsor, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -544,8 +544,8 @@ export default function RecitationPage() {
                   </TableCell>
                   <TableCell>
                     {r.circle_name}
-                    {isSponsor(circleTypeOf(r.circle_id)) && (
-                      <Badge variant="secondary" className="mr-1.5 text-[10px]">{SPONSOR_LABEL}</Badge>
+                    {circleTypeLabel(circleTypeOf(r.circle_id)) && (
+                      <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(r.circle_id))}</Badge>
                     )}
                   </TableCell>
                   {r.recited ? (

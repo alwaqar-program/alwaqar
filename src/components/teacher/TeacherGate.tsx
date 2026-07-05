@@ -12,7 +12,7 @@ import {
   Period, PERIOD_LABEL, StudentLite, TeacherCircle, TeacherInfo,
   lookupTeacherByNationalId, loadCircleStudents,
 } from '@/lib/teacher-session';
-import { isSponsor, SPONSOR_LABEL } from '@/lib/circle-type';
+import { circleTypeLabel } from '@/lib/circle-type';
 
 export interface TeacherSession {
   teacher: TeacherInfo;
@@ -191,7 +191,7 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, date
                   <SearchableSelect
                     options={circles.map(c => ({
                       value: c.id,
-                      label: isSponsor(c.circle_type) ? `${c.circle_name} (${SPONSOR_LABEL})` : c.circle_name,
+                      label: circleTypeLabel(c.circle_type) ? `${c.circle_name} (${circleTypeLabel(c.circle_type)})` : c.circle_name,
                     }))}
                     value={circleId}
                     onValueChange={setCircleId}
@@ -201,7 +201,7 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, date
                 ) : (
                   <div className="h-10 flex items-center gap-2 px-3 rounded-md border bg-muted/30 text-sm font-medium">
                     <span>{circle?.circle_name}</span>
-                    {isSponsor(circle?.circle_type) && <Badge variant="secondary">{SPONSOR_LABEL}</Badge>}
+                    {circleTypeLabel(circle?.circle_type) && <Badge variant="secondary">{circleTypeLabel(circle?.circle_type)}</Badge>}
                   </div>
                 )}
               </div>
