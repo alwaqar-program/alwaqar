@@ -70,7 +70,7 @@ export async function lookupTeacherByNationalId(
 
   const { data: assignments, error: aErr } = await supabase
     .from('teacher_assignments')
-    .select('circle_id, period, circles(id, circle_name, branch_id, is_active)')
+    .select('circle_id, period, circles(id, circle_name, branch_id, is_active, circle_type)')
     .eq('teacher_id', teacher.id)
     .eq('is_active', true);
   if (aErr) throw aErr;
@@ -89,6 +89,7 @@ export async function lookupTeacherByNationalId(
         id: c.id,
         circle_name: c.circle_name,
         branch_id: c.branch_id ?? null,
+        circle_type: c.circle_type ?? null,
         periods,
       });
     }
