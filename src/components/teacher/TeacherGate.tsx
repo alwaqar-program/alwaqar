@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { KeyRound, LogOut, UserCheck } from 'lucide-react';
@@ -11,6 +12,7 @@ import {
   Period, PERIOD_LABEL, StudentLite, TeacherCircle, TeacherInfo,
   lookupTeacherByNationalId, loadCircleStudents,
 } from '@/lib/teacher-session';
+import { isSponsor, SPONSOR_LABEL } from '@/lib/circle-type';
 
 export interface TeacherSession {
   teacher: TeacherInfo;
@@ -187,15 +189,19 @@ export default function TeacherGate({ title, subtitle, needsPeriod = false, date
                 <Label className="text-xs">الحلقة</Label>
                 {circles.length > 1 ? (
                   <SearchableSelect
-                    options={circles.map(c => ({ value: c.id, label: c.circle_name }))}
+                    options={circles.map(c => ({
+                      value: c.id,
+                      label: isSponsor(c.circle_type) ? `${c.circle_name} (${SPONSOR_LABEL})` : c.circle_name,
+                    }))}
                     value={circleId}
                     onValueChange={setCircleId}
                     placeholder="اختر الحلقة"
                     searchPlaceholder="ابحث…"
                   />
                 ) : (
-                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted/30 text-sm font-medium">
-                    {circle?.circle_name}
+                  <div className="h-10 flex items-center gap-2 px-3 rounded-md border bg-muted/30 text-sm font-medium">
+                    <span>{circle?.circle_name}</span>
+                    {isSponsor(circle?.circle_type) && <Badge variant="secondary">{SPONSOR_LABEL}</Badge>}
                   </div>
                 )}
               </div>

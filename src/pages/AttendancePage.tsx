@@ -22,6 +22,7 @@ import { ClipboardCheck, Save, Download, Plus, Pencil } from 'lucide-react';
 import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
+import { CircleType, isSponsor, SPONSOR_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const statusLabels: Record<string, string> = {
   present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
@@ -51,7 +52,7 @@ const overviewCsvColumns: CsvColumnDef[] = [
 ];
 
 interface Person { id: string; full_name: string; circle_id: string | null; kind: Cohort; }
-interface Circle { id: string; circle_name: string; }
+interface Circle { id: string; circle_name: string; circle_type: string; }
 interface AttRow {
   id: string;
   student_id: string | null; companion_id: string | null; beginner_id: string | null;
@@ -71,6 +72,7 @@ export default function AttendancePage() {
   const [period, setPeriod] = useState('morning');
   const [filterCircle, setFilterCircle] = useState('');
   const [filterCohort, setFilterCohort] = useState<'' | Cohort>('');
+  const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
   const [filterStatus, setFilterStatus] = useState(''); // '' | present | absent | late | excused | exempted | none
   const [search, setSearch] = useState('');
 
@@ -99,7 +101,7 @@ export default function AttendancePage() {
         supabase.from('students').select('id, full_name, circle_id, is_active').eq('is_active', true).order('full_name'),
         supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
-        supabase.from('circles').select('id, circle_name').eq('is_active', true),
+        supabase.from('circles').select('id, circle_name, circle_type').eq('is_active', true),
       ]);
       if (stRes.error) toast({ title: 'خطأ', description: stRes.error.message, variant: 'destructive' });
       const merge = (rows: any[] | null, kind: Cohort): Person[] =>
@@ -129,6 +131,7 @@ export default function AttendancePage() {
   useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
 
   const circleName = (id: string | null) => circles.find(c => c.id === id)?.circle_name || '-';
+  const circleTypeOf = (id: string | null) => circles.find(c => c.id === id)?.circle_type;
   const attFor = (p: Person) =>
     attRows.find(a => (a as any)[cohortSubjectColumn(p.kind)] === p.id && a.period === period);
 
@@ -138,6 +141,7 @@ export default function AttendancePage() {
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
+      .filter(p => !filterCircleType || circleTypeOf(p.circle_id) === filterCircleType)
       .filter(p => !search || p.full_name.includes(search))
       .map(p => {
         const a = attFor(p);
@@ -151,13 +155,14 @@ export default function AttendancePage() {
           status_label: a ? (statusLabels[a.status] ?? a.status) : 'لم يُسجّل',
           reason: a?.status === 'late' ? lateReasonLabel(a.late_reason, a.late_reason_other) : '',
           recorded_by: a ? (a.recorded_by || '—') : '',
+          circle_id: p.circle_id,
           existingId: a?.id ?? null,
           late_reason: a?.late_reason ?? '',
           late_reason_other: a?.late_reason_other ?? '',
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, attRows, period, filterCircle, filterCohort, search, circles]);
+  }, [people, attRows, period, filterCircle, filterCohort, filterCircleType, search, circles]);
 
   const counts = useMemo(() => {
     const c = { present: 0, absent: 0, late: 0, excused: 0, exempted: 0, none: 0 };
@@ -193,7 +198,7 @@ export default function AttendancePage() {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(overview.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterStatus, search, sortKey, sortDir]);
+  useEffect(() => { setPage(1); }, [date, period, filterCircle, filterCohort, filterCircleType, filterStatus, search, sortKey, sortDir]);
   const pagedOverview = overview.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ----- Entry dialog logic -----
@@ -335,6 +340,17 @@ export default function AttendancePage() {
               ))}
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">نوع الحلقة</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-sm">
+              {CIRCLE_TYPE_FILTERS.map(([value, label]) => (
+                <button key={value || 'all'} type="button" onClick={() => setFilterCircleType(value as '' | CircleType)}
+                  className={`px-3 h-10 transition-colors ${filterCircleType === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1.5 min-w-[180px]">
             <Label className="text-xs">الحلقة</Label>
             <SearchableSelect
@@ -407,7 +423,12 @@ export default function AttendancePage() {
               {pagedOverview.map(r => (
                 <TableRow key={r.id} className={!r.status ? 'bg-muted/20' : ''}>
                   <TableCell className="font-medium">{r.full_name}</TableCell>
-                  <TableCell>{r.circle_name}</TableCell>
+                  <TableCell>
+                    {r.circle_name}
+                    {isSponsor(circleTypeOf(r.circle_id)) && (
+                      <Badge variant="secondary" className="mr-1.5 text-[10px]">{SPONSOR_LABEL}</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {r.status
                       ? <Badge variant="outline" className={statusColors[r.status] || ''}>{r.status_label}</Badge>

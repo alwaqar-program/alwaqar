@@ -2,9 +2,11 @@ import { ReactNode, useEffect, useLayoutEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { sortCircles } from '@/lib/circle-order';
+import { CircleType, SPONSOR_LABEL } from '@/lib/circle-type';
 import { BookOpen } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +22,8 @@ interface Props {
   needsPeriod?: boolean;
   /** Label of the compact date field in the header (e.g. "تاريخ التسميع"). */
   dateLabel?: string;
+  /** Which circles to list. 'sponsor' = تابعة للحرم entry; default 'regular' (our circles). */
+  circleType?: CircleType;
   children: (session: TeacherSession) => ReactNode;
 }
 
@@ -29,8 +33,9 @@ interface Props {
  * record for its students. Records are attributed to the optional "اسم المسجِّلة"
  * field, or «رابط عام (بدون معلمة)» when left blank — teacher_id is null.
  */
-export default function CircleGate({ title, subtitle, needsPeriod = false, dateLabel, children }: Props) {
+export default function CircleGate({ title, subtitle, needsPeriod = false, dateLabel, circleType = 'regular', children }: Props) {
   const { toast } = useToast();
+  const isHaram = circleType === 'sponsor';
 
   useLayoutEffect(() => {
     const prev = document.title;
@@ -53,15 +58,17 @@ export default function CircleGate({ title, subtitle, needsPeriod = false, dateL
   // Load every active circle. Any circle covers both periods here (the
   // recorder chooses), matching the admin recitation/attendance pages.
   useEffect(() => {
-    supabase.from('circles').select('id, circle_name, branch_id').eq('is_active', true).order('circle_name')
+    supabase.from('circles').select('id, circle_name, branch_id, circle_type').eq('is_active', true)
+      .eq('circle_type', circleType ?? 'regular').order('circle_name')
       .then(({ data, error }) => {
         if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
         setCircles(sortCircles((data || []).map(c => ({
           id: c.id, circle_name: c.circle_name, branch_id: c.branch_id ?? null,
+          circle_type: c.circle_type ?? 'regular',
           periods: ['morning', 'evening'] as Period[],
         }))));
       });
-  }, [toast]);
+  }, [toast, circleType]);
 
   const reloadStudents = async () => {
     if (!circleId) return;
@@ -95,8 +102,11 @@ export default function CircleGate({ title, subtitle, needsPeriod = false, dateL
           <CardContent className="pt-4 space-y-3">
             <div className="flex items-center gap-2">
               <img src={logoImg} alt="" className="h-9 w-9 object-contain" />
-              <div>
-                <p className="font-medium text-sm">{title}</p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm">{title}</p>
+                  {isHaram && <Badge variant="secondary">{SPONSOR_LABEL}</Badge>}
+                </div>
                 {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
               </div>
             </div>
