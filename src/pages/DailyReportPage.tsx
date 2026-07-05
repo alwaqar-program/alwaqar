@@ -17,13 +17,22 @@ import {
 const PAGES_PER_JUZ = 20;
 const PAGES_PER_KHATMA = 604;
 
-// ألوان الهوية (حبر/ذهب/رَق) — تُستعمل في الرسوم الداخلية.
-const INK = 'hsl(158 35% 25%)';
-const GOLD = 'hsl(43 60% 50%)';
-const GOLD_SOFT = 'hsl(43 55% 88%)';
-const PAPER = 'hsl(43 45% 97%)';
-const GREEN = 'hsl(145 63% 42%)';
-const RED = 'hsl(0 72% 51%)';
+// ألوان الهوية عبر متغيّرات CSS ليعمل مبدّل التصاميم (٥ تصاميم) والطباعة معاً.
+const INK = 'var(--rep-ink)';
+const GOLD = 'var(--rep-gold)';
+const GOLD_SOFT = 'var(--rep-gold-soft)';
+const PAPER = 'var(--rep-paper)';
+const GREEN = 'var(--rep-green)';
+const RED = 'var(--rep-red)';
+
+// التصاميم الخمسة (لوحات ألوان). التصميم الأول = «مُذهَّب» الحالي.
+const DESIGNS = [
+  { id: 'gilded', name: 'مُذهَّب', ink: 'hsl(158 35% 25%)', gold: 'hsl(43 60% 50%)' },
+  { id: 'royal', name: 'ملكي', ink: 'hsl(222 47% 22%)', gold: 'hsl(40 58% 50%)' },
+  { id: 'sepia', name: 'سِدر', ink: 'hsl(28 38% 26%)', gold: 'hsl(30 62% 46%)' },
+  { id: 'emerald', name: 'زُمُرّد', ink: 'hsl(180 42% 20%)', gold: 'hsl(40 55% 50%)' },
+  { id: 'slate', name: 'رُخام', ink: 'hsl(215 28% 26%)', gold: 'hsl(210 40% 46%)' },
+];
 
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -57,15 +66,15 @@ function Medallion({ pct }: { pct: number }) {
       {Array.from({ length: 60 }).map((_, i) => {
         const a = (i / 60) * 2 * Math.PI, x1 = 100 + 93 * Math.cos(a), y1 = 100 + 93 * Math.sin(a),
           x2 = 100 + 86 * Math.cos(a), y2 = 100 + 86 * Math.sin(a);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="hsl(43 55% 42%)" strokeWidth="0.8" opacity="0.55" />;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--rep-gold)" strokeWidth="0.8" opacity="0.55" />;
       })}
       {/* مسار الإنجاز بالحبر */}
-      <circle cx="100" cy="100" r={arcR} fill="none" stroke="hsl(43 30% 88%)" strokeWidth="11" />
+      <circle cx="100" cy="100" r={arcR} fill="none" stroke="var(--rep-track)" strokeWidth="11" />
       <circle cx="100" cy="100" r={arcR} fill="none" stroke={INK} strokeWidth="11" strokeLinecap="round"
         transform="rotate(-90 100 100)" strokeDasharray={`${(shown / 100) * arcC} ${arcC}`} />
       {/* القيمة */}
       <text x="100" y="96" textAnchor="middle" style={{ fontFamily: 'Amiri, serif', fontSize: 42, fontWeight: 700, fill: INK }}>{ar(Math.round(pct))}٪</text>
-      <text x="100" y="120" textAnchor="middle" style={{ fontFamily: 'Cairo, sans-serif', fontSize: 12, fill: 'hsl(158 20% 40%)' }}>نسبة الإنجاز</text>
+      <text x="100" y="120" textAnchor="middle" style={{ fontFamily: 'Cairo, sans-serif', fontSize: 12, fill: 'var(--rep-ink-soft)' }}>نسبة الإنجاز</text>
     </svg>
   );
 }
@@ -73,10 +82,10 @@ function Medallion({ pct }: { pct: number }) {
 // ---------- حالة عدم وجود بيانات ----------
 function EmptyState() {
   return (
-    <div className="rounded-xl py-10 px-6 text-center" style={{ border: `1px dashed ${GOLD}`, background: 'hsl(43 50% 96%)' }}>
+    <div className="rounded-xl py-10 px-6 text-center" style={{ border: `1px dashed ${GOLD}`, background: 'var(--rep-panel)' }}>
       <div style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 30 }}>۝</div>
       <h4 className="font-display text-2xl mt-1" style={{ color: INK }}>لم يُسجَّل تسميع لهذا اليوم بعد</h4>
-      <p className="text-sm mt-1" style={{ color: 'hsl(158 15% 45%)' }}>
+      <p className="text-sm mt-1" style={{ color: 'var(--rep-ink-soft)' }}>
         عند تسجيل التسميع والحضور ستظهر الحصيلة التفصيلية والمؤشرات تلقائياً. جرّبي اختيار يوم آخر.
       </p>
     </div>
@@ -89,7 +98,7 @@ function Ring({ pct, label, color }: { pct: number; label: string; color: string
   return (
     <div className="flex flex-col items-center gap-2">
       <svg viewBox="0 0 100 100" className="w-24 h-24">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="hsl(43 30% 90%)" strokeWidth="8" />
+        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--rep-track)" strokeWidth="8" />
         <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
           transform="rotate(-90 50 50)" strokeDasharray={`${(shown / 100) * c} ${c}`} />
         <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
@@ -105,7 +114,7 @@ function HBar({ label, value, max, right }: { label: string; value: number; max:
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="w-32 shrink-0">{label}</span>
-      <div className="flex-1 h-7 rounded-sm overflow-hidden" style={{ background: 'hsl(43 30% 92%)' }}>
+      <div className="flex-1 h-7 rounded-sm overflow-hidden" style={{ background: 'var(--rep-track)' }}>
         <div className="h-full flex items-center justify-end pl-2 text-[11px] font-semibold"
           style={{ width: `${w}%`, background: INK, color: PAPER }}>{value > 0 ? ar(value) : ''}</div>
       </div>
@@ -130,6 +139,10 @@ const TIER_STYLE: Record<EvalTier, { bg: string; fg: string }> = {
 export default function DailyReportPage() {
   const today = toISO(new Date());
   const [date, setDate] = useState(today);
+  const [design, setDesign] = useState<string>(() => {
+    try { return localStorage.getItem('report-design') || 'gilded'; } catch { return 'gilded'; }
+  });
+  useEffect(() => { try { localStorage.setItem('report-design', design); } catch { /* ignore */ } }, [design]);
   const [loading, setLoading] = useState(true);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -286,7 +299,33 @@ export default function DailyReportPage() {
   return (
     <div className="space-y-6">
       <style>{`
-        #daily-report { color: ${INK}; }
+        /* التصميم الأول «مُذهَّب» = الافتراضي */
+        #daily-report {
+          --rep-ink: hsl(158 35% 25%); --rep-gold: hsl(43 60% 50%); --rep-gold-soft: hsl(43 55% 88%);
+          --rep-paper: hsl(43 45% 97%); --rep-green: hsl(145 63% 42%); --rep-red: hsl(0 72% 51%);
+          --rep-ink-soft: hsl(158 18% 40%); --rep-panel: hsl(158 30% 97%); --rep-track: hsl(43 30% 90%);
+          color: var(--rep-ink);
+        }
+        #daily-report[data-design="royal"] {
+          --rep-ink: hsl(222 47% 22%); --rep-gold: hsl(40 58% 50%); --rep-gold-soft: hsl(40 45% 86%);
+          --rep-paper: hsl(40 40% 98%); --rep-green: hsl(158 45% 38%); --rep-red: hsl(0 65% 50%);
+          --rep-ink-soft: hsl(222 20% 42%); --rep-panel: hsl(222 35% 97%); --rep-track: hsl(40 30% 89%);
+        }
+        #daily-report[data-design="sepia"] {
+          --rep-ink: hsl(28 38% 26%); --rep-gold: hsl(30 62% 46%); --rep-gold-soft: hsl(32 45% 85%);
+          --rep-paper: hsl(38 44% 96%); --rep-green: hsl(120 35% 36%); --rep-red: hsl(8 62% 48%);
+          --rep-ink-soft: hsl(28 22% 42%); --rep-panel: hsl(34 40% 95%); --rep-track: hsl(32 35% 88%);
+        }
+        #daily-report[data-design="emerald"] {
+          --rep-ink: hsl(180 42% 20%); --rep-gold: hsl(40 55% 50%); --rep-gold-soft: hsl(168 32% 85%);
+          --rep-paper: hsl(168 38% 98%); --rep-green: hsl(152 55% 38%); --rep-red: hsl(358 62% 50%);
+          --rep-ink-soft: hsl(180 18% 38%); --rep-panel: hsl(168 34% 96%); --rep-track: hsl(168 28% 88%);
+        }
+        #daily-report[data-design="slate"] {
+          --rep-ink: hsl(215 28% 26%); --rep-gold: hsl(210 40% 46%); --rep-gold-soft: hsl(214 25% 87%);
+          --rep-paper: hsl(210 22% 98%); --rep-green: hsl(160 42% 40%); --rep-red: hsl(0 60% 52%);
+          --rep-ink-soft: hsl(215 14% 44%); --rep-panel: hsl(214 30% 97%); --rep-track: hsl(214 22% 90%);
+        }
         #daily-report .fig-num { font-variant-numeric: tabular-nums; }
         @media print {
           #daily-report, #daily-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -299,7 +338,21 @@ export default function DailyReportPage() {
           <h1 className="text-2xl font-display text-foreground">التقرير اليومي التفصيلي</h1>
           <p className="text-sm text-muted-foreground mt-1">حصيلة اليوم لكل الفروع والحلقات — قابل للطباعة/‏PDF</p>
         </div>
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="space-y-1.5">
+            <Label className="text-xs">التصميم</Label>
+            <div className="flex items-center gap-1.5">
+              {DESIGNS.map(d => (
+                <button key={d.id} type="button" onClick={() => setDesign(d.id)} title={d.name}
+                  aria-pressed={design === d.id}
+                  className={`h-10 px-3 rounded-md text-xs font-medium border transition ${
+                    design === d.id ? 'ring-2 ring-primary ring-offset-1' : 'opacity-70 hover:opacity-100'}`}
+                  style={{ background: d.ink, color: d.gold, borderColor: d.gold }}>
+                  {d.name}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">التاريخ</Label>
             <Input type="date" dir="ltr" className="h-10 w-[160px]" value={date} max={today}
@@ -312,7 +365,7 @@ export default function DailyReportPage() {
       {loading ? (
         <Card className="animate-pulse"><CardContent className="h-96" /></Card>
       ) : (
-        <div id="daily-report" className="mx-auto max-w-4xl rounded-lg shadow-sm border print:border-0 print:shadow-none"
+        <div id="daily-report" data-design={design} className="mx-auto max-w-4xl rounded-lg shadow-sm border print:border-0 print:shadow-none"
           style={{ background: PAPER, borderColor: GOLD_SOFT }}>
           {/* المسطرة العلوية الذهبية */}
           <div style={{ height: 6, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_SOFT}, ${GOLD})` }} />
@@ -323,7 +376,7 @@ export default function DailyReportPage() {
               <img src={logoImg} alt="" className="h-16 w-16 object-contain mx-auto mb-3" />
               <p className="text-xs tracking-widest" style={{ color: GOLD }}>جمعية تعلَّم للقرآن الكريم وعلومه</p>
               <h2 className="font-display text-4xl mt-2 leading-tight" style={{ color: INK }}>التقرير اليومي التفصيلي</h2>
-              <p className="font-display text-xl mt-1" style={{ color: 'hsl(158 25% 35%)' }}>دورة الوقار</p>
+              <p className="font-display text-xl mt-1" style={{ color: 'var(--rep-ink-soft)' }}>دورة الوقار</p>
               <div className="flex items-center justify-center gap-3 my-4">
                 <span className="h-px w-16" style={{ background: GOLD }} />
                 <span style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 20 }}>۝</span>
@@ -335,7 +388,7 @@ export default function DailyReportPage() {
 
             {/* الميدالية + المؤشرات */}
             {!noData && (
-            <section className="rounded-lg p-6" style={{ background: 'hsl(158 30% 97%)', border: `1px solid ${GOLD_SOFT}` }}>
+            <section className="rounded-lg p-6" style={{ background: 'var(--rep-panel)', border: `1px solid ${GOLD_SOFT}` }}>
               <div className="grid md:grid-cols-3 gap-6 items-center">
                 <div className="flex justify-center"><Medallion pct={report.pct} /></div>
                 <div className="md:col-span-2 grid grid-cols-3 gap-y-5 gap-x-2 text-center">
@@ -360,7 +413,7 @@ export default function DailyReportPage() {
                 <Tally value={ar(report.nRooms)} label="الغرف" />
               </div>
               {!noData && (
-                <p className="text-sm leading-relaxed mt-4" style={{ color: 'hsl(158 20% 30%)' }}>
+                <p className="text-sm leading-relaxed mt-4" style={{ color: 'var(--rep-ink-soft)' }}>
                   بلغت نسبة الإنجاز في الحفظ <strong style={{ color: INK }}>{ar(Math.round(report.pct))}٪</strong>،
                   بإجمالي {ar(report.completed, 1)} وجهًا، أي ما يعادل {ar(report.khatma, 2)} ختمة و{ar(report.juz, 1)} جزءًا.
                 </p>
@@ -516,7 +569,7 @@ function SecHead({ title, danger }: { title: string; danger?: boolean }) {
 function Fig({ value, label, hero }: { value: string; label: string; hero?: boolean }) {
   return (
     <div>
-      <div className={`fig-num font-display ${hero ? 'text-3xl' : 'text-2xl'}`} style={{ color: hero ? INK : 'hsl(158 30% 30%)' }}>{value}</div>
+      <div className={`fig-num font-display ${hero ? 'text-3xl' : 'text-2xl'}`} style={{ color: hero ? INK : 'var(--rep-ink-soft)' }}>{value}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
@@ -559,6 +612,6 @@ function RepTable({ head, children }: { head: string[]; children: ReactNode }) {
 function Td({ children, bold, muted, nowrap }: { children: ReactNode; bold?: boolean; muted?: boolean; nowrap?: boolean }) {
   return (
     <td className={`px-3 py-2 border-t ${nowrap ? 'whitespace-nowrap' : ''} ${bold ? 'font-medium' : ''}`}
-      style={{ borderColor: GOLD_SOFT, color: muted ? 'hsl(158 12% 45%)' : undefined }}>{children}</td>
+      style={{ borderColor: GOLD_SOFT, color: muted ? 'var(--rep-ink-soft)' : undefined }}>{children}</td>
   );
 }
