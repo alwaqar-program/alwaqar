@@ -264,6 +264,8 @@ export default function RecitationPage() {
     [people, entryCohort],
   );
   const entryStudentObj = people.find(p => p.id === entryStudent && p.kind === entryCohort);
+  // حلقات الحرم لا تتبع النِّصاب: تُخفى حقول (زيادة/تثبيت/حفظ) ولا تُشترط.
+  const entrySponsor = isSponsor(circleTypeOf(entryStudentObj?.circle_id ?? null));
   const verseOpts = useMemo(() => {
     if (entryStudentObj?.from_surah && entryStudentObj?.to_surah) {
       return verseOptionsInRange(entryStudentObj.from_surah, entryStudentObj.to_surah);
@@ -336,7 +338,7 @@ export default function RecitationPage() {
       toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' });
       return;
     }
-    if (!thabitConfirmed || !hifzConfirmed) {
+    if (!entrySponsor && (!thabitConfirmed || !hifzConfirmed)) {
       toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' });
       return;
     }
@@ -356,9 +358,9 @@ export default function RecitationPage() {
       to_verse: toRef.verse,
       from_sort_order: fromPageInfo?.sort_order ?? null,
       to_sort_order: toPageInfo?.sort_order ?? null,
-      is_extra_memorization: isExtra,
-      thabit_confirmed: thabitConfirmed,
-      hifz_confirmed: hifzConfirmed,
+      is_extra_memorization: entrySponsor ? false : isExtra,
+      thabit_confirmed: entrySponsor ? false : thabitConfirmed,
+      hifz_confirmed: entrySponsor ? false : hifzConfirmed,
       error_count: errorCount,
       lahn_count: lahnCount,
       recorded_by: adminName, // آخر من سجّل/عدّل — والتاريخ الكامل في سجل التدقيق
@@ -663,6 +665,8 @@ export default function RecitationPage() {
                   </div>
                 )}
 
+                {/* حقول النِّصاب تُخفى لحلقات الحرم (لا تتبع النِّصاب) */}
+                {!entrySponsor && (
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة خارج النصاب
@@ -674,6 +678,7 @@ export default function RecitationPage() {
                     <Checkbox checked={hifzConfirmed} onCheckedChange={v => setHifzConfirmed(!!v)} /> نصاب الحفظ (سرد على شخص) *
                   </label>
                 </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
