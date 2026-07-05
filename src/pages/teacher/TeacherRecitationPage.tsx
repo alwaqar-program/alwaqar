@@ -12,6 +12,7 @@ import { BookOpen, Check, X, AlertCircle } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
+import { isSponsor } from '@/lib/circle-type';
 
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
@@ -32,6 +33,8 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
+  // حلقات الحرم لا تتبع النِّصاب: تُخفى حقول (زيادة/تثبيت/حفظ) ولا تُشترط.
+  const sponsor = isSponsor(circle.circle_type);
 
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [branchJuz, setBranchJuz] = useState<number[]>([]);
@@ -152,8 +155,8 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
   const save = async () => {
     if (!selected || !fromRef || !toRef) { toast({ title: 'تنبيه', description: 'اختاري نطاق التسميع (من/إلى سورة وآية)', variant: 'destructive' }); return; }
     if (!orderOk) { toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' }); return; }
-    // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما
-    if (!thabit || !hifz) { toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' }); return; }
+    // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما (عدا حلقات الحرم)
+    if (!sponsor && (!thabit || !hifz)) { toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' }); return; }
     if (isAbsent(selected)) { toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ل${cohortLabel(cohort)} غائبة`, variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
@@ -164,7 +167,9 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
       from_surah: fromRef.surah, to_surah: toRef.surah,
       from_verse: fromRef.verse, to_verse: toRef.verse,
       from_sort_order: fromPageInfo?.sort_order ?? null, to_sort_order: toPageInfo?.sort_order ?? null,
-      is_extra_memorization: isExtra, thabit_confirmed: thabit, hifz_confirmed: hifz,
+      is_extra_memorization: sponsor ? false : isExtra,
+      thabit_confirmed: sponsor ? false : thabit,
+      hifz_confirmed: sponsor ? false : hifz,
       error_count: errorCount, lahn_count: lahnCount, // grade + score are computed by the database
       recorded_by: teacher.teacher_name, // سجل: من أدخلت التسميع
     });
@@ -290,12 +295,15 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
               </div>
             )}
             {/* الحصيلة والدرجة والتقدير تُحسب وتُحفظ في النظام وتظهر للمشرفات فقط */}
+            {/* حقول النِّصاب تُخفى لحلقات الحرم (لا تتبع النِّصاب) */}
+            {!sponsor && (
             <div className="flex flex-wrap items-center gap-4">
               {/* نفس مسميات الصفحة الإدارية */}
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={isExtra} onCheckedChange={v => setIsExtra(!!v)} /> حفظ زيادة خارج النصاب</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={thabit} onCheckedChange={v => setThabit(!!v)} /> نصاب التثبيت (سرد ذاتي) *</label>
               <label className="flex items-center gap-2 text-sm"><Checkbox checked={hifz} onCheckedChange={v => setHifz(!!v)} /> نصاب الحفظ (سرد على شخص) *</label>
             </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">عدد الأخطاء</Label>
