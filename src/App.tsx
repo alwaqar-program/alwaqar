@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import DailyReportPage from "./pages/DailyReportPage";
 import BranchesPage from "./pages/BranchesPage";
 import CirclesPage from "./pages/CirclesPage";
 import TeachersPage from "./pages/TeachersPage";
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="/recite-haram" element={<PublicRecitationPage circleType="sponsor" />} />
             <Route path="/attend-haram" element={<PublicAttendancePage circleType="sponsor" />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/daily-report" element={<ProtectedRoute><DailyReportPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
             <Route path="/circles" element={<ProtectedRoute><CirclesPage /></ProtectedRoute>} />
             <Route path="/teachers" element={<ProtectedRoute><TeachersPage /></ProtectedRoute>} />

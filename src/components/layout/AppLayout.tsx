@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
+  FileBarChart,
   GitBranch,
   Users,
   GraduationCap,
@@ -40,6 +41,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'لوحة المعلومات', href: '/', icon: <LayoutDashboard size={20} /> },
+  { label: 'التقرير اليومي', href: '/daily-report', icon: <FileBarChart size={20} /> },
   { label: 'المتقدمات', href: '/applicants', icon: <UserPlus size={20} />, hideForRoles: ['student_affairs'] },
   { label: 'المقابلات', href: '/interviews', icon: <MessagesSquare size={20} />, hideForRoles: ['student_affairs'] },
   { label: 'لجنة المقابلات', href: '/interview-committee', icon: <MessagesSquare size={20} />, roles: ['admin'] },

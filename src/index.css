@@ -108,3 +108,21 @@
     font-family: var(--font-body);
   }
 }
+
+/* طباعة التقرير اليومي: إظهار التقرير فقط بعرض الصفحة كاملاً */
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; }
+  /* أخفِ كل شيء ثم أظهر التقرير فقط */
+  body * { visibility: hidden !important; }
+  #daily-report, #daily-report * { visibility: visible !important; }
+  #daily-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+  }
+  /* لا تقطع البطاقات/الجداول بين الصفحات قدر الإمكان */
+  #daily-report section { break-inside: avoid; }
+  #daily-report tr { break-inside: avoid; }
+}
