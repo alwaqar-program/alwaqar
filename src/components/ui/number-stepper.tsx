@@ -21,20 +21,13 @@ export function NumberStepper({
     'text-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed';
 
   return (
-    <div className={cn('flex h-10 items-center justify-between gap-2 rounded-md border px-2', className)}>
+    <div className={cn('flex h-10 items-center justify-between gap-2', className)}>
       <button type="button" className={btn} onClick={() => set(value - step)} disabled={value <= min} aria-label="نقص">
         <Minus size={16} />
       </button>
-      <input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => set(parseInt(e.target.value, 10) || 0)}
-        className="w-12 bg-transparent text-center text-sm font-medium outline-none
-                   [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-      />
+      <span className="w-12 select-none text-center text-sm font-medium tabular-nums" aria-live="polite">
+        {value}
+      </span>
       <button type="button" className={btn} onClick={() => set(value + step)} disabled={value >= max} aria-label="زيادة">
         <Plus size={16} />
       </button>
