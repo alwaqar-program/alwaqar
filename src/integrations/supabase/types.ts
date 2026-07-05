@@ -145,6 +145,7 @@ export type Database = {
         Row: {
           branch_id: string
           circle_name: string
+          circle_type: string
           created_at: string
           id: string
           is_active: boolean
@@ -154,6 +155,7 @@ export type Database = {
         Insert: {
           branch_id: string
           circle_name: string
+          circle_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
@@ -163,6 +165,7 @@ export type Database = {
         Update: {
           branch_id?: string
           circle_name?: string
+          circle_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
