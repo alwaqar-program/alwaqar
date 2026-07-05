@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import { useToast } from '@/hooks/use-toast';
 import { BookOpen, Check, X, AlertCircle } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
@@ -307,11 +308,11 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">عدد الأخطاء</Label>
-                <Input type="number" min={0} value={errorCount} onChange={e => setErrorCount(parseInt(e.target.value) || 0)} />
+                <NumberStepper value={errorCount} onChange={setErrorCount} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">عدد اللحون</Label>
-                <Input type="number" min={0} value={lahnCount} onChange={e => setLahnCount(parseInt(e.target.value) || 0)} />
+                <NumberStepper value={lahnCount} onChange={setLahnCount} />
               </div>
             </div>
             <Button onClick={save} disabled={saving || !orderOk} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ التسميع'}</Button>
