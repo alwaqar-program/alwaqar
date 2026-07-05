@@ -44,33 +44,42 @@ const greg = (iso: string) => {
   } catch { return iso; }
 };
 
-// ---------- الميدالية المُذهَّبة (العنصر المميّز — على غرار روندل ۝) ----------
+// ---------- الميدالية المُذهَّبة (العنصر المميّز — خاتم ذهبي على غرار روندل ۝) ----------
 function Medallion({ pct }: { pct: number }) {
-  const R = 78, r = 62, c = 2 * Math.PI * r;
+  const arcR = 66, arcC = 2 * Math.PI * arcR;
   const shown = Math.max(0, Math.min(100, pct));
   return (
-    <svg viewBox="0 0 180 180" className="w-44 h-44">
-      {/* حلقتان ذهبيتان + مسنّنات دقيقة كالتذهيب */}
-      <circle cx="90" cy="90" r={R} fill={PAPER} stroke={GOLD} strokeWidth="2.5" />
-      <circle cx="90" cy="90" r={R - 7} fill="none" stroke={GOLD} strokeWidth="1" opacity="0.7" />
-      {Array.from({ length: 48 }).map((_, i) => {
-        const a = (i / 48) * 2 * Math.PI, x1 = 90 + (R - 2) * Math.cos(a), y1 = 90 + (R - 2) * Math.sin(a),
-          x2 = 90 + (R - 5) * Math.cos(a), y2 = 90 + (R - 5) * Math.sin(a);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={GOLD} strokeWidth="0.6" opacity="0.55" />;
+    <svg viewBox="0 0 200 200" className="w-48 h-48">
+      {/* خاتم ذهبي مصمَت (قرص ذهب ثم قلب رَقّي) */}
+      <circle cx="100" cy="100" r="94" fill={GOLD} />
+      <circle cx="100" cy="100" r="84" fill={PAPER} />
+      {/* مسنّنات التذهيب على الحافة الذهبية */}
+      {Array.from({ length: 60 }).map((_, i) => {
+        const a = (i / 60) * 2 * Math.PI, x1 = 100 + 93 * Math.cos(a), y1 = 100 + 93 * Math.sin(a),
+          x2 = 100 + 86 * Math.cos(a), y2 = 100 + 86 * Math.sin(a);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="hsl(43 55% 42%)" strokeWidth="0.8" opacity="0.55" />;
       })}
-      {/* نجمة ثمانية باهتة (زخرفة هندسية) */}
-      <g stroke={GOLD} strokeWidth="0.7" fill="none" opacity="0.18">
-        <rect x="44" y="44" width="92" height="92" transform="rotate(45 90 90)" />
-        <rect x="44" y="44" width="92" height="92" />
-      </g>
       {/* مسار الإنجاز بالحبر */}
-      <circle cx="90" cy="90" r={r - 14} fill="none" stroke="hsl(43 30% 90%)" strokeWidth="7" />
-      <circle cx="90" cy="90" r={r - 14} fill="none" stroke={INK} strokeWidth="7" strokeLinecap="round"
-        transform="rotate(-90 90 90)" strokeDasharray={`${(shown / 100) * (2 * Math.PI * (r - 14))} ${2 * Math.PI * (r - 14)}`} />
+      <circle cx="100" cy="100" r={arcR} fill="none" stroke="hsl(43 30% 88%)" strokeWidth="11" />
+      <circle cx="100" cy="100" r={arcR} fill="none" stroke={INK} strokeWidth="11" strokeLinecap="round"
+        transform="rotate(-90 100 100)" strokeDasharray={`${(shown / 100) * arcC} ${arcC}`} />
       {/* القيمة */}
-      <text x="90" y="84" textAnchor="middle" style={{ fontFamily: 'Amiri, serif', fontSize: 34, fontWeight: 700, fill: INK }}>{ar(Math.round(pct))}٪</text>
-      <text x="90" y="106" textAnchor="middle" style={{ fontFamily: 'Cairo, sans-serif', fontSize: 11, fill: 'hsl(158 20% 40%)' }}>نسبة الإنجاز</text>
+      <text x="100" y="96" textAnchor="middle" style={{ fontFamily: 'Amiri, serif', fontSize: 42, fontWeight: 700, fill: INK }}>{ar(Math.round(pct))}٪</text>
+      <text x="100" y="120" textAnchor="middle" style={{ fontFamily: 'Cairo, sans-serif', fontSize: 12, fill: 'hsl(158 20% 40%)' }}>نسبة الإنجاز</text>
     </svg>
+  );
+}
+
+// ---------- حالة عدم وجود بيانات ----------
+function EmptyState() {
+  return (
+    <div className="rounded-xl py-10 px-6 text-center" style={{ border: `1px dashed ${GOLD}`, background: 'hsl(43 50% 96%)' }}>
+      <div style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 30 }}>۝</div>
+      <h4 className="font-display text-2xl mt-1" style={{ color: INK }}>لم يُسجَّل تسميع لهذا اليوم بعد</h4>
+      <p className="text-sm mt-1" style={{ color: 'hsl(158 15% 45%)' }}>
+        عند تسجيل التسميع والحضور ستظهر الحصيلة التفصيلية والمؤشرات تلقائياً. جرّبي اختيار يوم آخر.
+      </p>
+    </div>
   );
 }
 
@@ -270,6 +279,9 @@ export default function DailyReportPage() {
   }, [members, circles, branches, recRows, attRows, rooms]);
 
   const maxHist = Math.max(1, ...report.hifzHist);
+  // لا تسميع مُسجَّل لهذا اليوم → نعرض حالة فارغة بدل إغراق الصفحة بالأصفار والمتعثرات.
+  const noData = recRows.length === 0;
+  const STRUGGLE_CAP = 20; // حدّ عرض المتعثرات في التقرير المطبوع
 
   return (
     <div className="space-y-6">
@@ -322,6 +334,7 @@ export default function DailyReportPage() {
             </header>
 
             {/* الميدالية + المؤشرات */}
+            {!noData && (
             <section className="rounded-lg p-6" style={{ background: 'hsl(158 30% 97%)', border: `1px solid ${GOLD_SOFT}` }}>
               <div className="grid md:grid-cols-3 gap-6 items-center">
                 <div className="flex justify-center"><Medallion pct={report.pct} /></div>
@@ -335,6 +348,7 @@ export default function DailyReportPage() {
                 </div>
               </div>
             </section>
+            )}
 
             {/* أرقام الدورة */}
             <section>
@@ -345,12 +359,17 @@ export default function DailyReportPage() {
                 <Tally value={ar(teacherCount)} label="المعلمات" />
                 <Tally value={ar(report.nRooms)} label="الغرف" />
               </div>
-              <p className="text-sm leading-relaxed mt-4" style={{ color: 'hsl(158 20% 30%)' }}>
-                بلغت نسبة الإنجاز في الحفظ <strong style={{ color: INK }}>{ar(Math.round(report.pct))}٪</strong>،
-                بإجمالي {ar(report.completed, 1)} وجهًا، أي ما يعادل {ar(report.khatma, 2)} ختمة و{ar(report.juz, 1)} جزءًا.
-              </p>
+              {!noData && (
+                <p className="text-sm leading-relaxed mt-4" style={{ color: 'hsl(158 20% 30%)' }}>
+                  بلغت نسبة الإنجاز في الحفظ <strong style={{ color: INK }}>{ar(Math.round(report.pct))}٪</strong>،
+                  بإجمالي {ar(report.completed, 1)} وجهًا، أي ما يعادل {ar(report.khatma, 2)} ختمة و{ar(report.juz, 1)} جزءًا.
+                </p>
+              )}
             </section>
 
+            {noData && <EmptyState />}
+
+            {!noData && (<>
             {/* أداء الفروع */}
             <section>
               <SecHead title="مؤشر أداء الفروع" />
@@ -397,7 +416,7 @@ export default function DailyReportPage() {
                 </p>
               ) : (
                 <RepTable head={['الطالبة', 'الحلقة', 'مقدار العجز', 'سبب العجز', 'خطة التعويض']}>
-                  {report.struggling.map(r => (
+                  {report.struggling.slice(0, STRUGGLE_CAP).map(r => (
                     <tr key={r.key}>
                       <Td bold>{r.full_name}</Td>
                       <Td>{r.circleName}</Td>
@@ -410,6 +429,9 @@ export default function DailyReportPage() {
               )}
               <p className="text-sm font-medium mt-3" style={{ color: INK }}>
                 عدد المتعثرات في الحفظ: {ar(report.struggling.length)} من أصل {ar(report.totalMembers)} طالبة.
+                {report.struggling.length > STRUGGLE_CAP && (
+                  <span className="text-muted-foreground font-normal"> — يُعرض أعلى {ar(STRUGGLE_CAP)} عجزًا؛ التفاصيل الكاملة في جدول الحصيلة أدناه.</span>
+                )}
               </p>
             </section>
 
@@ -465,6 +487,7 @@ export default function DailyReportPage() {
                 </RepTable>
               </div>
             </section>
+            </>)}
 
             <footer className="text-center pt-4" style={{ borderTop: `1px solid ${GOLD_SOFT}` }}>
               <span style={{ color: GOLD, fontFamily: 'Amiri, serif', fontSize: 18 }}>۝</span>
