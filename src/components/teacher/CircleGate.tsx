@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { sortCircles } from '@/lib/circle-order';
-import { CircleType, SPONSOR_LABEL } from '@/lib/circle-type';
+import { CircleType, circleTypeLabel } from '@/lib/circle-type';
 import { BookOpen } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,7 +35,6 @@ interface Props {
  */
 export default function CircleGate({ title, subtitle, needsPeriod = false, dateLabel, circleType = 'regular', children }: Props) {
   const { toast } = useToast();
-  const isHaram = circleType === 'sponsor';
 
   useLayoutEffect(() => {
     const prev = document.title;
@@ -105,7 +104,7 @@ export default function CircleGate({ title, subtitle, needsPeriod = false, dateL
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-sm">{title}</p>
-                  {isHaram && <Badge variant="secondary">{SPONSOR_LABEL}</Badge>}
+                  {circleTypeLabel(circleType) && <Badge variant="secondary">{circleTypeLabel(circleType)}</Badge>}
                 </div>
                 {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
               </div>

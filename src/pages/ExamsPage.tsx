@@ -22,7 +22,7 @@ import { FileCheck, Plus, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
-import { CircleType, isSponsor, SPONSOR_LABEL, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { CircleType, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const examTypes: Record<string, string> = {
   weekly_1: 'الأسبوع الأول',
@@ -389,8 +389,8 @@ export default function ExamsPage() {
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell>
                         {r.circle_name}
-                        {isSponsor(circleTypeOf(r.circle_id)) && (
-                          <Badge variant="secondary" className="mr-1.5 text-[10px]">{SPONSOR_LABEL}</Badge>
+                        {circleTypeLabel(circleTypeOf(r.circle_id)) && (
+                          <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(r.circle_id))}</Badge>
                         )}
                       </TableCell>
                       {newExamTypes.map(t => {
