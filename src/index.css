@@ -122,7 +122,11 @@
     width: 100%;
     padding: 0;
   }
-  /* لا تقطع البطاقات/الجداول بين الصفحات قدر الإمكان */
-  #daily-report section { break-inside: avoid; }
+  /* كل قسم يبدأ في صفحة جديدة (عدا الأول الذي يبقى مع الترويسة) */
+  #daily-report section:not(:first-of-type) {
+    break-before: page;
+    page-break-before: always;
+  }
+  /* لا تقطع الصفوف بين الصفحات قدر الإمكان */
   #daily-report tr { break-inside: avoid; }
 }

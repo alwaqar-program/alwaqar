@@ -28,7 +28,7 @@ const RED = 'hsl(0 72% 51%)';
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const ar = (n: number, digits = 0) =>
-  n.toLocaleString('ar-EG', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  n.toLocaleString('ar-EG', { maximumFractionDigits: digits }); // بلا أصفار عشرية زائدة (٢٧ لا ٢٧٫٠)
 const hijri = (iso: string) => {
   try {
     return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
