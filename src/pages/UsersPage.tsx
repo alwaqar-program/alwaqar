@@ -26,6 +26,7 @@ const USER_CSV_COLUMNS: CsvColumnDef[] = [
       admin: 'مدير النظام',
       teacher: 'معلمة',
       student_affairs: 'شؤون طالبات',
+      report_viewer: 'مُطّلع التقرير',
       housing_supervisor: 'مشرفة سكن',
       observer: 'مراقب',
     } as Record<string, string>)[v] ?? v,
@@ -38,6 +39,7 @@ const roleLabels: Record<string, string> = {
   admin: 'مدير النظام',
   teacher: 'معلمة',
   student_affairs: 'شؤون طالبات',
+  report_viewer: 'مُطّلع التقرير',
   housing_supervisor: 'مشرفة سكن',
   observer: 'مراقب',
 };
@@ -46,6 +48,7 @@ const roleColors: Record<string, string> = {
   admin: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   teacher: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   student_affairs: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  report_viewer: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
   housing_supervisor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   observer: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
 };
@@ -234,6 +237,7 @@ export default function UsersPage() {
                     { value: 'admin', label: 'مدير النظام' },
                     { value: 'teacher', label: 'معلمة' },
                     { value: 'student_affairs', label: 'شؤون طالبات' },
+                    { value: 'report_viewer', label: 'مُطّلع التقرير (التقرير اليومي فقط)' },
                     { value: 'housing_supervisor', label: 'مشرفة سكن' },
                     { value: 'observer', label: 'مراقب' },
                   ]}

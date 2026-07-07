@@ -69,18 +69,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const filteredItems = navItems.filter(item => {
-    const isAdmin = roles.includes('admin' as any);
-    // قائمة المنع تُخفي العنصر عمّن يملك دوراً ممنوعاً (إلا المدير يرى دائماً).
-    if (!isAdmin && item.hideForRoles && item.hideForRoles.some(r => roles.includes(r as any))) return false;
-    if (!item.roles) return true;
-    return item.roles.some(r => roles.includes(r as any));
-  });
+  // دور «مُطّلع التقرير» يرى التقرير اليومي فقط (ما لم يكن مديراً أيضاً).
+  const reportOnly = roles.includes('report_viewer' as any) && !roles.includes('admin' as any);
+  const filteredItems = reportOnly
+    ? navItems.filter(item => item.href === '/daily-report')
+    : navItems.filter(item => {
+        const isAdmin = roles.includes('admin' as any);
+        // قائمة المنع تُخفي العنصر عمّن يملك دوراً ممنوعاً (إلا المدير يرى دائماً).
+        if (!isAdmin && item.hideForRoles && item.hideForRoles.some(r => roles.includes(r as any))) return false;
+        if (!item.roles) return true;
+        return item.roles.some(r => roles.includes(r as any));
+      });
 
   const roleLabels: Record<string, string> = {
     admin: 'إدارة',
     teacher: 'معلمة',
     student_affairs: 'شؤون طالبات',
+    report_viewer: 'مُطّلع التقرير',
     housing_supervisor: 'مشرفة سكن',
     observer: 'مراقب',
   };

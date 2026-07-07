@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -49,7 +49,8 @@ import logoImg from "@/assets/logo.png";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, roles } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -61,6 +62,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  // دور «مُطّلع التقرير» مقيّد بالتقرير اليومي فقط — أي مسار آخر يُحوَّل إليه.
+  const reportOnly = roles.includes('report_viewer') && !roles.includes('admin');
+  if (reportOnly && location.pathname !== '/daily-report') return <Navigate to="/daily-report" replace />;
   return <AppLayout>{children}</AppLayout>;
 }
 
