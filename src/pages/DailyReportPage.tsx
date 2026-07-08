@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Printer } from 'lucide-react';
+import { Download } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { dailyNisab } from '@/lib/program-target';
 import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
@@ -385,7 +385,7 @@ export default function DailyReportPage() {
             <Input type="date" dir="ltr" className="h-10 w-[160px]" value={date} max={today}
               onChange={e => setDate(e.target.value || today)} />
           </div>
-          <Button onClick={() => window.print()} disabled={loading}><Printer size={18} /> طباعة / PDF</Button>
+          <Button onClick={() => window.print()} disabled={loading}><Download size={18} /> تحميل PDF</Button>
         </div>
       </div>
 
