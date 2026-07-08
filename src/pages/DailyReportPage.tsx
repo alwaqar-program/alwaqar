@@ -373,12 +373,10 @@ export default function DailyReportPage() {
             <div className="flex items-center gap-1.5">
               {DESIGNS.map(d => (
                 <button key={d.id} type="button" onClick={() => setDesign(d.id)} title={d.name}
-                  aria-pressed={design === d.id}
-                  className={`h-10 px-3 rounded-md text-xs font-medium border transition ${
+                  aria-label={d.name} aria-pressed={design === d.id}
+                  className={`h-10 w-10 rounded-md border transition ${
                     design === d.id ? 'ring-2 ring-primary ring-offset-1' : 'opacity-70 hover:opacity-100'}`}
-                  style={{ background: d.ink, color: d.gold, borderColor: d.gold }}>
-                  {d.name}
-                </button>
+                  style={{ background: `linear-gradient(135deg, ${d.ink} 50%, ${d.gold} 50%)`, borderColor: d.gold }} />
               ))}
             </div>
           </div>
