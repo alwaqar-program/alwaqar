@@ -4,49 +4,56 @@ import { splitHarvest } from './harvest';
 const rows = (arr: { pages: number; circleId: string | null }[]) => arr;
 
 describe('splitHarvest', () => {
-  it('empty sponsorIds ⇒ completed=Σall, required=regularRequired (legacy, both toggles identical)', () => {
+  it('empty sponsorIds ⇒ الكل و«تابعة للحرم» متطابقان (لا حرم)', () => {
     const data = rows([
       { pages: 10, circleId: 'a' },
       { pages: 5, circleId: 'b' },
       { pages: 3, circleId: null },
     ]);
     const empty = new Set<string>();
-    const inc = splitHarvest(data, empty, 40, true);
-    const exc = splitHarvest(data, empty, 40, false);
-    expect(inc).toEqual({ completed: 18, required: 40 });
-    expect(exc).toEqual({ completed: 18, required: 40 });
+    const all = splitHarvest(data, empty, 40, '');
+    const regular = splitHarvest(data, empty, 40, 'regular');
+    expect(all).toEqual({ completed: 18, required: 40 });
+    expect(regular).toEqual({ completed: 18, required: 40 });
   });
 
-  it('sponsor rows raise completed and required equally when includeHaram (gap unchanged vs regular-only)', () => {
+  it('الكل: الحرم يرفع المنجز والمطلوب بالتساوي (الفجوة = فجوة العادية)', () => {
     const data = rows([
       { pages: 10, circleId: 'reg1' },
       { pages: 7, circleId: 'sp1' },
       { pages: 2, circleId: 'sp2' },
     ]);
     const sponsors = new Set(['sp1', 'sp2']); // sponsorPages = 9, regularPages = 10
-    const inc = splitHarvest(data, sponsors, 40, true);
+    const all = splitHarvest(data, sponsors, 40, '');
     // completed = 10 + 9 = 19 ; required = 40 + 9 = 49
-    expect(inc).toEqual({ completed: 19, required: 49 });
-    // gap (required - completed) equals regular-only gap
-    expect(inc.required - inc.completed).toBe(40 - 10);
+    expect(all).toEqual({ completed: 19, required: 49 });
+    expect(all.required - all.completed).toBe(40 - 10);
   });
 
-  it('sponsor slice is never negative and drives its slice to 100% (required grows with achievement)', () => {
-    const data = rows([{ pages: 100, circleId: 'sp1' }]);
-    const sponsors = new Set(['sp1']);
-    const inc = splitHarvest(data, sponsors, 0, true);
-    expect(inc.completed).toBe(100);
-    expect(inc.required).toBe(100); // 0 regular + 100 sponsor
-    expect(inc.required).toBeGreaterThanOrEqual(0);
-  });
-
-  it('includeHaram=false drops sponsor from both completed and required', () => {
+  it('«تابعة للحرم» تُسقط الحرم من المنجز والمطلوب', () => {
     const data = rows([
       { pages: 10, circleId: 'reg1' },
       { pages: 7, circleId: 'sp1' },
     ]);
     const sponsors = new Set(['sp1']);
-    const exc = splitHarvest(data, sponsors, 40, false);
-    expect(exc).toEqual({ completed: 10, required: 40 });
+    const regular = splitHarvest(data, sponsors, 40, 'regular');
+    expect(regular).toEqual({ completed: 10, required: 40 });
+  });
+
+  it('«حلقاتنا» تعرض حلقات الحرم فقط، المطلوب = المنجز (نسبة ١٠٠٪)', () => {
+    const data = rows([
+      { pages: 10, circleId: 'reg1' },
+      { pages: 7, circleId: 'sp1' },
+      { pages: 2, circleId: 'sp2' },
+    ]);
+    const sponsors = new Set(['sp1', 'sp2']); // sponsorPages = 9
+    const sponsor = splitHarvest(data, sponsors, 40, 'sponsor');
+    expect(sponsor).toEqual({ completed: 9, required: 9 });
+  });
+
+  it('«حلقاتنا» بلا حلقات حرم ⇒ صفر (لا قسمة على صفر)', () => {
+    const data = rows([{ pages: 10, circleId: 'reg1' }]);
+    const sponsor = splitHarvest(data, new Set<string>(), 40, 'sponsor');
+    expect(sponsor).toEqual({ completed: 0, required: 0 });
   });
 });

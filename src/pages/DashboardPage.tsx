@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import DailyFollowUp from '@/components/DailyFollowUp';
 import { dailyNisab } from '@/lib/program-target';
-import { splitHarvest } from '@/lib/harvest';
-import { isSponsor } from '@/lib/circle-type';
+import { splitHarvest, type HaramFilter } from '@/lib/harvest';
+import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
 const gradeColors: Record<string, string> = {
   'ممتاز': 'bg-success/10 text-success',
@@ -76,7 +76,7 @@ export default function DashboardPage() {
   // معرّفات حلقات «الحرم» — في الحالة (state) لثبات الهوية ومنع إعادة الحساب في الـ memos.
   const [sponsorCircleIds, setSponsorCircleIds] = useState<Set<string>>(new Set());
   // دمج الحرم في الإجماليات افتراضياً، مع إمكانية العرض بدونه.
-  const [includeHaram, setIncludeHaram] = useState(true);
+  const [haramFilter, setHaramFilter] = useState<HaramFilter>('');
   const [targetBreakdown, setTargetBreakdown] = useState<
     { name: string; edp: number; count: number; subtotal: number }[]
   >([]);
@@ -196,15 +196,15 @@ export default function DashboardPage() {
 
   const daily = useMemo(() => {
     const rows = recRows.filter(r => r.date === dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired, includeHaram);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired, haramFilter);
     return computeHarvest(completed, required);
-  }, [recRows, dayDate, dailyRequired, sponsorCircleIds, includeHaram]);
+  }, [recRows, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
 
   const cumulative = useMemo(() => {
     const rows = recRows.filter(r => r.date >= startDate && r.date <= dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * day, includeHaram);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * day, haramFilter);
     return computeHarvest(completed, required);
-  }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, includeHaram]);
+  }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, haramFilter]);
 
   const summaryCards = [
     { label: 'عدد الطالبات', value: stats.students, icon: <Users size={22} />, color: 'text-success' },
@@ -293,27 +293,21 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* توجيه الحرم: دمج/استبعاد حلقات الحرم في الحصيلة (يظهر فقط عند وجود حلقات حرم) */}
+      {/* فلتر الحصيلة: الكل / تابعة للحرم / حلقاتنا (يظهر فقط عند وجود حلقات حرم) */}
       {sponsorCircleIds.size > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant={includeHaram ? 'default' : 'outline'}
-            className="h-7 px-3 text-xs"
-            onClick={() => setIncludeHaram(true)}
-          >
-            شامل الحرم
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={!includeHaram ? 'default' : 'outline'}
-            className="h-7 px-3 text-xs"
-            onClick={() => setIncludeHaram(false)}
-          >
-            بدون الحرم
-          </Button>
+          {CIRCLE_TYPE_FILTERS.map(([val, label]) => (
+            <Button
+              key={val}
+              type="button"
+              size="sm"
+              variant={haramFilter === val ? 'default' : 'outline'}
+              className="h-7 px-3 text-xs"
+              onClick={() => setHaramFilter(val as HaramFilter)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
       )}
 
