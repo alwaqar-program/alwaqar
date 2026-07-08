@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Printer } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import { dailyNisab } from '@/lib/program-target';
-import { isSponsor } from '@/lib/circle-type';
+import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { type HaramFilter } from '@/lib/harvest';
 import { Cohort, COHORTS, cohortSubjectColumn } from '@/lib/cohorts';
 import {
   weightedPercent, evalTier, EvalTier, HIFZ_BUCKETS, hifzBucketIndex,
@@ -144,6 +145,7 @@ export default function DailyReportPage() {
   });
   useEffect(() => { try { localStorage.setItem('report-design', design); } catch { /* ignore */ } }, [design]);
   const [loading, setLoading] = useState(true);
+  const [haramFilter, setHaramFilter] = useState<HaramFilter>('');
   const [circles, setCircles] = useState<Circle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -214,7 +216,15 @@ export default function DailyReportPage() {
     }
     const PRESENTISH = new Set(['present', 'late', 'excused', 'exempted']);
 
-    const rows = members.map(m => {
+    // فلتر النطاق: الكل / تابعة للحرم (العادية) / حلقاتنا (الحرم) — يفلتر التقرير كله.
+    const visibleMembers = haramFilter === ''
+      ? members
+      : members.filter(m => {
+          const sp = isSponsor(circleById.get(m.circle_id || '')?.circle_type);
+          return haramFilter === 'sponsor' ? sp : !sp;
+        });
+
+    const rows = visibleMembers.map(m => {
       const circle = m.circle_id ? circleById.get(m.circle_id) : undefined;
       const branch = circle ? branchById.get(circle.branch_id) : undefined;
       const sponsor = isSponsor(circle?.circle_type);
@@ -289,7 +299,7 @@ export default function DailyReportPage() {
       attPct: rows.length ? (presentCount / rows.length) * 100 : 0,
       byBranch, byCircle, hifzHist, tierCount, struggling, nCircles, nRooms,
     };
-  }, [members, circles, branches, recRows, attRows, rooms]);
+  }, [members, circles, branches, recRows, attRows, rooms, haramFilter]);
 
   const maxHist = Math.max(1, ...report.hifzHist);
   // لا تسميع مُسجَّل لهذا اليوم → نعرض حالة فارغة بدل إغراق الصفحة بالأصفار والمتعثرات.
@@ -339,6 +349,25 @@ export default function DailyReportPage() {
           <p className="text-sm text-muted-foreground mt-1">حصيلة اليوم لكل الفروع والحلقات — قابل للطباعة/‏PDF</p>
         </div>
         <div className="flex items-end gap-2 flex-wrap">
+          {circles.some(c => isSponsor(c.circle_type)) && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">النطاق</Label>
+              <div className="flex items-center gap-1.5">
+                {CIRCLE_TYPE_FILTERS.map(([val, label]) => (
+                  <Button
+                    key={val}
+                    type="button"
+                    size="sm"
+                    variant={haramFilter === val ? 'default' : 'outline'}
+                    className="h-10 px-3 text-xs"
+                    onClick={() => setHaramFilter(val as HaramFilter)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">التصميم</Label>
             <div className="flex items-center gap-1.5">
