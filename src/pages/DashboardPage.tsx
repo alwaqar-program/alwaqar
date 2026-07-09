@@ -188,15 +188,21 @@ export default function DashboardPage() {
         .limit(8);
       setRecentRecitations(recentRec || []);
 
-      // Top students by pages (this week)
+      // Top students by pages (this week) — مرقّم لأن أسبوعاً كاملاً قد يتجاوز ١٠٠٠ صف.
       const weekAgo = addDays(today, -7);
-      const { data: weekRec } = await supabase
-        .from('recitation_log')
-        .select('student_id, pages_recited, students(full_name)')
-        .eq('is_deleted', false)
-        .gte('date', weekAgo);
+      const weekRec: { student_id: string | null; pages_recited: number | null; students: any }[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from('recitation_log')
+          .select('student_id, pages_recited, students(full_name)')
+          .eq('is_deleted', false).gte('date', weekAgo)
+          .order('date', { ascending: true }).range(from, from + 999);
+        if (error || !data || data.length === 0) break;
+        weekRec.push(...(data as any));
+        if (data.length < 1000) break;
+      }
       const studentPages: Record<string, { name: string; pages: number }> = {};
-      (weekRec || []).forEach(r => {
+      weekRec.forEach(r => {
         const sid = r.student_id;
         if (!sid) return;
         if (!studentPages[sid]) studentPages[sid] = { name: (r.students as any)?.full_name || '', pages: 0 };
