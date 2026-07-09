@@ -10,22 +10,20 @@
 export type HaramFilter = '' | 'regular' | 'sponsor';
 
 /**
- * يفصل صفوف التسميع إلى منجز/مطلوب حسب فلتر الحصيلة.
- * @param rows صفوف التسميع (صفحات + معرّف الحلقة).
- * @param sponsorIds مجموعة معرّفات حلقات الحرم.
+ * يفصل صفوف التسميع (المجمّعة حسب اليوم/نوع الحلقة) إلى منجز/مطلوب حسب فلتر الحصيلة.
+ * @param rows صفوف مجمّعة (صفحات + هل الحلقة تابعة للحرم sponsor).
  * @param regularRequired المستهدف الثابت (نصاب) لحلقاتنا (العادية) فقط.
  * @param filter الفلتر الثلاثي (افتراضي في اللوحة = '' الكل).
  */
 export function splitHarvest(
-  rows: { pages: number; circleId: string | null }[],
-  sponsorIds: Set<string>,
+  rows: { pages: number; sponsor: boolean }[],
   regularRequired: number,
   filter: HaramFilter,
 ): { completed: number; required: number } {
   let sponsorPages = 0;
   let regularPages = 0;
   for (const r of rows) {
-    if (r.circleId != null && sponsorIds.has(r.circleId)) sponsorPages += r.pages;
+    if (r.sponsor) sponsorPages += r.pages;
     else regularPages += r.pages;
   }
   // تابعة للحرم: الحلقات العادية فقط بنصابها الثابت.

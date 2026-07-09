@@ -70,11 +70,12 @@ const computeHarvest = (completed: number, required: number): HarvestMetrics => 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ circles: 0, teachers: 0, students: 0 });
 
-  // Course harvest source data (fetched once, recomputed client-side by day).
-  const [recRows, setRecRows] = useState<{ date: string; pages: number; circleId: string | null }[]>([]);
+  // حصيلة الدورة مُجمّعة في قاعدة البيانات (مجموع الصفحات لكل يوم + نوع الحلقة) —
+  // تُجلب دفعةً واحدة (~صفّان لكل تاريخ) وتُعاد الحسبة محلياً حسب اليوم المختار.
+  const [recRows, setRecRows] = useState<{ date: string; pages: number; sponsor: boolean }[]>([]);
   const [dailyRequired, setDailyRequired] = useState(0);
-  // معرّفات حلقات «الحرم» — في الحالة (state) لثبات الهوية ومنع إعادة الحساب في الـ memos.
-  const [sponsorCircleIds, setSponsorCircleIds] = useState<Set<string>>(new Set());
+  // هل توجد حلقات حرم أصلاً؟ (لإظهار فلتر الحصيلة الثلاثي).
+  const [hasSponsor, setHasSponsor] = useState(false);
   // دمج الحرم في الإجماليات افتراضياً، مع إمكانية العرض بدونه.
   const [haramFilter, setHaramFilter] = useState<HaramFilter>('');
   const [targetBreakdown, setTargetBreakdown] = useState<
@@ -100,39 +101,24 @@ export default function DashboardPage() {
       ]);
       setStats({ circles: c.count || 0, teachers: t.count || 0, students: s.count || 0 });
 
-      // جلب كل صفوف التسميع بالترقيم — Supabase يحدّ الاستجابة بـ١٠٠٠ صف افتراضياً،
-      // فبدون ترقيم تُفقَد الأيام الأحدث بعد تجاوز الدورة ١٠٠٠ تسميع (تُصفَّر الحصيلة اليومية).
-      const fetchAllRecitation = async () => {
-        const PAGE = 1000;
-        const all: { date: string | null; pages_recited: number | null; circle_id: string | null }[] = [];
-        for (let from = 0; ; from += PAGE) {
-          const { data, error } = await supabase
-            .from('recitation_log').select('date, pages_recited, circle_id')
-            .eq('is_deleted', false).order('date', { ascending: true })
-            .range(from, from + PAGE - 1);
-          if (error || !data || data.length === 0) break;
-          all.push(...(data as any));
-          if (data.length < PAGE) break;
-        }
-        return all;
-      };
-
-      // --- Required pages: Σ each active+registered student's branch.expected_daily_pages ---
-      const [studRes, circRes, branchRes, recData] = await Promise.all([
+      // --- Required pages + حصيلة مُجمّعة من قاعدة البيانات ---
+      // بدل جلب آلاف صفوف التسميع للمتصفح، تُرجّع الدالة مجموع الصفحات لكل (يوم + نوع الحلقة)
+      // فقط — أداء ثابت مهما نمت البيانات، ويُحسب حيّاً عند كل تحميل (يعكس أي تعديل تسميع).
+      const [studRes, circRes, branchRes, recAgg] = await Promise.all([
         supabase.from('students').select('circle_id')
           .eq('is_active', true).eq('admission_status', 'registered'),
         supabase.from('circles').select('id, branch_id, circle_type').eq('is_active', true),
         supabase.from('branches')
           .select('id, branch_name, juz_count, expected_daily_pages, program_start_date, program_end_date')
           .eq('is_active', true),
-        fetchAllRecitation(),
+        (supabase.rpc as any)('dashboard_recitation_by_day'),
       ]);
 
       const circleToBranch = new Map((circRes.data || []).map(c => [c.id, c.branch_id]));
       const sponsorIds = new Set<string>(
         (circRes.data || []).filter(c => isSponsor(c.circle_type)).map(c => c.id as string),
       );
-      setSponsorCircleIds(sponsorIds);
+      setHasSponsor(sponsorIds.size > 0);
       const branchStudentCount = new Map<string, number>();
       for (const st of studRes.data || []) {
         // استبعاد طالبات حلقات الحرم من نصاب حلقاتنا الثابت.
@@ -153,10 +139,10 @@ export default function DashboardPage() {
       setDailyRequired(reqPerDay);
       setTargetBreakdown(breakdown);
 
-      const recs = recData.map(r => ({
+      const recs = ((recAgg.data as any[]) || []).map(r => ({
         date: r.date as string,
-        pages: r.pages_recited || 0,
-        circleId: (r.circle_id as string | null) ?? null,
+        pages: Number(r.pages) || 0,
+        sponsor: !!r.sponsor,
       }));
       setRecRows(recs);
 
@@ -188,27 +174,10 @@ export default function DashboardPage() {
         .limit(8);
       setRecentRecitations(recentRec || []);
 
-      // Top students by pages (this week) — مرقّم لأن أسبوعاً كاملاً قد يتجاوز ١٠٠٠ صف.
+      // أعلى الطالبات صفحاتٍ هذا الأسبوع — مجمّعة في قاعدة البيانات (تُرجّع أعلى ٥ فقط).
       const weekAgo = addDays(today, -7);
-      const weekRec: { student_id: string | null; pages_recited: number | null; students: any }[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase
-          .from('recitation_log')
-          .select('student_id, pages_recited, students(full_name)')
-          .eq('is_deleted', false).gte('date', weekAgo)
-          .order('date', { ascending: true }).range(from, from + 999);
-        if (error || !data || data.length === 0) break;
-        weekRec.push(...(data as any));
-        if (data.length < 1000) break;
-      }
-      const studentPages: Record<string, { name: string; pages: number }> = {};
-      weekRec.forEach(r => {
-        const sid = r.student_id;
-        if (!sid) return;
-        if (!studentPages[sid]) studentPages[sid] = { name: (r.students as any)?.full_name || '', pages: 0 };
-        studentPages[sid].pages += r.pages_recited || 0;
-      });
-      setTopStudents(Object.values(studentPages).sort((a, b) => b.pages - a.pages).slice(0, 5));
+      const { data: topData } = await (supabase.rpc as any)('top_students_since', { since: weekAgo, lim: 5 });
+      setTopStudents(((topData as any[]) || []).map(r => ({ name: r.full_name || '', pages: Number(r.pages) || 0 })));
 
       setLoading(false);
     };
@@ -219,15 +188,15 @@ export default function DashboardPage() {
 
   const daily = useMemo(() => {
     const rows = recRows.filter(r => r.date === dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired, haramFilter);
+    const { completed, required } = splitHarvest(rows, dailyRequired, haramFilter);
     return computeHarvest(completed, required);
-  }, [recRows, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
+  }, [recRows, dayDate, dailyRequired, haramFilter]);
 
   const cumulative = useMemo(() => {
     const rows = recRows.filter(r => r.date >= startDate && r.date <= dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * day, haramFilter);
+    const { completed, required } = splitHarvest(rows, dailyRequired * day, haramFilter);
     return computeHarvest(completed, required);
-  }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, haramFilter]);
+  }, [recRows, startDate, dayDate, dailyRequired, day, haramFilter]);
 
   const summaryCards = [
     { label: 'عدد الطالبات', value: stats.students, icon: <Users size={22} />, color: 'text-success' },
@@ -317,7 +286,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* فلتر الحصيلة: الكل / تابعة للحرم / حلقاتنا (يظهر فقط عند وجود حلقات حرم) */}
-      {sponsorCircleIds.size > 0 && (
+      {hasSponsor && (
         <div className="flex flex-wrap items-center gap-1.5">
           {CIRCLE_TYPE_FILTERS.map(([val, label]) => (
             <Button
