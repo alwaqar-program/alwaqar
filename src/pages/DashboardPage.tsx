@@ -84,6 +84,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>(toISO(new Date()));
   const [totalDays, setTotalDays] = useState(21);
   const [day, setDay] = useState(1);
+  const [programStartSet, setProgramStartSet] = useState(true); // false = لا يوجد تاريخ بداية مثبّت
 
   const [recentRecitations, setRecentRecitations] = useState<any[]>([]);
   const [topStudents, setTopStudents] = useState<any[]>([]);
@@ -158,6 +159,8 @@ export default function DashboardPage() {
       const branches = branchRes.data || [];
       const startCandidates = branches.map(b => b.program_start_date).filter(Boolean) as string[];
       const recDates = recs.map(r => r.date).filter(Boolean);
+      // إذا لم يُثبَّت تاريخ بداية على أي فرع، نُبلّغ بوضوح بدل الافتراض الصامت أنه «اليوم».
+      setProgramStartSet(startCandidates.length > 0);
       const courseStart = startCandidates.length
         ? startCandidates.sort()[0]
         : recDates.length ? recDates.sort()[0] : today;
@@ -233,6 +236,22 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* تحذير: لا يوجد تاريخ بداية مثبّت — لا نُظهر يوماً مضلِّلاً بصمت */}
+      {!loading && !programStartSet && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="py-4 flex items-start gap-3">
+            <ClipboardList size={20} className="text-destructive shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-destructive">بداية البرنامج غير محدَّدة</p>
+              <p className="text-muted-foreground mt-1">
+                لم يُثبَّت «تاريخ بداية البرنامج» على أي فرع، لذلك عدّاد «اليوم» والحصيلة اليومية غير مثبّتة وقد تكون مضلِّلة.
+                حدِّدي تاريخ البداية من صفحة إدارة الفروع لكل فرع نشط.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Day selector */}
       <Card>
