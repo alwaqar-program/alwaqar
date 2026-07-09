@@ -92,13 +92,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [c, t, s] = await Promise.all([
-        supabase.from('circles').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      const [t, s] = await Promise.all([
         supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('students').select('id', { count: 'exact', head: true })
           .eq('is_active', true).eq('admission_status', 'registered'),
       ]);
-      setStats({ circles: c.count || 0, teachers: t.count || 0, students: s.count || 0 });
+      // عدد الحلقات يُحسب لاحقاً (تابعة للحرم بفرع محدد فقط) بعد جلب الحلقات والفروع.
+      setStats({ circles: 0, teachers: t.count || 0, students: s.count || 0 });
 
       // جلب كل صفوف التسميع بالترقيم — Supabase يحدّ الاستجابة بـ١٠٠٠ صف افتراضياً،
       // فبدون ترقيم تُفقَد الأيام الأحدث بعد تجاوز الدورة ١٠٠٠ تسميع (تُصفَّر الحصيلة اليومية).
@@ -133,6 +133,14 @@ export default function DashboardPage() {
         (circRes.data || []).filter(c => isSponsor(c.circle_type)).map(c => c.id as string),
       );
       setSponsorCircleIds(sponsorIds);
+
+      // عدد الحلقات = الحلقات النشطة «تابعة للحرم» (circle_type='regular') بفرع محدد فقط
+      // (juz_count > 0)، مع استبعاد «حلقاتنا» وفرع «غير محدد».
+      const branchJuz = new Map((branchRes.data || []).map(b => [b.id, b.juz_count ?? 0]));
+      const circleCount = (circRes.data || []).filter(c =>
+        c.circle_type === 'regular' && ((branchJuz.get(c.branch_id) ?? 0) > 0),
+      ).length;
+      setStats(prev => ({ ...prev, circles: circleCount }));
       const branchStudentCount = new Map<string, number>();
       for (const st of studRes.data || []) {
         // استبعاد طالبات حلقات الحرم من نصاب حلقاتنا الثابت.
