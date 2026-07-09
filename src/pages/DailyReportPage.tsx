@@ -157,15 +157,14 @@ export default function DailyReportPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const memberSel = 'id, full_name, circle_id, room_id, is_active';
-      const [cRes, bRes, tRes, rmRes, stRes, coRes, beRes, recRes, attRes] = await Promise.all([
+      const [cRes, bRes, tRes, rmRes, stRes, recRes, attRes] = await Promise.all([
         supabase.from('circles').select('id, circle_name, branch_id, circle_type').eq('is_active', true),
         supabase.from('branches').select('id, branch_name, juz_count'),
         supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('rooms').select('id, room_number'),
-        supabase.from('students').select(memberSel),
-        supabase.from('companions').select(memberSel),
-        supabase.from('beginners').select(memberSel),
+        // مطابقة لوحة المعلومات: الطالبات المسجّلات فقط (لا مرافقات/مبتدئات).
+        supabase.from('students').select('id, full_name, circle_id, room_id, admission_status')
+          .eq('is_active', true).eq('admission_status', 'registered'),
         supabase.from('recitation_log')
           .select('circle_id, pages_recited, thabit_confirmed, student_id, companion_id, beginner_id')
           .eq('date', date).eq('is_deleted', false),
@@ -177,13 +176,9 @@ export default function DailyReportPage() {
       setTeacherCount(tRes.count || 0);
       setRooms(Object.fromEntries((rmRes.data || []).map((r: any) => [r.id, r.room_number])));
       const toMembers = (rows: any[] | null, cohort: Cohort): Member[] =>
-        (rows || []).filter(r => r.is_active !== false && r.circle_id)
+        (rows || []).filter(r => r.circle_id)
           .map(r => ({ key: `${cohort}:${r.id}`, id: r.id, cohort, full_name: r.full_name, circle_id: r.circle_id, room_id: r.room_id ?? null }));
-      setMembers([
-        ...toMembers(stRes.data, 'student'),
-        ...toMembers(coRes.data, 'companion'),
-        ...toMembers(beRes.data, 'beginner'),
-      ]);
+      setMembers(toMembers(stRes.data, 'student'));
       setRecRows((recRes.data || []).map((r: any) => ({
         circle_id: r.circle_id, pages: Number(r.pages_recited) || 0, thabit: !!r.thabit_confirmed,
         subj: { student_id: r.student_id, companion_id: r.companion_id, beginner_id: r.beginner_id },
@@ -235,15 +230,17 @@ export default function DailyReportPage() {
       const present = hasAtt && [...statuses].some(s => PRESENTISH.has(s));
       const absent = hasAtt && !present;
       const attPct = present ? 100 : 0;
-      const target = sponsor ? rec.pages : (dailyNisab(juz) ?? 0);
-      const hasTarget = sponsor ? rec.pages > 0 : (dailyNisab(juz) ?? 0) > 0;
-      const hifzPct = sponsor ? 100 : (target > 0 ? (rec.pages / target) * 100 : 0);
+      // مطابقة اللوحة: النصاب للحلقات العادية بفرع محدد فقط — «حلقاتنا» وغير المحدد بلا نصاب.
+      const eligible = !sponsor && juz > 0;
+      const target = eligible ? (dailyNisab(juz) ?? 0) : 0;
+      const hasTarget = target > 0;
+      const hifzPct = target > 0 ? (rec.pages / target) * 100 : 0;
       const weighted = weightedPercent({
-        juzCount: sponsor ? 30 : juz, attendancePct: attPct, hifzPct, thabitPct: rec.thabit ? 100 : 0,
+        juzCount: juz, attendancePct: attPct, hifzPct, thabitPct: rec.thabit ? 100 : 0,
       });
       const tier = evalTier(weighted);
-      const done = sponsor ? true : (hasTarget ? rec.pages >= target : null);
-      const deficit = (!sponsor && hasTarget) ? rec.pages - target : 0;
+      const done = hasTarget ? rec.pages >= target : null;
+      const deficit = hasTarget ? rec.pages - target : 0;
       return {
         ...m, circleName: circle?.circle_name ?? '—', branchName: branch?.branch_name ?? '—', juz, sponsor,
         room: m.room_id ? (rooms[m.room_id] ?? '') : '', pages: rec.pages, thabit: rec.thabit,
@@ -251,17 +248,18 @@ export default function DailyReportPage() {
       };
     });
 
-    const completed = rows.reduce((s, r) => s + r.pages, 0);
-    const required = rows.reduce((s, r) => s + (r.sponsor ? r.pages : (r.hasTarget ? r.target : 0)), 0);
-    const withTarget = rows.filter(r => r.hasTarget || r.sponsor);
+    // مطابقة اللوحة: المنجز والمطلوب للطالبات ذوات النصاب فقط (عادية + فرع محدد).
+    const completed = rows.reduce((s, r) => s + (r.hasTarget ? r.pages : 0), 0);
+    const required = rows.reduce((s, r) => s + (r.hasTarget ? r.target : 0), 0);
+    const withTarget = rows.filter(r => r.hasTarget);
     const doneCount = rows.filter(r => r.done === true).length;
     const presentCount = rows.filter(r => r.present).length;
     const pct = required > 0 ? (completed / required) * 100 : 0;
 
     const byBranch = branches.map(b => {
       const rs = rows.filter(r => circleById.get(r.circle_id || '')?.branch_id === b.id);
-      const comp = rs.reduce((s, r) => s + r.pages, 0);
-      const req = rs.reduce((s, r) => s + (r.sponsor ? r.pages : (r.hasTarget ? r.target : 0)), 0);
+      const comp = rs.reduce((s, r) => s + (r.hasTarget ? r.pages : 0), 0);
+      const req = rs.reduce((s, r) => s + (r.hasTarget ? r.target : 0), 0);
       const done = rs.filter(r => r.done === true).length;
       const nCircles = new Set(rs.map(r => r.circle_id)).size;
       return { id: b.id, name: b.branch_name, juz: b.juz_count, count: rs.length, nCircles, completed: comp, required: req, done, pct: req > 0 ? (comp / req) * 100 : 0 };
@@ -269,8 +267,8 @@ export default function DailyReportPage() {
 
     const byCircle = circles.map(c => {
       const rs = rows.filter(r => r.circle_id === c.id);
-      const comp = rs.reduce((s, r) => s + r.pages, 0);
-      const req = rs.reduce((s, r) => s + (r.sponsor ? r.pages : (r.hasTarget ? r.target : 0)), 0);
+      const comp = rs.reduce((s, r) => s + (r.hasTarget ? r.pages : 0), 0);
+      const req = rs.reduce((s, r) => s + (r.hasTarget ? r.target : 0), 0);
       return { id: c.id, name: c.circle_name, branch: branchById.get(c.branch_id)?.branch_name ?? '—', juz: branchById.get(c.branch_id)?.juz_count ?? 0, count: rs.length, completed: comp, pct: req > 0 ? (comp / req) * 100 : 0 };
     }).filter(x => x.count > 0).sort((a, b) => b.pct - a.pct);
 
