@@ -127,7 +127,9 @@ function HBar({ label, value, max, right }: { label: string; value: number; max:
 // ---------- types ----------
 interface Circle { id: string; circle_name: string; branch_id: string; circle_type: string; }
 interface Branch { id: string; branch_name: string; juz_count: number; }
-interface Member { key: string; id: string; cohort: Cohort; full_name: string; circle_id: string | null; room_id: string | null; }
+// registered: طالبة مقبولة فعلاً (admission_status='registered'). النصاب المطلوب
+// يُحتسب لها فقط — مطابقةً للوحة المعلومات (المرافقات/المبتدئات وغير المقبولات لا نصاب لهنّ).
+interface Member { key: string; id: string; cohort: Cohort; full_name: string; circle_id: string | null; room_id: string | null; registered: boolean; }
 interface RecRow { circle_id: string | null; pages: number; thabit: boolean; subj: Record<string, string | null>; }
 interface AttRow { status: string; subj: Record<string, string | null>; }
 
@@ -163,7 +165,8 @@ export default function DailyReportPage() {
         supabase.from('branches').select('id, branch_name, juz_count'),
         supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('rooms').select('id, room_number'),
-        supabase.from('students').select(memberSel),
+        // admission_status للطالبات فقط: النصاب يُحتسب للمقبولات (registered) — مطابقةً للوحة.
+        supabase.from('students').select(`${memberSel}, admission_status`),
         supabase.from('companions').select(memberSel),
         supabase.from('beginners').select(memberSel),
         supabase.from('recitation_log')
@@ -178,7 +181,12 @@ export default function DailyReportPage() {
       setRooms(Object.fromEntries((rmRes.data || []).map((r: any) => [r.id, r.room_number])));
       const toMembers = (rows: any[] | null, cohort: Cohort): Member[] =>
         (rows || []).filter(r => r.is_active !== false && r.circle_id)
-          .map(r => ({ key: `${cohort}:${r.id}`, id: r.id, cohort, full_name: r.full_name, circle_id: r.circle_id, room_id: r.room_id ?? null }));
+          .map(r => ({
+            key: `${cohort}:${r.id}`, id: r.id, cohort, full_name: r.full_name,
+            circle_id: r.circle_id, room_id: r.room_id ?? null,
+            // النصاب للطالبات المقبولات فقط؛ المرافقات/المبتدئات بلا نصاب مطلوب.
+            registered: cohort === 'student' && r.admission_status === 'registered',
+          }));
       setMembers([
         ...toMembers(stRes.data, 'student'),
         ...toMembers(coRes.data, 'companion'),
@@ -235,9 +243,11 @@ export default function DailyReportPage() {
       const present = hasAtt && [...statuses].some(s => PRESENTISH.has(s));
       const absent = hasAtt && !present;
       const attPct = present ? 100 : 0;
-      // أيام الفترة الصباحية فقط: نصاب اليوم يُحتسب 50٪ (لا يمسّ حلقات الحرم).
-      const target = sponsor ? rec.pages : (dailyNisab(juz) ?? 0) * nisabDayFactor(date);
-      const hasTarget = sponsor ? rec.pages > 0 : (dailyNisab(juz) ?? 0) > 0;
+      // مطابقة اللوحة: النصاب المطلوب للطالبات المقبولات فقط (المرافقات/المبتدئات وغير
+      // المقبولات لا نصاب لهنّ، لكن صفحاتهنّ تبقى ضمن «المنجزة»). أيام الفترة الصباحية = 50٪.
+      const nisabEligible = m.registered && juz > 0;
+      const target = sponsor ? rec.pages : (nisabEligible ? (dailyNisab(juz) ?? 0) * nisabDayFactor(date) : 0);
+      const hasTarget = sponsor ? rec.pages > 0 : (nisabEligible && (dailyNisab(juz) ?? 0) > 0);
       const hifzPct = sponsor ? 100 : (target > 0 ? (rec.pages / target) * 100 : 0);
       const weighted = weightedPercent({
         juzCount: sponsor ? 30 : juz, attendancePct: attPct, hifzPct, thabitPct: rec.thabit ? 100 : 0,
