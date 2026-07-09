@@ -40,6 +40,16 @@ function matches(label: string, search: string): boolean {
     .every(token => norm.includes(token));
 }
 
+/** Lower = better. Exact match first, then prefix, then everything else —
+ *  so a one-letter query like «ق» surfaces surah ق above البقرة/الطلاق/الفلق. */
+function matchRank(label: string, search: string): number {
+  const norm = normalizeText(label);
+  const q = normalizeText(search).replace(/[\s|،,]+/g, ' ').trim();
+  if (norm === q) return 0;
+  if (norm.startsWith(q)) return 1;
+  return 2;
+}
+
 interface SearchableSelectProps {
   options: SearchableSelectOption[];
   value: string;
@@ -71,7 +81,11 @@ export function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const allFiltered = search.trim()
-    ? options.filter(o => matches(o.label, search))
+    ? options
+        .filter(o => matches(o.label, search))
+        .map((o, i) => ({ o, i, r: matchRank(o.label, search) }))
+        .sort((a, b) => a.r - b.r || a.i - b.i) // rank first, stable within rank
+        .map(x => x.o)
     : options;
   const truncated = maxVisible != null && allFiltered.length > maxVisible;
   const filtered = truncated ? allFiltered.slice(0, maxVisible) : allFiltered;
