@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
-import { dailyNisab } from '@/lib/program-target';
+import { dailyNisab, nisabDayFactor } from '@/lib/program-target';
 import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 import { type HaramFilter } from '@/lib/harvest';
 import { Cohort, COHORTS, cohortSubjectColumn } from '@/lib/cohorts';
@@ -235,7 +235,8 @@ export default function DailyReportPage() {
       const present = hasAtt && [...statuses].some(s => PRESENTISH.has(s));
       const absent = hasAtt && !present;
       const attPct = present ? 100 : 0;
-      const target = sponsor ? rec.pages : (dailyNisab(juz) ?? 0);
+      // أيام الفترة الصباحية فقط: نصاب اليوم يُحتسب 50٪ (لا يمسّ حلقات الحرم).
+      const target = sponsor ? rec.pages : (dailyNisab(juz) ?? 0) * nisabDayFactor(date);
       const hasTarget = sponsor ? rec.pages > 0 : (dailyNisab(juz) ?? 0) > 0;
       const hifzPct = sponsor ? 100 : (target > 0 ? (rec.pages / target) * 100 : 0);
       const weighted = weightedPercent({

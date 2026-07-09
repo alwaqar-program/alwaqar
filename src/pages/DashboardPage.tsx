@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DailyFollowUp from '@/components/DailyFollowUp';
-import { dailyNisab } from '@/lib/program-target';
+import { dailyNisab, nisabDayFactor, nisabRangeFactorSum } from '@/lib/program-target';
 import { splitHarvest, type HaramFilter } from '@/lib/harvest';
 import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
@@ -227,13 +227,16 @@ export default function DashboardPage() {
 
   const daily = useMemo(() => {
     const rows = recRows.filter(r => r.date === dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired, haramFilter);
+    // أيام الفترة الصباحية فقط: نصاب اليوم يُحتسب 50٪.
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * nisabDayFactor(dayDate), haramFilter);
     return computeHarvest(completed, required);
   }, [recRows, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
 
   const cumulative = useMemo(() => {
     const rows = recRows.filter(r => r.date >= startDate && r.date <= dayDate);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * day, haramFilter);
+    // الأيام الصباحية فقط داخل المدى تُخصم 0.5 من إجمالي الأيام المطلوبة.
+    const effectiveDays = nisabRangeFactorSum(startDate, dayDate, day);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * effectiveDays, haramFilter);
     return computeHarvest(completed, required);
   }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, haramFilter]);
 
