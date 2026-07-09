@@ -100,15 +100,32 @@ export default function DashboardPage() {
       ]);
       setStats({ circles: c.count || 0, teachers: t.count || 0, students: s.count || 0 });
 
+      // جلب كل صفوف التسميع بالترقيم — Supabase يحدّ الاستجابة بـ١٠٠٠ صف افتراضياً،
+      // فبدون ترقيم تُفقَد الأيام الأحدث بعد تجاوز الدورة ١٠٠٠ تسميع (تُصفَّر الحصيلة اليومية).
+      const fetchAllRecitation = async () => {
+        const PAGE = 1000;
+        const all: { date: string | null; pages_recited: number | null; circle_id: string | null }[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from('recitation_log').select('date, pages_recited, circle_id')
+            .eq('is_deleted', false).order('date', { ascending: true })
+            .range(from, from + PAGE - 1);
+          if (error || !data || data.length === 0) break;
+          all.push(...(data as any));
+          if (data.length < PAGE) break;
+        }
+        return all;
+      };
+
       // --- Required pages: Σ each active+registered student's branch.expected_daily_pages ---
-      const [studRes, circRes, branchRes, recRes] = await Promise.all([
+      const [studRes, circRes, branchRes, recData] = await Promise.all([
         supabase.from('students').select('circle_id')
           .eq('is_active', true).eq('admission_status', 'registered'),
         supabase.from('circles').select('id, branch_id, circle_type').eq('is_active', true),
         supabase.from('branches')
           .select('id, branch_name, juz_count, expected_daily_pages, program_start_date, program_end_date')
           .eq('is_active', true),
-        supabase.from('recitation_log').select('date, pages_recited, circle_id').eq('is_deleted', false),
+        fetchAllRecitation(),
       ]);
 
       const circleToBranch = new Map((circRes.data || []).map(c => [c.id, c.branch_id]));
@@ -136,7 +153,7 @@ export default function DashboardPage() {
       setDailyRequired(reqPerDay);
       setTargetBreakdown(breakdown);
 
-      const recs = (recRes.data || []).map(r => ({
+      const recs = recData.map(r => ({
         date: r.date as string,
         pages: r.pages_recited || 0,
         circleId: (r.circle_id as string | null) ?? null,
