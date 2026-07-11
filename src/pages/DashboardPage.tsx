@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DailyFollowUp from '@/components/DailyFollowUp';
-import { dailyNisab, nisabDayFactor, nisabRangeFactorSum } from '@/lib/program-target';
+import { dailyNisab, nisabDayFactor, nisabWorkingDaysSum } from '@/lib/program-target';
 import { splitHarvest, type HaramFilter } from '@/lib/harvest';
 import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 
@@ -64,7 +64,8 @@ const computeHarvest = (completed: number, required: number): HarvestMetrics => 
   completed,
   juz: completed / PAGES_PER_JUZ,
   khatma: completed / PAGES_PER_KHATMA,
-  pct: required > 0 ? (completed / required) * 100 : 0,
+  // مطلوب = 0 (إجازة/لا مستهدف) ⇒ لا نقص، النسبة 100٪ بدل صفر مُضلِّل.
+  pct: required > 0 ? (completed / required) * 100 : 100,
 });
 
 export default function DashboardPage() {
@@ -234,11 +235,14 @@ export default function DashboardPage() {
 
   const cumulative = useMemo(() => {
     const rows = recRows.filter(r => r.date >= startDate && r.date <= dayDate);
-    // الأيام الصباحية فقط داخل المدى تُخصم 0.5 من إجمالي الأيام المطلوبة.
-    const effectiveDays = nisabRangeFactorSum(startDate, dayDate, day);
-    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * effectiveDays, haramFilter);
+    // «أيام العمل» فقط: تُستبعد الجُمَع (إجازة) وتُخصم 0.5 لأيام الفترة الصباحية.
+    const workingDays = nisabWorkingDaysSum(startDate, dayDate);
+    const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * workingDays, haramFilter);
     return computeHarvest(completed, required);
-  }, [recRows, startDate, dayDate, dailyRequired, day, sponsorCircleIds, haramFilter]);
+  }, [recRows, startDate, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
+
+  // يوم الجمعة إجازة: لا مستهدف لليوم المختار (لا نُظهر نقصاً وهمياً).
+  const dayOff = useMemo(() => nisabDayFactor(dayDate) === 0, [dayDate]);
 
   const summaryCards = [
     { label: 'عدد الطالبات', value: stats.students, icon: <Users size={22} />, color: 'text-success' },
@@ -347,7 +351,7 @@ export default function DashboardPage() {
 
       {/* Daily harvest */}
       <HarvestSection
-        title={`حصيلة يوم ${hijri(dayDate)}`}
+        title={`حصيلة يوم ${hijri(dayDate)}${dayOff ? ' — إجازة (الجمعة)' : ''}`}
         metrics={daily}
         loading={loading}
       />

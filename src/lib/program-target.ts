@@ -22,17 +22,34 @@ export function dailyNisab(juzCount: number | null | undefined): number | null {
 // انقضاء اليوم بحذف التاريخ من المجموعة. التواريخ بصيغة YYYY-MM-DD.
 export const HALF_NISAB_DATES = new Set<string>(['2026-07-09']);
 
-/** معامل نصاب اليوم: 0.5 في أيام الفترة الصباحية فقط، وإلا 1. */
+const FRIDAY = 5; // الجمعة إجازة أسبوعية بلا نصاب مطلوب
+
+/**
+ * معامل نصاب اليوم:
+ *   0   يوم الجمعة (إجازة، لا مستهدف)،
+ *   0.5 أيام الفترة الصباحية فقط،
+ *   1   بقية أيام العمل.
+ */
 export function nisabDayFactor(date: string): number {
+  if (new Date(date + 'T00:00:00').getDay() === FRIDAY) return 0;
   return HALF_NISAB_DATES.has(date) ? 0.5 : 1;
 }
 
+// اليوم التالي بصيغة YYYY-MM-DD (بحساب محلي، متوافق مع تخزين التواريخ في النظام).
+function nextDay(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
- * مجموع معاملات النصاب عبر مدى أيام [start..end] بطول days يوماً.
- * كل يوم استثنائي داخل المدى يُحتسب 0.5 بدل 1 (تُخصم 0.5 من الإجمالي).
+ * مجموع معاملات النصاب («أيام العمل») عبر المدى [start..end] شاملاً الطرفين.
+ * تُستبعد الجُمَع (إجازة = 0)، ويوم الفترة الصباحية يُحتسب 0.5، وبقية الأيام 1.
+ * يُستخدم لمقام «الحصيلة التراكمية» فلا تُحتسب الجُمَع ضمن المطلوب.
  */
-export function nisabRangeFactorSum(start: string, end: string, days: number): number {
-  let halfDays = 0;
-  for (const d of HALF_NISAB_DATES) if (d >= start && d <= end) halfDays++;
-  return days - 0.5 * halfDays;
+export function nisabWorkingDaysSum(start: string, end: string): number {
+  if (!start || !end || end < start) return 0;
+  let sum = 0;
+  for (let d = start; d <= end; d = nextDay(d)) sum += nisabDayFactor(d);
+  return sum;
 }
