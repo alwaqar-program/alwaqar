@@ -14,6 +14,7 @@ import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { allVerseOptions, verseOptionsInRange, parseVerseKey, globalIndexOfKey, pageOfVerse } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { isSponsor } from '@/lib/circle-type';
+import { examTypeForDate, EXAM_TYPE_LABEL } from '@/lib/exam-schedule';
 
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
@@ -30,12 +31,14 @@ interface Person { id: string; full_name: string; kind: Cohort; from_surah: stri
 // الدرجة /20 والتقدير يُحسبان في قاعدة البيانات ويُعرضان للمشرفات فقط —
 // لا يظهران للمعلمة هنا.
 
-export function RecitationForm({ session }: { session: TeacherSession }) {
+export function RecitationForm({ session, enableExam = false }: { session: TeacherSession; enableExam?: boolean }) {
   const { toast } = useToast();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
   // حلقات الحرم لا تتبع النِّصاب: تُخفى حقول (زيادة/تثبيت/حفظ) ولا تُشترط.
   const sponsor = isSponsor(circle.circle_type);
+  // نوع الاختبار المجدول لهذا اليوم (فقط إذا كان الاختبار مُفعّلاً — الرابط العام).
+  const examType = enableExam ? examTypeForDate(date) : null;
 
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [branchJuz, setBranchJuz] = useState<number[]>([]);
@@ -55,6 +58,27 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
   const [thabit, setThabit] = useState(false);
   const [hifz, setHifz] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // وضع الإدخال بعد اختيار الطالبة: تسميع (افتراضي) أو اختبار (طالبات فقط، في يوم اختبار مُفعّل).
+  const [entryMode, setEntryMode] = useState<'recitation' | 'exam'>('recitation');
+  const [segmentChange, setSegmentChange] = useState(false); // تغيير المقطع (اختبار)
+  const [examDone, setExamDone] = useState<Set<string>>(new Set()); // مفاتيح student_id-exam_type المسجَّلة
+
+  // تحميل الاختبارات المسجَّلة مسبقاً لطالبات الحلقة (حارس التكرار) — للاختبار فقط.
+  useEffect(() => {
+    if (!enableExam || students.length === 0) { setExamDone(new Set()); return; }
+    supabase.from('exams').select('student_id, exam_type').eq('is_deleted', false)
+      .in('student_id', students.map(s => s.id))
+      .then(({ data }) => setExamDone(new Set((data || []).map(e => `${e.student_id}-${e.exam_type}`))));
+  }, [enableExam, students]);
+
+  // الاختبار للطالبات فقط: أي فئة أخرى تُجبَر على وضع التسميع.
+  useEffect(() => { if (cohort !== 'student') setEntryMode('recitation'); }, [cohort]);
+  // تصفير عدّادات الأخطاء/اللحون/تغيير المقطع عند تبديل الوضع أو الطالبة.
+  useEffect(() => { setErrorCount(0); setLahnCount(0); setSegmentChange(false); }, [entryMode, selected]);
+
+  const canExam = enableExam && cohort === 'student';
+  const isExamDup = entryMode === 'exam' && !!selected && !!examType && examDone.has(`${selected}-${examType}`);
 
   useEffect(() => {
     supabase.from('mushaf_reference').select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end').order('sort_order')
@@ -184,6 +208,33 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
     setSaving(false);
   };
 
+  // حفظ الاختبار: نفس منطق صفحة الاختبار (exams) — النوع مثبَّت حسب يوم الاختبار،
+  // والدرجة/التقدير يُحسبان في قاعدة البيانات ولا يظهران للمسجِّلة (أخطاء + لحون + تغيير مقطع فقط).
+  const saveExam = async () => {
+    if (!selected) { toast({ title: 'تنبيه', description: 'اختاري الطالبة', variant: 'destructive' }); return; }
+    if (!examType) { toast({ title: 'تنبيه', description: 'لا يوجد اختبار مجدول في هذا اليوم', variant: 'destructive' }); return; }
+    if (isExamDup) { toast({ title: 'تنبيه', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
+    setSaving(true);
+    const { error } = await supabase.from('exams').insert({
+      student_id: selected, exam_type: examType, date,
+      errors_section_1: errorCount, // عدد الأخطاء
+      errors_section_2: lahnCount,  // عدد اللحون (يخصم ربع درجة مثل الخطأ)
+      errors_section_3: 0,
+      errors_section_4: 0,
+      segment_changes: segmentChange ? 1 : 0,
+      examiner_name: teacher.teacher_name,
+      recorded_by: teacher.teacher_name, // سجل: من أدخلت الاختبار
+      // total_errors, total_score, max_score are computed by the database
+    });
+    if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    else {
+      toast({ title: 'تم تسجيل الاختبار' });
+      setExamDone(prev => new Set(prev).add(`${selected}-${examType}`));
+      setErrorCount(0); setLahnCount(0); setSegmentChange(false); setSelected('');
+    }
+    setSaving(false);
+  };
+
   const cohortChips = (
     <div className="flex rounded-md border border-border overflow-hidden text-sm">
       {COHORTS.map(k => (
@@ -269,7 +320,55 @@ export function RecitationForm({ session }: { session: TeacherSession }) {
       </Card>
       )}
 
-      {selectedStudent && (
+      {/* بعد اختيار الطالبة: اختاري تسميع أو اختبار (طالبات فقط، الرابط العام). */}
+      {selectedStudent && canExam && (
+        <div className="flex rounded-md border border-border overflow-hidden text-sm w-fit">
+          {([['recitation', 'التسميع'], ['exam', 'الاختبار']] as ['recitation' | 'exam', string][]).map(([m, label]) => (
+            <button key={m} type="button" onClick={() => setEntryMode(m)}
+              className={`px-4 h-10 transition-colors ${entryMode === m ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedStudent && entryMode === 'exam' && (
+        <Card>
+          <CardContent className="pt-4 space-y-4">
+            <p className="font-medium text-sm">تسجيل اختبار — {selectedStudent.full_name}</p>
+            {examType ? (
+              <>
+                <div className="text-sm bg-muted/50 p-2 rounded">
+                  اختبار اليوم: <strong>{EXAM_TYPE_LABEL[examType] ?? examType}</strong>
+                </div>
+                {isExamDup && (
+                  <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
+                    <AlertCircle size={16} /> سجّلت هذه الطالبة هذا الاختبار مسبقاً
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label className="text-xs">عدد الأخطاء</Label>
+                    <NumberStepper value={errorCount} onChange={setErrorCount} /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">عدد اللحون</Label>
+                    <NumberStepper value={lahnCount} onChange={setLahnCount} /></div>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={segmentChange} onCheckedChange={v => setSegmentChange(!!v)} />
+                  غيّرت المقطع (مسموح مرة واحدة فقط)
+                </label>
+                {/* الدرجة والتقدير يُحسبان في النظام ويظهران للمشرفات فقط */}
+                <Button onClick={saveExam} disabled={saving || isExamDup} className="w-full">{saving ? 'جارٍ الحفظ…' : 'حفظ الاختبار'}</Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded">
+                لا يوجد اختبار مجدول في هذا اليوم. أيام الاختبارات: ١١ / ١٨ / ٢٢ يوليو — عدّلي التاريخ في الأعلى.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedStudent && entryMode === 'recitation' && (
         <Card>
           <CardContent className="pt-4 space-y-4">
             <p className="font-medium text-sm">تسجيل تسميع — {selectedStudent.full_name}</p>
