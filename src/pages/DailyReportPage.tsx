@@ -267,7 +267,8 @@ export default function DailyReportPage() {
     const withTarget = rows.filter(r => r.hasTarget || r.sponsor);
     const doneCount = rows.filter(r => r.done === true).length;
     const presentCount = rows.filter(r => r.present).length;
-    const pct = required > 0 ? (completed / required) * 100 : 0;
+    // مطلوب = 0 (جمعة/إجازة أو لا مستهدف) ⇒ لا نقص، النسبة 100٪ بدل صفر مُضلِّل.
+    const pct = required > 0 ? (completed / required) * 100 : 100;
 
     const byBranch = branches.map(b => {
       const rs = rows.filter(r => circleById.get(r.circle_id || '')?.branch_id === b.id);
