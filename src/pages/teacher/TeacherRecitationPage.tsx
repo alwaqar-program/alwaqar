@@ -59,25 +59,17 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
   const [hifz, setHifz] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // وضع الإدخال بعد اختيار الطالبة: تسميع (افتراضي) أو اختبار (طالبات فقط، في يوم اختبار مُفعّل).
+  // وضع الإدخال بعد اختيار الشخص: تسميع (افتراضي) أو اختبار (كل الفئات، في يوم اختبار مُفعّل).
   const [entryMode, setEntryMode] = useState<'recitation' | 'exam'>('recitation');
   const [segmentChange, setSegmentChange] = useState(false); // تغيير المقطع (اختبار)
-  const [examDone, setExamDone] = useState<Set<string>>(new Set()); // مفاتيح student_id-exam_type المسجَّلة
+  const [examDone, setExamDone] = useState<Set<string>>(new Set()); // مفاتيح subjectId-exam_type المسجَّلة
 
-  // تحميل الاختبارات المسجَّلة مسبقاً لطالبات الحلقة (حارس التكرار) — للاختبار فقط.
-  useEffect(() => {
-    if (!enableExam || students.length === 0) { setExamDone(new Set()); return; }
-    supabase.from('exams').select('student_id, exam_type').eq('is_deleted', false)
-      .in('student_id', students.map(s => s.id))
-      .then(({ data }) => setExamDone(new Set((data || []).map(e => `${e.student_id}-${e.exam_type}`))));
-  }, [enableExam, students]);
-
-  // خيار الاختبار متاح فقط: على الرابط العام + للطالبات + في يوم اختبار مجدول.
-  const canExam = enableExam && cohort === 'student' && !!examType;
+  // خيار الاختبار متاح على الرابط العام في يوم اختبار مجدول — لكل الفئات (طالبات/مرافقات/مبتدئات).
+  const canExam = enableExam && !!examType;
   // الوضع الفعّال: لا يُسمح بوضع الاختبار إلا حين يكون متاحاً (وإلا تسميع).
   const effectiveMode: 'recitation' | 'exam' = canExam ? entryMode : 'recitation';
 
-  // إن لم يكن الاختبار متاحاً (فئة غير الطالبات أو يوم بلا اختبار) أعِدي الوضع للتسميع.
+  // إن لم يكن الاختبار متاحاً (يوم بلا اختبار) أعِدي الوضع للتسميع.
   useEffect(() => { if (!canExam) setEntryMode('recitation'); }, [canExam]);
   // تصفير عدّادات الأخطاء/اللحون/تغيير المقطع عند تبديل الوضع أو الطالبة.
   useEffect(() => { setErrorCount(0); setLahnCount(0); setSegmentChange(false); }, [entryMode, selected]);
@@ -128,6 +120,15 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
 
   // Match the absent-guard by the selected cohort's subject column.
   const col = cohortSubjectColumn(cohort);
+
+  // تحميل الاختبارات المسجَّلة مسبقاً لأشخاص الفئة الحالية (حارس التكرار) — مفاتيح بمعرّف الشخص.
+  useEffect(() => {
+    if (!enableExam) { setExamDone(new Set()); return; }
+    const ids = shownPeople.map(p => p.id);
+    if (ids.length === 0) { setExamDone(new Set()); return; }
+    supabase.from('exams').select(`${col}, exam_type`).eq('is_deleted', false).in(col, ids)
+      .then(({ data }) => setExamDone(new Set((data || []).map((e: any) => `${e[col]}-${e.exam_type}`))));
+  }, [enableExam, shownPeople, col]);
 
   const refreshDay = async () => {
     if (shownPeople.length === 0) { setTodayRecs([]); setAbsentIds(new Set()); return; }
@@ -215,12 +216,12 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
   // حفظ الاختبار: نفس منطق صفحة الاختبار (exams) — النوع مثبَّت حسب يوم الاختبار،
   // والدرجة/التقدير يُحسبان في قاعدة البيانات ولا يظهران للمسجِّلة (أخطاء + لحون + تغيير مقطع فقط).
   const saveExam = async () => {
-    if (!selected) { toast({ title: 'تنبيه', description: 'اختاري الطالبة', variant: 'destructive' }); return; }
+    if (!selected) { toast({ title: 'تنبيه', description: `اختاري ال${cohortLabel(cohort)}`, variant: 'destructive' }); return; }
     if (!examType) { toast({ title: 'تنبيه', description: 'لا يوجد اختبار مجدول في هذا اليوم', variant: 'destructive' }); return; }
-    if (isExamDup) { toast({ title: 'تنبيه', description: 'سجّلت هذه الطالبة هذا الاختبار مسبقاً', variant: 'destructive' }); return; }
+    if (isExamDup) { toast({ title: 'تنبيه', description: `سجّلت هذه ال${cohortLabel(cohort)} هذا الاختبار مسبقاً`, variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('exams').insert({
-      student_id: selected, exam_type: examType, date,
+      ...subjectPayload(cohort, selected), exam_type: examType, date,
       errors_section_1: errorCount, // عدد الأخطاء
       errors_section_2: lahnCount,  // عدد اللحون (يخصم ربع درجة مثل الخطأ)
       errors_section_3: 0,
@@ -350,7 +351,7 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
             </div>
             {isExamDup && (
               <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
-                <AlertCircle size={16} /> سجّلت هذه الطالبة هذا الاختبار مسبقاً
+                <AlertCircle size={16} /> سجّلت هذه ال{cohortLabel(cohort)} هذا الاختبار مسبقاً
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

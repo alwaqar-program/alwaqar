@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { CircleType, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { Cohort, COHORTS, COHORT_PLURAL, cohortLabel, subjectPayload } from '@/lib/cohorts';
 
 const examTypes: Record<string, string> = {
   weekly_1: 'الأسبوع الأول',
@@ -64,7 +65,8 @@ const gradeColors: Record<string, string> = {
 };
 
 const examCsvColumns: CsvColumnDef[] = [
-  { key: 'students', header: 'الطالبة', transform: v => v?.full_name || '' },
+  { key: 'subject_name', header: 'الاسم' },
+  { key: 'cohort_label', header: 'الفئة' },
   { key: 'exam_type', header: 'النوع', transform: v => examTypes[v as string] || v },
   { key: 'date', header: 'التاريخ' },
   { key: 'errors_section_1', header: 'عدد الأخطاء' },
@@ -76,17 +78,22 @@ const examCsvColumns: CsvColumnDef[] = [
   { key: 'recorded_by', header: 'سجّلها' },
 ];
 
-interface Student {
+interface Person {
   id: string;
   full_name: string;
   circle_id: string | null;
+  kind: Cohort;
 }
 
 interface Circle { id: string; circle_name: string; circle_type: string; }
 
+type SubjectJoin = { full_name: string; circle_id: string | null } | null;
+
 interface Exam {
   id: string;
-  student_id: string;
+  student_id: string | null;
+  companion_id: string | null;
+  beginner_id: string | null;
   exam_type: string;
   date: string;
   errors_section_1: number | null;
@@ -99,8 +106,17 @@ interface Exam {
   max_score: number | null;
   examiner_name: string | null;
   recorded_by: string | null;
-  students?: { full_name: string; circle_id: string | null } | null;
+  students?: SubjectJoin;
+  companions?: SubjectJoin;
+  beginners?: SubjectJoin;
 }
+
+// من هو صاحب الاختبار (طالبة/مرافقة/مبتدئة) — أيّاً كان عمود الفاعل المعبّأ.
+const examSubject = (e: Exam): { id: string; kind: Cohort; name: string; circle_id: string | null } => {
+  if (e.companion_id) return { id: e.companion_id, kind: 'companion', name: e.companions?.full_name || '', circle_id: e.companions?.circle_id ?? null };
+  if (e.beginner_id) return { id: e.beginner_id, kind: 'beginner', name: e.beginners?.full_name || '', circle_id: e.beginners?.circle_id ?? null };
+  return { id: e.student_id || '', kind: 'student', name: e.students?.full_name || '', circle_id: e.students?.circle_id ?? null };
+};
 
 export default function ExamsPage() {
   const { toast } = useToast();
@@ -108,22 +124,25 @@ export default function ExamsPage() {
   // من أدخل السجل — يظهر في اللوق أنه مدير النظام
   const adminName = user?.email ? `مدير النظام (${user.email})` : 'مدير النظام';
   const [exams, setExams] = useState<Exam[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [coverageCircle, setCoverageCircle] = useState('');
   const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
+  const [coverageCohort, setCoverageCohort] = useState<'' | Cohort>('');
   // فلاتر تبويب «السجل» (مستقلة عن تبويب التغطية).
   const [logCircle, setLogCircle] = useState('');
   const [logCircleType, setLogCircleType] = useState<'' | CircleType>('');
+  const [logCohort, setLogCohort] = useState<'' | Cohort>('');
   const [logType, setLogType] = useState<'' | string>('');
   const [logSearch, setLogSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [existingExams, setExistingExams] = useState<Set<string>>(new Set());
 
-  // errors_section_1 = عدد الأخطاء، errors_section_2 = عدد اللحون (كلٌّ يخصم ربع درجة)
+  // subject_id = معرّف الطالبة/المرافقة/المبتدئة حسب cohort. errors_section_1 = الأخطاء، _2 = اللحون.
   const emptyForm = {
-    student_id: '',
+    cohort: 'student' as Cohort,
+    subject_id: '',
     exam_type: 'weekly_1' as string,
     errors_section_1: 0,
     errors_section_2: 0,
@@ -136,31 +155,42 @@ export default function ExamsPage() {
   const { sortKey, sortDir, toggleSort } = useTableSort();
 
   const fetchData = async () => {
-    const [exRes, stRes, cRes] = await Promise.all([
-      supabase.from('exams').select('*, students(full_name, circle_id)').eq('is_deleted', false).order('date', { ascending: false }),
+    const [exRes, stRes, coRes, beRes, cRes] = await Promise.all([
+      supabase.from('exams')
+        .select('*, students(full_name, circle_id), companions(full_name, circle_id), beginners(full_name, circle_id)')
+        .eq('is_deleted', false).order('date', { ascending: false }),
       supabase.from('students').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
+      supabase.from('companions').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
+      supabase.from('beginners').select('id, full_name, circle_id').eq('is_active', true).order('full_name'),
       supabase.from('circles').select('id, circle_name, circle_type').eq('is_active', true),
     ]);
     if (exRes.error) toast({ title: 'خطأ', description: exRes.error.message, variant: 'destructive' });
     setExams(exRes.data || []);
-    setStudents(stRes.data || []);
+    const mk = (rows: any[] | null, kind: Cohort): Person[] =>
+      (rows || []).map(r => ({ id: r.id, full_name: r.full_name, circle_id: r.circle_id ?? null, kind }));
+    setPeople([...mk(stRes.data, 'student'), ...mk(coRes.data, 'companion'), ...mk(beRes.data, 'beginner')]);
     setCircles(sortCircles(cRes.data || []));
-    // Build existing exam keys
-    const keys = new Set((exRes.data || []).map(e => `${e.student_id}-${e.exam_type}`));
+    // مفاتيح التكرار: معرّف الفاعل + نوع الاختبار (أيّاً كانت الفئة).
+    const keys = new Set((exRes.data || []).map(e => `${examSubject(e).id}-${e.exam_type}`));
     setExistingExams(keys);
     setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  // Check for duplicate when student or exam type changes
+  // People of the currently-selected cohort in the new-exam dialog.
+  const formPeople = useMemo(() => people.filter(p => p.kind === form.cohort), [people, form.cohort]);
+  // Switching cohort clears the selected person (ids don't cross cohorts).
+  useEffect(() => { setForm(f => ({ ...f, subject_id: '' })); }, [form.cohort]);
+
+  // Check for duplicate when subject or exam type changes
   useEffect(() => {
-    if (form.student_id && form.exam_type) {
-      setDuplicateWarning(existingExams.has(`${form.student_id}-${form.exam_type}`));
+    if (form.subject_id && form.exam_type) {
+      setDuplicateWarning(existingExams.has(`${form.subject_id}-${form.exam_type}`));
     } else {
       setDuplicateWarning(false);
     }
-  }, [form.student_id, form.exam_type, existingExams]);
+  }, [form.subject_id, form.exam_type, existingExams]);
 
   const cfg = examConfig[form.exam_type] ?? { max: 100, sections: 3 };
   const totalErrors = form.errors_section_1 + form.errors_section_2; // أخطاء + لحون
@@ -177,17 +207,17 @@ export default function ExamsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.student_id) {
-      toast({ title: 'تنبيه', description: 'اختر الطالبة', variant: 'destructive' });
+    if (!form.subject_id) {
+      toast({ title: 'تنبيه', description: `اختر ال${cohortLabel(form.cohort)}`, variant: 'destructive' });
       return;
     }
     if (duplicateWarning) {
-      toast({ title: 'تنبيه', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
+      toast({ title: 'تنبيه', description: `هذه ال${cohortLabel(form.cohort)} أدت هذا الاختبار مسبقاً`, variant: 'destructive' });
       return;
     }
 
     const { error } = await supabase.from('exams').insert({
-      student_id: form.student_id,
+      ...subjectPayload(form.cohort, form.subject_id),
       exam_type: form.exam_type,
       errors_section_1: form.errors_section_1, // عدد الأخطاء
       errors_section_2: form.errors_section_2, // عدد اللحون
@@ -201,7 +231,7 @@ export default function ExamsPage() {
 
     if (error) {
       if (error.code === '23505') {
-        toast({ title: 'تنبيه', description: 'هذه الطالبة أدت هذا الاختبار مسبقاً', variant: 'destructive' });
+        toast({ title: 'تنبيه', description: `هذه ال${cohortLabel(form.cohort)} أدت هذا الاختبار مسبقاً`, variant: 'destructive' });
       } else {
         toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
       }
@@ -217,19 +247,19 @@ export default function ExamsPage() {
   const circleTypeOf = (id: string | null) => circles.find(c => c.id === id)?.circle_type;
 
   // ----- تبويب «السجل»: تصفية ثم فرز -----
-  const examCircleId = (e: Exam) => e.students?.circle_id ?? null;
   const filteredExams = useMemo(() => exams
     .filter(e => !logType || e.exam_type === logType)
-    .filter(e => !logCircle || examCircleId(e) === logCircle)
-    .filter(e => !logCircleType || circleTypeOf(examCircleId(e)) === logCircleType)
-    .filter(e => !logSearch || (e.students?.full_name || '').includes(logSearch)),
+    .filter(e => !logCohort || examSubject(e).kind === logCohort)
+    .filter(e => !logCircle || examSubject(e).circle_id === logCircle)
+    .filter(e => !logCircleType || circleTypeOf(examSubject(e).circle_id) === logCircleType)
+    .filter(e => !logSearch || examSubject(e).name.includes(logSearch)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [exams, logType, logCircle, logCircleType, logSearch, circles]);
+    [exams, logType, logCohort, logCircle, logCircleType, logSearch, circles]);
 
   const sortedExams = useMemo(() => {
     const acc: Record<string, (e: Exam) => unknown> = {
-      student: (e) => e.students?.full_name,
-      circle: (e) => circleName(examCircleId(e)),
+      student: (e) => examSubject(e).name,
+      circle: (e) => circleName(examSubject(e).circle_id),
       type: (e) => examTypes[e.exam_type],
       date: (e) => e.date,
       errors: (e) => e.errors_section_1,
@@ -247,23 +277,27 @@ export default function ExamsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredExams, sortKey, sortDir, circles]);
   const coverage = useMemo(() => {
-    const byStudent = new Map<string, Record<string, Exam>>();
+    // exams grouped by subject id (any cohort) → { exam_type: Exam }
+    const bySubject = new Map<string, Record<string, Exam>>();
     exams.forEach(e => {
-      if (!byStudent.has(e.student_id)) byStudent.set(e.student_id, {});
-      byStudent.get(e.student_id)![e.exam_type] = e;
+      const sid = examSubject(e).id;
+      if (!bySubject.has(sid)) bySubject.set(sid, {});
+      bySubject.get(sid)![e.exam_type] = e;
     });
-    return students
-      .filter(s => !coverageCircle || s.circle_id === coverageCircle)
-      .filter(s => !filterCircleType || circleTypeOf(s.circle_id) === filterCircleType)
-      .map(s => ({
-        id: s.id,
-        full_name: s.full_name,
-        circle_id: s.circle_id,
-        circle_name: circleName(s.circle_id),
-        types: byStudent.get(s.id) ?? {},
+    return people
+      .filter(p => !coverageCohort || p.kind === coverageCohort)
+      .filter(p => !coverageCircle || p.circle_id === coverageCircle)
+      .filter(p => !filterCircleType || circleTypeOf(p.circle_id) === filterCircleType)
+      .map(p => ({
+        id: p.id,
+        full_name: p.full_name,
+        kind: p.kind,
+        circle_id: p.circle_id,
+        circle_name: circleName(p.circle_id),
+        types: bySubject.get(p.id) ?? {},
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, exams, coverageCircle, filterCircleType, circles]);
+  }, [people, exams, coverageCohort, coverageCircle, filterCircleType, circles]);
   const missingCount = (t: string) => coverage.filter(r => !r.types[t]).length;
 
   // Coverage sorting — distinct keys (cov_*) so it never collides with the
@@ -282,13 +316,13 @@ export default function ExamsPage() {
   const [covPage, setCovPage] = useState(1);
   const covPageCount = Math.max(1, Math.ceil(sortedCoverage.length / PAGE_SIZE));
   const covSafePage = Math.min(covPage, covPageCount);
-  useEffect(() => { setCovPage(1); }, [coverageCircle, filterCircleType, sortKey, sortDir]);
+  useEffect(() => { setCovPage(1); }, [coverageCircle, filterCircleType, coverageCohort, sortKey, sortDir]);
   const pagedCoverage = sortedCoverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
 
   const [logPage, setLogPage] = useState(1);
   const logPageCount = Math.max(1, Math.ceil(sortedExams.length / PAGE_SIZE));
   const logSafePage = Math.min(logPage, logPageCount);
-  useEffect(() => { setLogPage(1); }, [sortKey, sortDir, logType, logCircle, logCircleType, logSearch]);
+  useEffect(() => { setLogPage(1); }, [sortKey, sortDir, logType, logCohort, logCircle, logCircleType, logSearch]);
   const pagedExams = sortedExams.slice((logSafePage - 1) * PAGE_SIZE, logSafePage * PAGE_SIZE);
 
   return (
@@ -299,7 +333,9 @@ export default function ExamsPage() {
           <p className="text-sm text-muted-foreground mt-1">تسجيل وعرض اختبارات التسميع</p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvActions data={exams} columns={examCsvColumns} tableName="exams" filename="exams" onImportComplete={fetchData} />
+          <CsvActions
+            data={exams.map(e => ({ ...e, subject_name: examSubject(e).name, cohort_label: cohortLabel(examSubject(e).kind) }))}
+            columns={examCsvColumns} tableName="exams" filename="exams" onImportComplete={fetchData} />
           <Button onClick={() => {
             setForm(emptyForm);
             setDialogOpen(true);
@@ -316,13 +352,24 @@ export default function ExamsPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label>الطالبة</Label>
+              <Label>الفئة</Label>
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                {COHORTS.map(k => (
+                  <button key={k} type="button" onClick={() => setForm(f => ({ ...f, cohort: k }))}
+                    className={`flex-1 px-3 h-10 transition-colors ${form.cohort === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    {COHORT_PLURAL[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{cohortLabel(form.cohort)}</Label>
               <SearchableSelect
-                options={students.map(s => ({ value: s.id, label: s.full_name }))}
-                value={form.student_id}
-                onValueChange={v => setForm(f => ({ ...f, student_id: v }))}
-                placeholder="اختر الطالبة"
-                searchPlaceholder="ابحث عن طالبة..."
+                options={formPeople.map(p => ({ value: p.id, label: p.full_name }))}
+                value={form.subject_id}
+                onValueChange={v => setForm(f => ({ ...f, subject_id: v }))}
+                placeholder={`اختر ال${cohortLabel(form.cohort)}`}
+                searchPlaceholder={`ابحث عن ${cohortLabel(form.cohort)}...`}
               />
             </div>
             <div className="space-y-2">
@@ -394,6 +441,14 @@ export default function ExamsPage() {
           <TabsContent value="coverage" className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                {([['', 'كل الفئات'], ...COHORTS.map(k => [k, COHORT_PLURAL[k]] as [Cohort, string])]).map(([value, label]) => (
+                  <button key={value || 'all'} type="button" onClick={() => setCoverageCohort(value as '' | Cohort)}
+                    className={`px-3 h-10 transition-colors ${coverageCohort === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
                 {CIRCLE_TYPE_FILTERS.map(([value, label]) => (
                   <button key={value || 'all'} type="button" onClick={() => setFilterCircleType(value as '' | CircleType)}
                     className={`px-3 h-10 transition-colors ${filterCircleType === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
@@ -426,7 +481,12 @@ export default function ExamsPage() {
                 <TableBody>
                   {pagedCoverage.map(r => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.full_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {r.full_name}
+                        {r.kind !== 'student' && (
+                          <Badge variant="secondary" className="mr-1.5 text-[10px]">{cohortLabel(r.kind)}</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {r.circle_name}
                         {circleTypeLabel(circleTypeOf(r.circle_id)) && (
@@ -457,8 +517,19 @@ export default function ExamsPage() {
           </TabsContent>
 
           <TabsContent value="log" className="space-y-4">
-            {/* فلاتر السجل — نوع الحلقة + نوع الاختبار + الحلقة + بحث */}
+            {/* فلاتر السجل — الفئة + نوع الحلقة + نوع الاختبار + الحلقة + بحث */}
             <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">الفئة</Label>
+                <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                  {([['', 'الكل'], ...COHORTS.map(k => [k, COHORT_PLURAL[k]] as [Cohort, string])]).map(([value, label]) => (
+                    <button key={value || 'all'} type="button" onClick={() => setLogCohort(value as '' | Cohort)}
+                      className={`px-3 h-10 transition-colors ${logCohort === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">نوع الحلقة</Label>
                 <div className="flex rounded-md border border-border overflow-hidden text-sm">
@@ -522,13 +593,19 @@ export default function ExamsPage() {
                   <TableBody>
                     {pagedExams.map(e => {
                       const grade = examGradeText(e.total_score, e.max_score);
+                      const subj = examSubject(e);
                       return (
                       <TableRow key={e.id}>
-                        <TableCell className="font-medium">{e.students?.full_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {subj.name}
+                          {subj.kind !== 'student' && (
+                            <Badge variant="secondary" className="mr-1.5 text-[10px]">{cohortLabel(subj.kind)}</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
-                          {circleName(examCircleId(e))}
-                          {circleTypeLabel(circleTypeOf(examCircleId(e))) && (
-                            <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(examCircleId(e)))}</Badge>
+                          {circleName(subj.circle_id)}
+                          {circleTypeLabel(circleTypeOf(subj.circle_id)) && (
+                            <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(subj.circle_id))}</Badge>
                           )}
                         </TableCell>
                         <TableCell><Badge variant="outline">{examTypes[e.exam_type]}</Badge></TableCell>
