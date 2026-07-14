@@ -28,6 +28,15 @@ const personKey = (r: any): string => r.student_id || r.companion_id || r.beginn
 // حدّ التمييز: 3 استئذانات فأكثر.
 const FREQUENT_LEAVE_THRESHOLD = 3;
 
+// فلتر عدد الاستئذانات: 1 / 2 / 3 / أكثر من 3.
+const countBucket = (cnt: number): string => (cnt > 3 ? '3+' : String(cnt));
+const countFilterOptions = [
+  { value: '1', label: 'استئذان واحد' },
+  { value: '2', label: 'استئذانان' },
+  { value: '3', label: '3 استئذانات' },
+  { value: '3+', label: 'أكثر من 3' },
+];
+
 const csvColumns: CsvColumnDef[] = [
   { key: 'student_name', header: 'الاسم' },
   { key: 'leave_type', header: 'نوع الإذن' },
@@ -44,6 +53,7 @@ export default function LeaveRequestsPage() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useUrlMultiFilter('type');
+  const [filterCount, setFilterCount] = useUrlMultiFilter('count');
 
   const [form, setForm] = useState({
     student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '',
@@ -73,9 +83,10 @@ export default function LeaveRequestsPage() {
     return requests.filter(r => {
       if (search && !subjectName(r).includes(search) && !r.reason?.includes(search)) return false;
       if (filterType.length > 0 && !filterType.includes(r.leave_type)) return false;
+      if (filterCount.length > 0 && !filterCount.includes(countBucket(leaveCounts.get(personKey(r)) || 0))) return false;
       return true;
     });
-  }, [requests, search, filterType]);
+  }, [requests, search, filterType, filterCount, leaveCounts]);
 
   const handleSubmit = async () => {
     if (!form.student_id || !form.leave_type) {
@@ -184,6 +195,14 @@ export default function LeaveRequestsPage() {
               values={filterType}
               onValuesChange={setFilterType}
               placeholder="كل الأنواع"
+              searchPlaceholder="ابحث..."
+            />
+            <MultiSearchableSelect
+              className="w-[160px]"
+              options={countFilterOptions}
+              values={filterCount}
+              onValuesChange={setFilterCount}
+              placeholder="عدد الاستئذانات"
               searchPlaceholder="ابحث..."
             />
           </div>
