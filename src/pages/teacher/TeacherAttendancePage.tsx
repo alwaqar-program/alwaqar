@@ -7,15 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ClipboardCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Save, ClipboardCheck, DoorOpen } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
+import { leaveTypes } from '@/lib/leave';
 
 const statusOptions = [
   { value: 'present', label: 'حاضرة', color: 'bg-success/10 text-success' },
   { value: 'absent', label: 'غائبة', color: 'bg-destructive/10 text-destructive' },
   { value: 'late', label: 'متأخرة', color: 'bg-warning/10 text-warning' },
-  { value: 'excused', label: 'مستأذنة', color: 'bg-info/10 text-info' },
   { value: 'exempted', label: 'معذورة', color: 'bg-accent/15 text-accent-foreground' },
 ];
 const lateReasons = [
@@ -38,6 +39,12 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [existing, setExisting] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+
+  // طلب استئذان لشخص واحد (مستقل عن حالة الحضور).
+  const [leaveFor, setLeaveFor] = useState<Person | null>(null);
+  const [leaveForm, setLeaveForm] = useState({ leave_type: '', reason: '' });
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveDone, setLeaveDone] = useState<Set<string>>(new Set());
 
   // كل الأشخاص في الحلقة: طالبات + مرافقات + مبتدئات.
   const people: Person[] = useMemo(() => [
@@ -119,6 +126,30 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
     setSaving(false);
   };
 
+  const openLeave = (p: Person) => { setLeaveFor(p); setLeaveForm({ leave_type: '', reason: '' }); };
+
+  const handleLeave = async () => {
+    if (!leaveFor) return;
+    if (!leaveForm.leave_type) {
+      toast({ title: 'تنبيه', description: 'اختاري نوع الإذن', variant: 'destructive' });
+      return;
+    }
+    setLeaveSaving(true);
+    const { error } = await supabase.from('leave_requests').insert({
+      ...subjectPayload(leaveFor.kind, leaveFor.id),
+      leave_type: leaveForm.leave_type,
+      reason: leaveForm.reason || null,
+      start_date: date, // تاريخ الحضور
+    });
+    if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    else {
+      toast({ title: `تم تسجيل استئذان ${leaveFor.full_name}` });
+      setLeaveDone(prev => new Set(prev).add(leaveFor.id));
+      setLeaveFor(null);
+    }
+    setLeaveSaving(false);
+  };
+
   const cohortChips = (
     <div className="flex rounded-md border border-border overflow-hidden text-sm">
       {COHORTS.map(k => (
@@ -164,9 +195,16 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
             const isEx = existing.has(s.id);
             return (
               <div key={s.id} className={`p-3 rounded-lg border space-y-2 ${isEx ? 'bg-muted/30 opacity-70' : ''}`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-sm">{s.full_name}</span>
-                  {isEx && <Badge variant="outline" className="text-xs">مسجّل</Badge>}
+                  <div className="flex items-center gap-2">
+                    {leaveDone.has(s.id) && <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/20">استئذان</Badge>}
+                    {isEx && <Badge variant="outline" className="text-xs">مسجّل</Badge>}
+                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-info hover:text-info"
+                      onClick={() => openLeave(s)}>
+                      <DoorOpen size={14} /> استئذان
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {statusOptions.map(opt => (
@@ -194,6 +232,31 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       <Button onClick={handleSave} disabled={saving} className="w-full">
         <Save size={18} /> {saving ? 'جارٍ الحفظ…' : 'حفظ الحضور'}
       </Button>
+
+      <Dialog open={!!leaveFor} onOpenChange={o => { if (!o) setLeaveFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>طلب استئذان — {leaveFor?.full_name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>نوع الإذن *</Label>
+              <SearchableSelect
+                options={leaveTypes.map(t => ({ value: t, label: t }))}
+                value={leaveForm.leave_type}
+                onValueChange={v => setLeaveForm(f => ({ ...f, leave_type: v }))}
+                placeholder="اختاري النوع" searchPlaceholder="ابحث…"
+              />
+            </div>
+            <div>
+              <Label>السبب</Label>
+              <Input value={leaveForm.reason} onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))} />
+            </div>
+            <p className="text-xs text-muted-foreground">التاريخ: {date}</p>
+            <Button onClick={handleLeave} disabled={leaveSaving} className="w-full">
+              {leaveSaving ? 'جارٍ الحفظ…' : 'تقديم الطلب'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

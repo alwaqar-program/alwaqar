@@ -27,6 +27,9 @@ import { CircleType, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-t
 const statusLabels: Record<string, string> = {
   present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
 };
+// الحالات القابلة للتسجيل الآن (بدون «مستأذنة» — استُبدلت بطلب استئذان مستقل).
+// «مستأذنة» يبقى في statusLabels لعرض السجلات القديمة فقط.
+const recordableStatuses: [string, string][] = Object.entries(statusLabels).filter(([v]) => v !== 'excused');
 const statusColors: Record<string, string> = {
   present: 'bg-success/10 text-success border-success/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
@@ -501,7 +504,7 @@ export default function AttendancePage() {
                           {entry.existingId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">مسجّلة — تعديل</span>}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {Object.entries(statusLabels).map(([value, label]) => (
+                          {recordableStatuses.map(([value, label]) => (
                             <button key={value} onClick={() => updateEntry(s.id, 'status', value)}
                               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                                 entry.status === value ? statusColors[value] + ' border-current' : 'bg-background border-border hover:bg-muted'}`}>
@@ -547,7 +550,7 @@ export default function AttendancePage() {
                 {date} ({period === 'morning' ? 'صباحي' : 'مسائي'}) — سيُسجَّل المدخِل: {adminName}
               </p>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(statusLabels).map(([value, label]) => (
+                {recordableStatuses.map(([value, label]) => (
                   <button key={value} type="button"
                     onClick={() => setRowEdit(re => re && ({ ...re, status: value }))}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${

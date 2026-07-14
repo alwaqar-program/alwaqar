@@ -298,6 +298,8 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          beginner_id: string | null
+          companion_id: string | null
           created_at: string
           end_date: string | null
           id: string
@@ -306,11 +308,13 @@ export type Database = {
           reason: string | null
           start_date: string
           status: string
-          student_id: string
+          student_id: string | null
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          beginner_id?: string | null
+          companion_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
@@ -319,11 +323,13 @@ export type Database = {
           reason?: string | null
           start_date?: string
           status?: string
-          student_id: string
+          student_id?: string | null
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          beginner_id?: string | null
+          companion_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
@@ -332,7 +338,7 @@ export type Database = {
           reason?: string | null
           start_date?: string
           status?: string
-          student_id?: string
+          student_id?: string | null
         }
         Relationships: [
           {
@@ -340,6 +346,20 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_companion_id_fkey"
+            columns: ["companion_id"]
+            isOneToOne: false
+            referencedRelation: "companions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_beginner_id_fkey"
+            columns: ["beginner_id"]
+            isOneToOne: false
+            referencedRelation: "beginners"
             referencedColumns: ["id"]
           },
         ]
