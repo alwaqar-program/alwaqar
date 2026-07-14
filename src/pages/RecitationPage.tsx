@@ -28,6 +28,8 @@ import {
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, isSponsor, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { nisabPeriodThreshold } from '@/lib/program-target';
+import { struggleInfo } from '@/lib/struggling';
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -62,8 +64,9 @@ const overviewCsvColumns: CsvColumnDef[] = [
 interface Person {
   id: string; full_name: string; circle_id: string | null; kind: Cohort;
   from_surah: string | null; to_surah: string | null;
+  registered: boolean; // طالبة مقبولة (النصاب/التعثّر يُحتسب لها فقط)
 }
-interface Circle { id: string; circle_name: string; circle_type: string; }
+interface Circle { id: string; circle_name: string; circle_type: string; branch_id: string | null; }
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
   juz_number: number; sort_order: number; verse_start: number; verse_end: number;
@@ -101,6 +104,8 @@ export default function RecitationPage() {
 
   const [people, setPeople] = useState<Person[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
+  // معرّف الحلقة ← عدد أجزاء فرعها (لحساب نصاب/تعثّر الطالبة).
+  const [circleJuz, setCircleJuz] = useState<Map<string, number>>(new Map());
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [recRows, setRecRows] = useState<RecRow[]>([]);
   const [attRows, setAttRows] = useState<AttRow[]>([]);
@@ -127,13 +132,14 @@ export default function RecitationPage() {
 
   useEffect(() => {
     const loadStatic = async () => {
-      const [stRes, coRes, beRes, cRes, mRes] = await Promise.all([
+      const [stRes, coRes, beRes, cRes, brRes, mRes] = await Promise.all([
         supabase.from('students')
-          .select('id, full_name, circle_id, from_surah, to_surah, is_active')
+          .select('id, full_name, circle_id, from_surah, to_surah, is_active, admission_status')
           .eq('is_active', true).order('full_name'),
         supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
-        supabase.from('circles').select('id, circle_name, circle_type').eq('is_active', true),
+        supabase.from('circles').select('id, circle_name, circle_type, branch_id').eq('is_active', true),
+        supabase.from('branches').select('id, juz_count'),
         supabase.from('mushaf_reference')
           .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
           .order('sort_order'),
@@ -144,13 +150,19 @@ export default function RecitationPage() {
           .map(r => ({
             id: r.id, full_name: r.full_name, circle_id: r.circle_id, kind,
             from_surah: r.from_surah ?? null, to_surah: r.to_surah ?? null,
+            // النصاب/التعثّر للطالبات المقبولات فقط (المرافقات/المبتدئات بلا نصاب).
+            registered: kind === 'student' && r.admission_status === 'registered',
           }));
       setPeople([
         ...merge(stRes.data, 'student'),
         ...merge(coRes.data, 'companion'),
         ...merge(beRes.data, 'beginner'),
       ]);
-      setCircles(sortCircles(cRes.data || []));
+      const circleRows = (cRes.data || []) as Circle[];
+      setCircles(sortCircles(circleRows));
+      // خريطة الحلقة ← نصاب الفرع (عدد الأجزاء) لحساب التعثّر.
+      const branchJuz = new Map((brRes.data || []).map((b: any) => [b.id, b.juz_count ?? 0]));
+      setCircleJuz(new Map(circleRows.map(c => [c.id, branchJuz.get(c.branch_id ?? '') ?? 0])));
       setMushafPages(mRes.data || []);
     };
     loadStatic();
@@ -181,6 +193,11 @@ export default function RecitationPage() {
     const col = cohortSubjectColumn(kind);
     return attRows.some(a => (a as any)[col] === personId && a.period === period && a.status === 'absent');
   };
+  // إجمالي صفحات اليوم (كل الفترات) — عتبة التعثّر تُقاس عليه (التوزيع بين الفترتين مرن).
+  const dayPages = (personId: string, kind: Cohort) => {
+    const col = cohortSubjectColumn(kind);
+    return recRows.filter(r => (r as any)[col] === personId).reduce((s, r) => s + (r.pages_recited || 0), 0);
+  };
 
   const fmtRange = (r: RecRow) => {
     const from = r.from_surah ? `${r.from_surah}${r.from_verse ? `|${r.from_verse}` : ''}` : '';
@@ -199,6 +216,12 @@ export default function RecitationPage() {
       .map(p => {
         const recs = recsFor(p.id, p.kind);
         const last = recs[recs.length - 1];
+        const absent = isAbsent(p.id, p.kind);
+        // التعثّر: للطالبات المقبولات فقط، مقيساً على إجمالي صفحات اليوم مقابل عتبة الفترة.
+        const juz = circleJuz.get(p.circle_id ?? '') ?? 0;
+        const eligible = p.kind === 'student' && p.registered && !isSponsor(circleTypeOf(p.circle_id)) && juz > 0;
+        const threshold = eligible ? nisabPeriodThreshold(juz, period, date) : 0;
+        const s = struggleInfo(dayPages(p.id, p.kind), threshold, absent);
         return {
           id: p.id,
           kind: p.kind,
@@ -215,20 +238,25 @@ export default function RecitationPage() {
           score: last?.score ?? '',
           grade: last?.grade ?? '',
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
-          absent: isAbsent(p.id, p.kind),
+          absent,
+          struggling: s.isStruggling,
+          deficit: s.deficit,
+          cause: s.cause,
           editRec: last ?? null, // آخر سجل تسميع (للتعديل)
           recs, // كل سجلات هذه الفترة (لحل التكرار)
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, recRows, attRows, period, filterCircle, filterCohort, filterCircleType, search, circles]);
+  }, [people, recRows, attRows, period, date, filterCircle, filterCohort, filterCircleType, search, circles, circleJuz]);
 
   const recitedCount = overviewAll.filter(r => r.recited).length;
   const notRecited = overviewAll.length - recitedCount;
+  const strugglingCount = overviewAll.filter(r => r.struggling).length;
 
   // Apply the clickable status filter on top of the other filters.
   const filteredOverview = useMemo(() => {
     if (!filterStatus) return overviewAll;
+    if (filterStatus === 'struggling') return overviewAll.filter(r => r.struggling);
     return overviewAll.filter(r => filterStatus === 'recited' ? r.recited : !r.recited);
   }, [overviewAll, filterStatus]);
 
@@ -481,6 +509,7 @@ export default function RecitationPage() {
         {([
           { key: 'recited', label: 'سمّعت', color: 'bg-success/10 text-success border-success/20', n: recitedCount },
           { key: 'notRecited', label: 'لم تُسمِّع', color: 'bg-destructive/10 text-destructive border-destructive/20', n: notRecited },
+          { key: 'struggling', label: 'متعثرة', color: 'bg-warning/10 text-warning border-warning/20', n: strugglingCount },
         ] as const).map(f => {
           const active = filterStatus === f.key;
           return (
@@ -512,6 +541,36 @@ export default function RecitationPage() {
             <BookOpen size={40} className="text-muted-foreground/30 mb-3" />
             <p className="text-muted-foreground">لا يوجد أعضاء مطابقون</p>
           </CardContent>
+        </Card>
+      ) : filterStatus === 'struggling' ? (
+        /* عرض مركّز للمتعثرات: مقدار العجز وسببه (يطابق جدول المتعثرات في التقرير) */
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <TableHead className="text-destructive">مقدار العجز</TableHead>
+                <TableHead>سبب العجز</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagedOverview.map(r => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">{r.full_name}</TableCell>
+                  <TableCell>
+                    {r.circle_name}
+                    {circleTypeLabel(circleTypeOf(r.circle_id)) && (
+                      <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(r.circle_id))}</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-bold text-destructive tabular-nums">{r.deficit.toLocaleString('ar-EG')}</TableCell>
+                  <TableCell className="text-sm">{r.cause}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination page={safePage} pageSize={PAGE_SIZE} total={overview.length} onPageChange={setPage} />
         </Card>
       ) : (
         <Card>
