@@ -53,3 +53,32 @@ export function nisabWorkingDaysSum(start: string, end: string): number {
   for (let d = start; d <= end; d = nextDay(d)) sum += nisabDayFactor(d);
   return sum;
 }
+
+export type Period = 'morning' | 'evening';
+
+// الحدّ الأدنى للفترة الصباحية = النصف الأصغر من النصاب اليومي. التوزيع مرن:
+// يمكن للطالبة أن تُسمِّع الحصّة الأكبر صباحاً أو مساءً، لكن المجموع اليومي ثابت.
+// (30ج: 20+20 · 20ج: 12/13 · 10أ: 6/6.5 · 5أ: 3+3) — نأخذ الأصغر كحدّ أدنى صباحي.
+const MORNING_MIN_BY_JUZ: Record<number, number> = {
+  30: 20,
+  20: 12,
+  10: 6,
+  5: 3,
+};
+
+/**
+ * عتبة «التعثّر» للفترة المختارة، تُقاس على إجمالي صفحات اليوم:
+ *   - الصباح: الحدّ الأدنى للنصف الصباحي (الباقي يمكن تأجيله للمساء)،
+ *   - المساء: النصاب اليومي الكامل (نهاية اليوم يجب بلوغ النصاب مجتمعاً).
+ * الجمعة إجازة ⇒ 0 (لا تعثّر). الفروع بلا نصاب (juz=0/غير معروف) ⇒ 0.
+ */
+export function nisabPeriodThreshold(
+  juzCount: number | null | undefined,
+  period: Period,
+  date: string,
+): number {
+  if (!juzCount || juzCount <= 0) return 0;
+  if (nisabDayFactor(date) === 0) return 0; // الجمعة إجازة
+  if (period === 'morning') return MORNING_MIN_BY_JUZ[juzCount] ?? 0;
+  return dailyNisab(juzCount) ?? 0; // المساء = النصاب اليومي الكامل
+}
