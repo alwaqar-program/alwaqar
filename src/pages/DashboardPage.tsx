@@ -73,6 +73,8 @@ export default function DashboardPage() {
 
   // Course harvest source data (fetched once, recomputed client-side by day).
   const [recRows, setRecRows] = useState<{ date: string; pages: number; circleId: string | null }[]>([]);
+  // تسميع المنسوبات (سجلّ منفصل) — يُحتسب في «الحصيلة التراكمية» فقط (المنجزة).
+  const [staffRecRows, setStaffRecRows] = useState<{ date: string; pages: number }[]>([]);
   const [dailyRequired, setDailyRequired] = useState(0);
   // معرّفات حلقات «الحرم» — في الحالة (state) لثبات الهوية ومنع إعادة الحساب في الـ memos.
   const [sponsorCircleIds, setSponsorCircleIds] = useState<Set<string>>(new Set());
@@ -168,6 +170,22 @@ export default function DashboardPage() {
       }));
       setRecRows(recs);
 
+      // --- تسميع المنسوبات (staff_recitation_log) — سجلّ منفصل يُضاف للحصيلة التراكمية ---
+      // متسامح مع عدم وجود الجدول (قبل تشغيل ترحيل 48): أي خطأ ⇒ لا صفوف، فلا تنكسر اللوحة.
+      try {
+        const staffAll: { date: string | null; pages_recited: number | null }[] = [];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await (supabase as any)
+            .from('staff_recitation_log').select('date, pages_recited')
+            .eq('is_deleted', false).order('date', { ascending: true })
+            .range(from, from + 999);
+          if (error || !data || data.length === 0) break;
+          staffAll.push(...data);
+          if (data.length < 1000) break;
+        }
+        setStaffRecRows(staffAll.map(r => ({ date: (r.date as string) || '', pages: Number(r.pages_recited) || 0 })));
+      } catch { setStaffRecRows([]); }
+
       // --- Course timeline ---
       const branches = branchRes.data || [];
       const startCandidates = branches.map(b => b.program_start_date).filter(Boolean) as string[];
@@ -237,8 +255,12 @@ export default function DashboardPage() {
     // «أيام العمل» فقط: تُستبعد الجُمَع (إجازة) وتُخصم 0.5 لأيام الفترة الصباحية.
     const workingDays = nisabWorkingDaysSum(startDate, dayDate);
     const { completed, required } = splitHarvest(rows, sponsorCircleIds, dailyRequired * workingDays, haramFilter);
-    return computeHarvest(completed, required);
-  }, [recRows, startDate, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
+    // تسميع المنسوبات يُضاف للمنجَز فقط (حصيلة إضافية) دون المساس بالمطلوب.
+    const staffPages = staffRecRows
+      .filter(r => r.date >= startDate && r.date <= dayDate)
+      .reduce((s, r) => s + r.pages, 0);
+    return computeHarvest(completed + staffPages, required);
+  }, [recRows, staffRecRows, startDate, dayDate, dailyRequired, sponsorCircleIds, haramFilter]);
 
   // يوم الجمعة إجازة: لا مستهدف لليوم المختار (لا نُظهر نقصاً وهمياً).
   const dayOff = useMemo(() => nisabDayFactor(dayDate) === 0, [dayDate]);
