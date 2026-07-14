@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
-import { dailyNisab, nisabDayFactor } from '@/lib/program-target';
+import { dailyNisab, nisabDayFactor, nisabWorkingDaysSum } from '@/lib/program-target';
 import { isSponsor, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
 import { type HaramFilter } from '@/lib/harvest';
 import { Cohort, COHORTS, cohortSubjectColumn } from '@/lib/cohorts';
@@ -126,11 +126,11 @@ function HBar({ label, value, max, right }: { label: string; value: number; max:
 
 // ---------- types ----------
 interface Circle { id: string; circle_name: string; branch_id: string; circle_type: string; }
-interface Branch { id: string; branch_name: string; juz_count: number; }
+interface Branch { id: string; branch_name: string; juz_count: number; program_start_date: string | null; }
 // registered: طالبة مقبولة فعلاً (admission_status='registered'). النصاب المطلوب
 // يُحتسب لها فقط — مطابقةً للوحة المعلومات (المرافقات/المبتدئات وغير المقبولات لا نصاب لهنّ).
 interface Member { key: string; id: string; cohort: Cohort; full_name: string; circle_id: string | null; room_id: string | null; registered: boolean; }
-interface RecRow { circle_id: string | null; pages: number; thabit: boolean; subj: Record<string, string | null>; }
+interface RecRow { date: string; circle_id: string | null; pages: number; thabit: boolean; subj: Record<string, string | null>; }
 interface AttRow { status: string; subj: Record<string, string | null>; }
 
 const TIER_STYLE: Record<EvalTier, { bg: string; fg: string }> = {
@@ -160,21 +160,30 @@ export default function DailyReportPage() {
     const load = async () => {
       setLoading(true);
       const memberSel = 'id, full_name, circle_id, room_id, is_active';
-      const [cRes, bRes, tRes, rmRes, stRes, coRes, beRes, recRes, attRes] = await Promise.all([
+      const [cRes, bRes, tRes, rmRes, stRes, coRes, beRes, attRes] = await Promise.all([
         supabase.from('circles').select('id, circle_name, branch_id, circle_type').eq('is_active', true),
-        supabase.from('branches').select('id, branch_name, juz_count'),
+        supabase.from('branches').select('id, branch_name, juz_count, program_start_date'),
         supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('rooms').select('id, room_number'),
         // admission_status للطالبات فقط: النصاب يُحتسب للمقبولات (registered) — مطابقةً للوحة.
         supabase.from('students').select(`${memberSel}, admission_status`),
         supabase.from('companions').select(memberSel),
         supabase.from('beginners').select(memberSel),
-        supabase.from('recitation_log')
-          .select('circle_id, pages_recited, thabit_confirmed, student_id, companion_id, beginner_id')
-          .eq('date', date).eq('is_deleted', false),
         supabase.from('attendance')
           .select('status, student_id, companion_id, beginner_id').eq('date', date).eq('is_deleted', false),
       ]);
+      // التسميع تراكميّاً من بداية الدورة حتى اليوم المختار (للمتعثرات التراكميّة).
+      // بترقيم لأن المدى قد يتجاوز ١٠٠٠ صف. الأقسام اليومية تُشتق منه بترشيح تاريخ اليوم.
+      const recCum: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('recitation_log')
+          .select('date, circle_id, pages_recited, thabit_confirmed, student_id, companion_id, beginner_id')
+          .lte('date', date).eq('is_deleted', false)
+          .order('date', { ascending: true }).range(from, from + 999);
+        if (error || !data || data.length === 0) break;
+        recCum.push(...data);
+        if (data.length < 1000) break;
+      }
       setCircles(cRes.data || []);
       setBranches(bRes.data || []);
       setTeacherCount(tRes.count || 0);
@@ -192,8 +201,8 @@ export default function DailyReportPage() {
         ...toMembers(coRes.data, 'companion'),
         ...toMembers(beRes.data, 'beginner'),
       ]);
-      setRecRows((recRes.data || []).map((r: any) => ({
-        circle_id: r.circle_id, pages: Number(r.pages_recited) || 0, thabit: !!r.thabit_confirmed,
+      setRecRows((recCum || []).map((r: any) => ({
+        date: r.date, circle_id: r.circle_id, pages: Number(r.pages_recited) || 0, thabit: !!r.thabit_confirmed,
         subj: { student_id: r.student_id, companion_id: r.companion_id, beginner_id: r.beginner_id },
       })));
       setAttRows((attRes.data || []).map((a: any) => ({
@@ -208,13 +217,26 @@ export default function DailyReportPage() {
   const report = useMemo(() => {
     const branchById = new Map(branches.map(b => [b.id, b]));
     const circleById = new Map(circles.map(c => [c.id, c]));
-    const recBy = new Map<string, { pages: number; thabit: boolean }>();
+    const recBy = new Map<string, { pages: number; thabit: boolean }>();   // اليوم المختار
+    const cumBy = new Map<string, { pages: number }>();                     // تراكمي حتى اليوم المختار
+    let dailyCount = 0;
     for (const r of recRows) {
+      const isDay = r.date === date;
+      if (isDay) dailyCount++;
       for (const c of COHORTS) {
         const id = r.subj[cohortSubjectColumn(c)];
-        if (id) { const k = `${c}:${id}`; const cur = recBy.get(k) || { pages: 0, thabit: false }; cur.pages += r.pages; cur.thabit = cur.thabit || r.thabit; recBy.set(k, cur); }
+        if (!id) continue;
+        const k = `${c}:${id}`;
+        const cc = cumBy.get(k) || { pages: 0 }; cc.pages += r.pages; cumBy.set(k, cc);
+        if (isDay) { const cur = recBy.get(k) || { pages: 0, thabit: false }; cur.pages += r.pages; cur.thabit = cur.thabit || r.thabit; recBy.set(k, cur); }
       }
     }
+    // «أيام العمل» التراكمية من بداية الدورة لليوم المختار (تستبعد الجُمَع، الفترة الصباحية = 0.5).
+    // بداية الدورة = أقدم تاريخ بداية مثبّت على الفروع، وإلا أقدم يوم فيه تسميع (مطابقةً للوحة).
+    const startCands = (branches.map(b => b.program_start_date).filter(Boolean) as string[]).sort();
+    const recDates = recRows.map(r => r.date).filter(Boolean).sort();
+    const courseStart = startCands[0] || recDates[0] || date;
+    const effectiveDays = nisabWorkingDaysSum(courseStart, date);
     const attBy = new Map<string, Set<string>>();
     for (const a of attRows) {
       for (const c of COHORTS) {
@@ -255,10 +277,15 @@ export default function DailyReportPage() {
       const tier = evalTier(weighted);
       const done = sponsor ? true : (hasTarget ? rec.pages >= target : null);
       const deficit = (!sponsor && hasTarget) ? rec.pages - target : 0;
+      // التراكمي (للمتعثرات): المطلوب = النصاب × أيام العمل من بداية الدورة لليوم المختار.
+      const cumPages = cumBy.get(m.key)?.pages ?? 0;
+      const cumTarget = (!sponsor && nisabEligible) ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
+      const cumDeficit = cumPages - cumTarget;
       return {
         ...m, circleName: circle?.circle_name ?? '—', branchName: branch?.branch_name ?? '—', juz, sponsor,
         room: m.room_id ? (rooms[m.room_id] ?? '') : '', pages: rec.pages, thabit: rec.thabit,
         present, absent, hasAtt, attPct, target, hasTarget, hifzPct, weighted, tier, done, deficit,
+        nisabEligible, cumPages, cumTarget, cumDeficit,
       };
     });
 
@@ -292,12 +319,13 @@ export default function DailyReportPage() {
     const tierCount: Record<EvalTier, number> = { 'ممتاز': 0, 'جيد': 0, 'ضعيف': 0 };
     rows.forEach(r => { tierCount[r.tier]++; });
 
-    const struggling = rows.filter(r => !r.sponsor && r.hasTarget && r.pages < r.target)
-      .sort((a, b) => a.deficit - b.deficit)
+    // المتعثرات تراكميّاً: مجموعها من بداية الدورة < المطلوب التراكمي (النصاب × أيام العمل).
+    const struggling = rows.filter(r => !r.sponsor && r.nisabEligible && r.cumTarget > 0 && r.cumPages < r.cumTarget)
+      .sort((a, b) => a.cumDeficit - b.cumDeficit)
       .map(r => ({
         ...r,
-        reason: r.pages === 0 ? (r.absent ? 'غائبة — لم تُسمِّع' : 'لم تُسمِّع اليوم') : 'تقصير في الحفظ',
-        plan: `تسميع المطلوب اليومي + تعويض العجز (${ar(Math.abs(r.deficit), 1)} وجهًا)`,
+        reason: r.cumPages === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ',
+        plan: `تعويض العجز التراكمي (${ar(Math.abs(r.cumDeficit), 1)} وجهًا)`,
       }));
 
     const nCircles = new Set(rows.map(r => r.circle_id)).size;
@@ -318,13 +346,13 @@ export default function DailyReportPage() {
       donePct: withTarget.length ? (doneCount / withTarget.length) * 100 : 0,
       attPct: rows.length ? (presentCount / rows.length) * 100 : 0,
       byBranch, byCircle, hifzHist, tierCount, struggling, nCircles, nRooms,
-      dashStudents, dashCircles,
+      dashStudents, dashCircles, dailyCount,
     };
-  }, [members, circles, branches, recRows, attRows, rooms, haramFilter]);
+  }, [members, circles, branches, recRows, attRows, rooms, haramFilter, date]);
 
   const maxHist = Math.max(1, ...report.hifzHist);
   // لا تسميع مُسجَّل لهذا اليوم → نعرض حالة فارغة بدل إغراق الصفحة بالأصفار والمتعثرات.
-  const noData = recRows.length === 0;
+  const noData = report.dailyCount === 0;
   const STRUGGLE_CAP = 20; // حدّ عرض المتعثرات في التقرير المطبوع
 
   return (
@@ -510,18 +538,18 @@ export default function DailyReportPage() {
 
             {/* المتعثرات */}
             <section>
-              <SecHead title="الطالبات المتعثرات في التسميع" danger />
+              <SecHead title="الطالبات المتعثرات في التسميع (تراكميّاً)" danger />
               {report.struggling.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-5 text-center rounded-lg" style={{ border: `1px dashed ${GOLD_SOFT}` }}>
                   لا توجد متعثرات — أتمّت الجميع المطلوب. ما شاء الله.
                 </p>
               ) : (
-                <RepTable head={['الطالبة', 'الحلقة', 'مقدار العجز', 'سبب العجز', 'خطة التعويض']}>
+                <RepTable head={['الطالبة', 'الحلقة', 'العجز التراكمي', 'سبب العجز', 'خطة التعويض']}>
                   {report.struggling.slice(0, STRUGGLE_CAP).map(r => (
                     <tr key={r.key}>
                       <Td bold>{r.full_name}</Td>
                       <Td>{r.circleName}</Td>
-                      <Td><span style={{ color: RED, fontWeight: 700 }}>{ar(r.deficit, 1)}</span></Td>
+                      <Td><span style={{ color: RED, fontWeight: 700 }}>{ar(Math.abs(r.cumDeficit), 1)}</span></Td>
                       <Td>{r.reason}</Td>
                       <Td muted>{r.plan}</Td>
                     </tr>
