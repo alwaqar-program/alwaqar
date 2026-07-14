@@ -234,7 +234,7 @@ export default function DashboardPage() {
         if (!studentPages[sid]) studentPages[sid] = { name: (r.students as any)?.full_name || '', pages: 0 };
         studentPages[sid].pages += r.pages_recited || 0;
       });
-      setTopStudents(Object.values(studentPages).sort((a, b) => b.pages - a.pages).slice(0, 5));
+      setTopStudents(Object.values(studentPages).sort((a, b) => b.pages - a.pages).slice(0, 6));
 
       setLoading(false);
     };
