@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Save, ClipboardCheck, DoorOpen } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
-import { leaveTypes } from '@/lib/leave';
+import { useLeaveTypes } from '@/lib/leave';
 
 const statusOptions = [
   { value: 'present', label: 'حاضرة', color: 'bg-success/10 text-success' },
@@ -35,6 +35,7 @@ interface Person { id: string; full_name: string; kind: Cohort; }
 
 export function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
+  const { types: leaveTypes } = useLeaveTypes();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
 

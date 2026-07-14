@@ -16,7 +16,7 @@ import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { DoorOpen, Plus, Search, Check, X } from 'lucide-react';
-import { leaveTypes, leaveStatusLabels as statusLabels } from '@/lib/leave';
+import { useLeaveTypes, leaveStatusLabels as statusLabels } from '@/lib/leave';
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = { pending: 'secondary', approved: 'default', rejected: 'destructive' };
 
@@ -38,6 +38,7 @@ const csvColumns: CsvColumnDef[] = [
 
 export default function LeaveRequestsPage() {
   const { toast } = useToast();
+  const { types: leaveTypes } = useLeaveTypes();
   const [requests, setRequests] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
