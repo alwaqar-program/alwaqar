@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -15,25 +15,33 @@ import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
 import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
-import { DoorOpen, Plus, Search, Check, X } from 'lucide-react';
-import { useLeaveTypes, leaveStatusLabels as statusLabels } from '@/lib/leave';
-
-const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = { pending: 'secondary', approved: 'default', rejected: 'destructive' };
+import { DoorOpen, Plus, Search } from 'lucide-react';
+import { useLeaveTypes } from '@/lib/leave';
 
 // الفئة + الاسم لأي طلب (طالبة / مرافقة / مبتدئة).
 const subjectName = (r: any): string =>
   r.students?.full_name || r.companions?.full_name || r.beginners?.full_name || '—';
 const cohortTag = (r: any): string =>
   r.companion_id ? 'مرافقة' : r.beginner_id ? 'مبتدئة' : 'طالبة';
+// معرّف الشخص (أياً كانت فئته) لعدّ استئذاناته.
+const personKey = (r: any): string => r.student_id || r.companion_id || r.beginner_id || '';
+// حدّ التمييز: 3 استئذانات فأكثر.
+const FREQUENT_LEAVE_THRESHOLD = 3;
+
+// فلتر عدد الاستئذانات: 1 / 2 / 3 / أكثر من 3.
+const countBucket = (cnt: number): string => (cnt > 3 ? '3+' : String(cnt));
+const countFilterOptions = [
+  { value: '1', label: 'استئذان واحد' },
+  { value: '2', label: 'استئذانان' },
+  { value: '3', label: '3 استئذانات' },
+  { value: '3+', label: 'أكثر من 3' },
+];
 
 const csvColumns: CsvColumnDef[] = [
   { key: 'student_name', header: 'الاسم' },
   { key: 'leave_type', header: 'نوع الإذن' },
-  { key: 'reason', header: 'السبب' },
-  { key: 'start_date', header: 'من' },
-  { key: 'end_date', header: 'إلى' },
-  { key: 'status', header: 'الحالة', transform: v => statusLabels[v as string] || v },
-  { key: 'approved_by', header: 'الموافق' },
+  { key: 'reason', header: 'ملاحظات' },
+  { key: 'start_date', header: 'التاريخ' },
 ];
 
 export default function LeaveRequestsPage() {
@@ -44,8 +52,8 @@ export default function LeaveRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useUrlMultiFilter('status');
   const [filterType, setFilterType] = useUrlMultiFilter('type');
+  const [filterCount, setFilterCount] = useUrlMultiFilter('count');
 
   const [form, setForm] = useState({
     student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '',
@@ -64,14 +72,21 @@ export default function LeaveRequestsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // عدد الاستئذانات لكل شخص (كل السجلات، بغضّ النظر عن الفلاتر).
+  const leaveCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    requests.forEach(r => { const k = personKey(r); if (k) m.set(k, (m.get(k) || 0) + 1); });
+    return m;
+  }, [requests]);
+
   const filtered = useMemo(() => {
     return requests.filter(r => {
       if (search && !subjectName(r).includes(search) && !r.reason?.includes(search)) return false;
-      if (filterStatus.length > 0 && !filterStatus.includes(r.status)) return false;
       if (filterType.length > 0 && !filterType.includes(r.leave_type)) return false;
+      if (filterCount.length > 0 && !filterCount.includes(countBucket(leaveCounts.get(personKey(r)) || 0))) return false;
       return true;
     });
-  }, [requests, search, filterStatus, filterType]);
+  }, [requests, search, filterType, filterCount, leaveCounts]);
 
   const handleSubmit = async () => {
     if (!form.student_id || !form.leave_type) {
@@ -85,6 +100,7 @@ export default function LeaveRequestsPage() {
       start_date: form.start_date,
       end_date: form.end_date || null,
       notes: form.notes || null,
+      status: 'approved', // الاستئذان يُعتمد تلقائياً (لا مسار موافقة)
     });
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -96,19 +112,6 @@ export default function LeaveRequestsPage() {
     }
   };
 
-  const updateStatus = async (id: string, status: 'approved' | 'rejected') => {
-    const { error } = await supabase.from('leave_requests').update({
-      status,
-      approved_at: new Date().toISOString(),
-    }).eq('id', id);
-    if (error) {
-      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'تم', description: status === 'approved' ? 'تمت الموافقة' : 'تم الرفض' });
-      fetchData();
-    }
-  };
-
   const { sortKey, sortDir, toggleSort } = useTableSort();
   const sorted = useMemo(() => {
     const acc: Record<string, (r: any) => unknown> = {
@@ -116,10 +119,8 @@ export default function LeaveRequestsPage() {
       type: (r) => r.leave_type,
       reason: (r) => r.reason,
       start: (r) => r.start_date,
-      end: (r) => r.end_date,
-      status: (r) => statusLabels[r.status] || r.status,
     };
-    const types: Record<string, 'date'> = { start: 'date', end: 'date' };
+    const types: Record<string, 'date'> = { start: 'date' };
     if (!sortKey || !acc[sortKey]) return filtered;
     return sortRows(filtered, acc[sortKey], sortDir, types[sortKey] ?? 'text');
   }, [filtered, sortKey, sortDir]);
@@ -165,22 +166,12 @@ export default function LeaveRequestsPage() {
                   />
                 </div>
                 <div>
-                  <Label>السبب</Label>
-                  <Input value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>من تاريخ</Label>
-                    <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>إلى تاريخ</Label>
-                    <Input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} />
-                  </div>
+                  <Label>التاريخ</Label>
+                  <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
                 </div>
                 <div>
                   <Label>ملاحظات</Label>
-                  <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                  <Input value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
                 </div>
                 <Button onClick={handleSubmit} className="w-full">تسجيل</Button>
               </div>
@@ -207,15 +198,11 @@ export default function LeaveRequestsPage() {
               searchPlaceholder="ابحث..."
             />
             <MultiSearchableSelect
-              className="w-[150px]"
-              options={[
-                { value: 'pending', label: 'قيد الانتظار' },
-                { value: 'approved', label: 'مقبول' },
-                { value: 'rejected', label: 'مرفوض' },
-              ]}
-              values={filterStatus}
-              onValuesChange={setFilterStatus}
-              placeholder="كل الحالات"
+              className="w-[160px]"
+              options={countFilterOptions}
+              values={filterCount}
+              onValuesChange={setFilterCount}
+              placeholder="عدد الاستئذانات"
               searchPlaceholder="ابحث..."
             />
           </div>
@@ -229,47 +216,37 @@ export default function LeaveRequestsPage() {
               <TableRow>
                 <SortableHead label="الاسم" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="نوع الإذن" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="السبب" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="من" sortKey="start" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="إلى" sortKey="end" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="الحالة" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <TableHead>إجراء</TableHead>
+                <SortableHead label="ملاحظات" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="التاريخ" sortKey="start" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
-              ) : sorted.map(r => (
-                <TableRow key={r.id}>
+                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
+              ) : sorted.map(r => {
+                const cnt = leaveCounts.get(personKey(r)) || 0;
+                const frequent = cnt >= FREQUENT_LEAVE_THRESHOLD;
+                return (
+                <TableRow key={r.id} className={frequent ? 'bg-warning/5 hover:bg-warning/10' : ''}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span>{subjectName(r)}</span>
                       <Badge variant="secondary" className="text-[10px]">{cohortTag(r)}</Badge>
+                      {frequent && (
+                        <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30">
+                          {cnt} استئذانات
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="outline">{r.leave_type}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{r.reason || '—'}</TableCell>
                   <TableCell>{r.start_date}</TableCell>
-                  <TableCell>{r.end_date || '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[r.status] || 'secondary'}>{statusLabels[r.status] || r.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {r.status === 'pending' && (
-                      <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => updateStatus(r.id, 'approved')}>
-                          <Check size={16} />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => updateStatus(r.id, 'rejected')}>
-                          <X size={16} />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

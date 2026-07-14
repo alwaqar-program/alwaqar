@@ -150,6 +150,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       leave_type: leaveForm.leave_type,
       reason: leaveForm.reason || null,
       start_date: date, // تاريخ الحضور
+      status: 'approved', // الاستئذان يُعتمد تلقائياً (لا مسار موافقة)
     });
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     else {
