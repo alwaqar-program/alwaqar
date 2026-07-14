@@ -47,6 +47,7 @@ const navItems: NavItem[] = [
   { label: 'لجنة المقابلات', href: '/interview-committee', icon: <MessagesSquare size={20} />, roles: ['admin'] },
   { label: 'التسميع', href: '/recitation', icon: <Mic size={20} /> },
   { label: 'الحضور', href: '/attendance', icon: <ClipboardCheck size={20} /> },
+  { label: 'الاستئذان', href: '/leave-requests', icon: <CalendarOff size={20} /> },
   { label: 'الاختبارات', href: '/exams', icon: <FileCheck size={20} /> },
   { label: 'الطالبات', href: '/students', icon: <Users size={20} /> },
   { label: 'المرافقات', href: '/companions', icon: <HeartHandshake size={20} /> },
@@ -58,7 +59,6 @@ const navItems: NavItem[] = [
   { label: 'الغرف', href: '/rooms', icon: <DoorOpen size={20} /> },
   { label: 'التعهدات', href: '/pledges', icon: <FileSignature size={20} /> },
   { label: 'المخالفات', href: '/violations', icon: <AlertTriangle size={20} /> },
-  { label: 'الاستئذان', href: '/leave-requests', icon: <CalendarOff size={20} /> },
   { label: 'المستخدمون', href: '/users', icon: <Shield size={20} />, roles: ['admin'] },
   { label: 'الإعدادات', href: '/settings', icon: <Settings size={20} />, roles: ['admin'] },
 ];
