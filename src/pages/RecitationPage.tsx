@@ -273,6 +273,7 @@ export default function RecitationPage() {
       score: { get: (r) => r.score, type: 'number' },
       grade: { get: (r) => r.grade, type: 'text' },
       recorded_by: { get: (r) => r.recorded_by, type: 'text' },
+      deficit: { get: (r) => r.deficit, type: 'number' }, // ترتيب المتعثرات حسب مقدار العجز
     };
     const col = sortKey ? acc[sortKey] : null;
     if (!col) return filteredOverview;
@@ -550,7 +551,7 @@ export default function RecitationPage() {
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <TableHead className="text-right">مقدار العجز</TableHead>
+                <SortableHead label="مقدار العجز" sortKey="deficit" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead className="text-right">سبب العجز</TableHead>
               </TableRow>
             </TableHeader>
