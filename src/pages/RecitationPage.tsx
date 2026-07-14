@@ -28,8 +28,7 @@ import {
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, isSponsor, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
-import { nisabPeriodThreshold } from '@/lib/program-target';
-import { struggleInfo } from '@/lib/struggling';
+import { dailyNisab, nisabWorkingDaysSum } from '@/lib/program-target';
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -108,6 +107,10 @@ export default function RecitationPage() {
   const [circleJuz, setCircleJuz] = useState<Map<string, number>>(new Map());
   const [mushafPages, setMushafPages] = useState<MushafPage[]>([]);
   const [recRows, setRecRows] = useState<RecRow[]>([]);
+  // للتعثّر التراكمي: مجموع صفحات كل شخص من بداية الدورة لليوم المختار + بداية الدورة.
+  const [cumPagesBy, setCumPagesBy] = useState<Map<string, number>>(new Map());
+  const [courseStart, setCourseStart] = useState<string | null>(null);
+  const [cumStart, setCumStart] = useState<string | null>(null);
   const [attRows, setAttRows] = useState<AttRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -139,7 +142,7 @@ export default function RecitationPage() {
         supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('circles').select('id, circle_name, circle_type, branch_id').eq('is_active', true),
-        supabase.from('branches').select('id, juz_count'),
+        supabase.from('branches').select('id, juz_count, program_start_date'),
         supabase.from('mushaf_reference')
           .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
           .order('sort_order'),
@@ -163,6 +166,9 @@ export default function RecitationPage() {
       // خريطة الحلقة ← نصاب الفرع (عدد الأجزاء) لحساب التعثّر.
       const branchJuz = new Map((brRes.data || []).map((b: any) => [b.id, b.juz_count ?? 0]));
       setCircleJuz(new Map(circleRows.map(c => [c.id, branchJuz.get(c.branch_id ?? '') ?? 0])));
+      // بداية الدورة = أقدم تاريخ بداية مثبّت على الفروع (للمطلوب التراكمي).
+      const starts = (brRes.data || []).map((b: any) => b.program_start_date).filter(Boolean).sort();
+      setCourseStart(starts[0] ?? null);
       setMushafPages(mRes.data || []);
     };
     loadStatic();
@@ -179,6 +185,28 @@ export default function RecitationPage() {
     if (recRes.error) toast({ title: 'خطأ', description: recRes.error.message, variant: 'destructive' });
     setRecRows((recRes.data as RecRow[] | null) || []);
     setAttRows(attRes.data || []);
+
+    // مجموع صفحات كل شخص تراكميّاً من بداية الدورة حتى اليوم المختار (للتعثّر التراكمي).
+    // بترقيم لأن المدى قد يتجاوز ١٠٠٠ صف.
+    const cum = new Map<string, number>();
+    let minDate: string | null = null;
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase.from('recitation_log')
+        .select('student_id, companion_id, beginner_id, pages_recited, date')
+        .lte('date', date).eq('is_deleted', false)
+        .order('date', { ascending: true }).range(from, from + 999);
+      if (!data || data.length === 0) break;
+      for (const r of data as any[]) {
+        if (!minDate || r.date < minDate) minDate = r.date;
+        const p = r.pages_recited || 0;
+        if (r.student_id) cum.set(`student:${r.student_id}`, (cum.get(`student:${r.student_id}`) || 0) + p);
+        if (r.companion_id) cum.set(`companion:${r.companion_id}`, (cum.get(`companion:${r.companion_id}`) || 0) + p);
+        if (r.beginner_id) cum.set(`beginner:${r.beginner_id}`, (cum.get(`beginner:${r.beginner_id}`) || 0) + p);
+      }
+      if (data.length < 1000) break;
+    }
+    setCumPagesBy(cum);
+    setCumStart(minDate);
     setLoading(false);
   };
   useEffect(() => { loadDay(); }, [date]); // eslint-disable-line
@@ -194,12 +222,6 @@ export default function RecitationPage() {
     // الغائبة بدون عذر فقط تُمنع من التسميع؛ الغائبة بعذر يمكنها التسميع.
     return attRows.some(a => (a as any)[col] === personId && a.period === period && a.status === 'absent' && a.absence_type === 'unexcused');
   };
-  // إجمالي صفحات اليوم (كل الفترات) — عتبة التعثّر تُقاس عليه (التوزيع بين الفترتين مرن).
-  const dayPages = (personId: string, kind: Cohort) => {
-    const col = cohortSubjectColumn(kind);
-    return recRows.filter(r => (r as any)[col] === personId).reduce((s, r) => s + (r.pages_recited || 0), 0);
-  };
-
   const fmtRange = (r: RecRow) => {
     const from = r.from_surah ? `${r.from_surah}${r.from_verse ? `|${r.from_verse}` : ''}` : '';
     const to = r.to_surah ? `${r.to_surah}${r.to_verse ? `|${r.to_verse}` : ''}` : '';
@@ -209,6 +231,9 @@ export default function RecitationPage() {
   // Overview: one row per person (any cohort) for date+period.
   // `overviewAll` ignores the status filter so the summary counts stay totals.
   const overviewAll = useMemo(() => {
+    // «أيام العمل» التراكمية من بداية الدورة لليوم المختار (تستبعد الجُمَع، الفترة الصباحية 0.5).
+    const start = courseStart || cumStart || date;
+    const effectiveDays = nisabWorkingDaysSum(start, date);
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -218,11 +243,15 @@ export default function RecitationPage() {
         const recs = recsFor(p.id, p.kind);
         const last = recs[recs.length - 1];
         const absent = isAbsent(p.id, p.kind);
-        // التعثّر: للطالبات المقبولات فقط، مقيساً على إجمالي صفحات اليوم مقابل عتبة الفترة.
+        // التعثّر تراكميّاً: للطالبات المقبولات فقط. المتعثرة = مجموعها التراكمي أقل من
+        // المطلوب التراكمي (النصاب اليومي × أيام العمل من بداية الدورة لليوم المختار).
         const juz = circleJuz.get(p.circle_id ?? '') ?? 0;
         const eligible = p.kind === 'student' && p.registered && !isSponsor(circleTypeOf(p.circle_id)) && juz > 0;
-        const threshold = eligible ? nisabPeriodThreshold(juz, period, date) : 0;
-        const s = struggleInfo(dayPages(p.id, p.kind), threshold, absent);
+        const cumPages = cumPagesBy.get(`${p.kind}:${p.id}`) ?? 0;
+        const cumTarget = eligible ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
+        const cumDeficit = cumPages - cumTarget;
+        const isStruggling = eligible && cumTarget > 0 && cumPages < cumTarget;
+        const cause = !isStruggling ? '' : (cumPages === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ');
         return {
           id: p.id,
           kind: p.kind,
@@ -240,15 +269,15 @@ export default function RecitationPage() {
           grade: last?.grade ?? '',
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
           absent,
-          struggling: s.isStruggling,
-          deficit: s.deficit,
-          cause: s.cause,
+          struggling: isStruggling,
+          deficit: cumDeficit,
+          cause,
           editRec: last ?? null, // آخر سجل تسميع (للتعديل)
           recs, // كل سجلات هذه الفترة (لحل التكرار)
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, recRows, attRows, period, date, filterCircle, filterCohort, filterCircleType, search, circles, circleJuz]);
+  }, [people, recRows, attRows, period, date, filterCircle, filterCohort, filterCircleType, search, circles, circleJuz, cumPagesBy, courseStart, cumStart]);
 
   const recitedCount = overviewAll.filter(r => r.recited).length;
   const notRecited = overviewAll.length - recitedCount;
@@ -552,7 +581,7 @@ export default function RecitationPage() {
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <SortableHead label="مقدار العجز" sortKey="deficit" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="العجز التراكمي" sortKey="deficit" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead className="text-right">سبب العجز</TableHead>
               </TableRow>
             </TableHeader>
