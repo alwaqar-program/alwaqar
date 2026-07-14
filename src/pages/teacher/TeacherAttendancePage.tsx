@@ -260,7 +260,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
 
       <Dialog open={!!leaveFor} onOpenChange={o => { if (!o) setLeaveFor(null); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>طلب استئذان — {leaveFor?.full_name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>تسجيل استئذان — {leaveFor?.full_name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>نوع الإذن *</Label>
@@ -277,7 +277,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
             </div>
             <p className="text-xs text-muted-foreground">التاريخ: {date}</p>
             <Button onClick={handleLeave} disabled={leaveSaving} className="w-full">
-              {leaveSaving ? 'جارٍ الحفظ…' : 'تقديم الطلب'}
+              {leaveSaving ? 'جارٍ الحفظ…' : 'تسجيل'}
             </Button>
           </div>
         </DialogContent>

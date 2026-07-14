@@ -88,7 +88,7 @@ export default function LeaveRequestsPage() {
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'تم', description: 'تم تقديم طلب الاستئذان' });
+      toast({ title: 'تم', description: 'تم تسجيل الاستئذان' });
       setOpen(false);
       setForm({ student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '' });
       fetchData();
@@ -132,17 +132,17 @@ export default function LeaveRequestsPage() {
           <DoorOpen className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-2xl font-display">الاستئذان</h1>
-            <p className="text-sm text-muted-foreground">إدارة طلبات الاستئذان والإجازات</p>
+            <p className="text-sm text-muted-foreground">تسجيل وإدارة الاستئذان والإجازات</p>
           </div>
         </div>
         <div className="flex gap-2">
           <CsvActions tableName="leave_requests" columns={csvColumns} data={csvData} filename="الاستئذان" onImportComplete={fetchData} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus size={16} /> طلب استئذان</Button>
+              <Button><Plus size={16} /> تسجيل استئذان</Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>طلب استئذان جديد</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>تسجيل استئذان</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div>
                   <Label>الطالبة *</Label>
@@ -181,7 +181,7 @@ export default function LeaveRequestsPage() {
                   <Label>ملاحظات</Label>
                   <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
                 </div>
-                <Button onClick={handleSubmit} className="w-full">تقديم الطلب</Button>
+                <Button onClick={handleSubmit} className="w-full">تسجيل</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -239,7 +239,7 @@ export default function LeaveRequestsPage() {
               {loading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد طلبات</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
               ) : sorted.map(r => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">
