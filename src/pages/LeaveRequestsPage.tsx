@@ -25,6 +25,10 @@ const subjectName = (r: any): string =>
   r.students?.full_name || r.companions?.full_name || r.beginners?.full_name || '—';
 const cohortTag = (r: any): string =>
   r.companion_id ? 'مرافقة' : r.beginner_id ? 'مبتدئة' : 'طالبة';
+// معرّف الشخص (أياً كانت فئته) لعدّ استئذاناته.
+const personKey = (r: any): string => r.student_id || r.companion_id || r.beginner_id || '';
+// حدّ التمييز: 3 استئذانات فأكثر.
+const FREQUENT_LEAVE_THRESHOLD = 3;
 
 const csvColumns: CsvColumnDef[] = [
   { key: 'student_name', header: 'الاسم' },
@@ -63,6 +67,13 @@ export default function LeaveRequestsPage() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // عدد الاستئذانات لكل شخص (كل السجلات، بغضّ النظر عن الحالة أو الفلاتر).
+  const leaveCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    requests.forEach(r => { const k = personKey(r); if (k) m.set(k, (m.get(k) || 0) + 1); });
+    return m;
+  }, [requests]);
 
   const filtered = useMemo(() => {
     return requests.filter(r => {
@@ -241,12 +252,20 @@ export default function LeaveRequestsPage() {
                 <TableRow><TableCell colSpan={7} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
-              ) : sorted.map(r => (
-                <TableRow key={r.id}>
+              ) : sorted.map(r => {
+                const cnt = leaveCounts.get(personKey(r)) || 0;
+                const frequent = cnt >= FREQUENT_LEAVE_THRESHOLD;
+                return (
+                <TableRow key={r.id} className={frequent ? 'bg-warning/5 hover:bg-warning/10' : ''}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span>{subjectName(r)}</span>
                       <Badge variant="secondary" className="text-[10px]">{cohortTag(r)}</Badge>
+                      {frequent && (
+                        <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30">
+                          {cnt} استئذانات
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="outline">{r.leave_type}</Badge></TableCell>
@@ -269,7 +288,8 @@ export default function LeaveRequestsPage() {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
