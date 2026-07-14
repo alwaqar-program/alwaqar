@@ -550,7 +550,7 @@ export default function RecitationPage() {
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <TableHead className="text-destructive">مقدار العجز</TableHead>
+                <TableHead>مقدار العجز</TableHead>
                 <TableHead>سبب العجز</TableHead>
               </TableRow>
             </TableHeader>
