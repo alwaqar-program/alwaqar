@@ -215,13 +215,13 @@ export default function DashboardPage() {
       setRecentRecitations(recentRec || []);
 
       // Top students by pages (this week) — مرقّم لأن أسبوعاً كاملاً قد يتجاوز ١٠٠٠ صف.
-      const weekAgo = addDays(today, -7);
+      const cumStart = courseStart; // تراكمي من بداية الدورة إلى الآن
       const weekRec: { student_id: string | null; pages_recited: number | null; students: any }[] = [];
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase
           .from('recitation_log')
           .select('student_id, pages_recited, students(full_name)')
-          .eq('is_deleted', false).gte('date', weekAgo)
+          .eq('is_deleted', false).gte('date', cumStart)
           .order('date', { ascending: true }).range(from, from + 999);
         if (error || !data || data.length === 0) break;
         weekRec.push(...(data as any));
@@ -423,7 +423,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <TrendingUp size={18} className="text-success" />
-              أكثر الطالبات إنجازاً (الأسبوع)
+              أكثر الطالبات إنجازاً (من بداية الدورة)
             </CardTitle>
           </CardHeader>
           <CardContent>
