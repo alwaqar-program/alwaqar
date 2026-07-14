@@ -303,6 +303,14 @@ export default function DailyReportPage() {
     const nCircles = new Set(rows.map(r => r.circle_id)).size;
     const nRooms = new Set(rows.map(r => r.room_id).filter(Boolean)).size;
 
+    // عدد الطالبات والحلقات مطابقٌ تماماً للوحة المعلومات (غير متأثّر بفلتر الحرم):
+    //   الطالبات = المقبولات النشطات فقط (registered) · الحلقات = النشطة «تابعة للحرم»
+    //   (circle_type='regular') بفرع محدد (juz_count > 0).
+    const dashStudents = members.filter(m => m.registered).length;
+    const dashCircles = circles.filter(c =>
+      c.circle_type === 'regular' && ((branchById.get(c.branch_id)?.juz_count ?? 0) > 0),
+    ).length;
+
     return {
       rows: rows.sort((a, b) => b.weighted - a.weighted),
       completed, required, pct, juz: completed / PAGES_PER_JUZ, khatma: completed / PAGES_PER_KHATMA,
@@ -310,6 +318,7 @@ export default function DailyReportPage() {
       donePct: withTarget.length ? (doneCount / withTarget.length) * 100 : 0,
       attPct: rows.length ? (presentCount / rows.length) * 100 : 0,
       byBranch, byCircle, hifzHist, tierCount, struggling, nCircles, nRooms,
+      dashStudents, dashCircles,
     };
   }, [members, circles, branches, recRows, attRows, rooms, haramFilter]);
 
@@ -446,8 +455,8 @@ export default function DailyReportPage() {
             <section>
               <SecHead title="منجزات اليوم" />
               <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-x-reverse text-center" style={{ borderColor: GOLD_SOFT }}>
-                <Tally value={ar(report.totalMembers)} label="الطالبات" />
-                <Tally value={ar(report.nCircles)} label="الحلقات" />
+                <Tally value={ar(report.dashStudents)} label="الطالبات" />
+                <Tally value={ar(report.dashCircles)} label="الحلقات" />
                 <Tally value={ar(teacherCount)} label="المعلمات" />
                 <Tally value={ar(report.nRooms)} label="الغرف" />
               </div>
