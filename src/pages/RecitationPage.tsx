@@ -84,7 +84,7 @@ interface RecRow {
 }
 interface AttRow {
   student_id: string | null; companion_id: string | null; beginner_id: string | null;
-  status: string; period: string;
+  status: string; absence_type: string | null; period: string;
 }
 
 export default function RecitationPage() {
@@ -174,7 +174,7 @@ export default function RecitationPage() {
       supabase.from('recitation_log')
         .select('id, student_id, companion_id, beginner_id, period, from_surah, from_verse, to_surah, to_verse, pages_recited, error_count, lahn_count, score, grade, thabit_confirmed, hifz_confirmed, is_extra_memorization, recorded_by, teachers(teacher_name)')
         .eq('date', date).eq('is_deleted', false),
-      supabase.from('attendance').select('student_id, companion_id, beginner_id, status, period').eq('date', date).eq('is_deleted', false),
+      supabase.from('attendance').select('student_id, companion_id, beginner_id, status, absence_type, period').eq('date', date).eq('is_deleted', false),
     ]);
     if (recRes.error) toast({ title: 'خطأ', description: recRes.error.message, variant: 'destructive' });
     setRecRows((recRes.data as RecRow[] | null) || []);
@@ -191,7 +191,8 @@ export default function RecitationPage() {
   };
   const isAbsent = (personId: string, kind: Cohort) => {
     const col = cohortSubjectColumn(kind);
-    return attRows.some(a => (a as any)[col] === personId && a.period === period && a.status === 'absent');
+    // الغائبة بدون عذر فقط تُمنع من التسميع؛ الغائبة بعذر يمكنها التسميع.
+    return attRows.some(a => (a as any)[col] === personId && a.period === period && a.status === 'absent' && a.absence_type === 'unexcused');
   };
   // إجمالي صفحات اليوم (كل الفترات) — عتبة التعثّر تُقاس عليه (التوزيع بين الفترتين مرن).
   const dayPages = (personId: string, kind: Cohort) => {
@@ -373,7 +374,7 @@ export default function RecitationPage() {
       return;
     }
     if (isAbsent(entryStudent, entryCohort)) {
-      toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ${cohortLabel(entryCohort)} غائبة`, variant: 'destructive' });
+      toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ${cohortLabel(entryCohort)} غائبة بدون عذر`, variant: 'destructive' });
       return;
     }
 
@@ -636,7 +637,7 @@ export default function RecitationPage() {
                     <>
                       <TableCell colSpan={6}>
                         <span className="text-muted-foreground text-sm">
-                          {r.absent ? 'غائبة — لا تسميع' : 'لم تُسمِّع'}
+                          {r.absent ? 'غائبة بدون عذر — لا تسميع' : 'لم تُسمِّع'}
                         </span>
                       </TableCell>
                       <TableCell />
@@ -689,7 +690,7 @@ export default function RecitationPage() {
 
             {entryStudent && isAbsent(entryStudent, entryCohort) && (
               <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/5 p-2 rounded">
-                <AlertCircle size={16} /> هذه {cohortLabel(entryCohort)} غائبة في هذه الفترة — لا يمكن تسجيل تسميع لها
+                <AlertCircle size={16} /> هذه {cohortLabel(entryCohort)} غائبة بدون عذر في هذه الفترة — لا يمكن تسجيل تسميع لها
               </div>
             )}
 

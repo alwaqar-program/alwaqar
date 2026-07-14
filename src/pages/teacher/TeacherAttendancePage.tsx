@@ -7,28 +7,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
-import { Save, ClipboardCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Save, ClipboardCheck, DoorOpen } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
+import { useLeaveTypes } from '@/lib/leave';
+import { useLateReasons, reasonNeedsNote, normalizeLateReason } from '@/lib/late-reasons';
 
 const statusOptions = [
   { value: 'present', label: 'حاضرة', color: 'bg-success/10 text-success' },
   { value: 'absent', label: 'غائبة', color: 'bg-destructive/10 text-destructive' },
   { value: 'late', label: 'متأخرة', color: 'bg-warning/10 text-warning' },
-  { value: 'excused', label: 'مستأذنة', color: 'bg-info/10 text-info' },
   { value: 'exempted', label: 'معذورة', color: 'bg-accent/15 text-accent-foreground' },
 ];
-const lateReasons = [
-  { value: 'illness', label: 'مرض' }, { value: 'transport', label: 'مواصلات' },
-  { value: 'sleep', label: 'نوم' }, { value: 'other', label: 'أخرى' },
-];
 
-interface Entry { status: string; late_reason: string; late_reason_other: string; }
+interface Entry { status: string; late_reason: string; late_reason_other: string; absence_type: string; absence_reason: string; }
+
+const absenceTypes = [
+  { value: 'excused', label: 'غائبة بعذر' },
+  { value: 'unexcused', label: 'غائبة بدون عذر' },
+];
 
 interface Person { id: string; full_name: string; kind: Cohort; }
 
 export function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
+  const { types: leaveTypes } = useLeaveTypes();
+  const { reasons: lateReasons } = useLateReasons();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
 
@@ -38,6 +43,12 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [existing, setExisting] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+
+  // طلب استئذان لشخص واحد (مستقل عن حالة الحضور).
+  const [leaveFor, setLeaveFor] = useState<Person | null>(null);
+  const [leaveForm, setLeaveForm] = useState({ leave_type: '', reason: '' });
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveDone, setLeaveDone] = useState<Set<string>>(new Set());
 
   // كل الأشخاص في الحلقة: طالبات + مرافقات + مبتدئات.
   const people: Person[] = useMemo(() => [
@@ -76,7 +87,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
     const load = async () => {
       const { data } = await supabase
         .from('attendance')
-        .select('student_id, companion_id, beginner_id, status, late_reason, late_reason_other')
+        .select('student_id, companion_id, beginner_id, status, late_reason, late_reason_other, absence_type, absence_reason')
         .eq('date', date).eq('period', period)
         .in(col, shownPeople.map(p => p.id));
       const next: Record<string, Entry> = {};
@@ -84,10 +95,10 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       (data || []).forEach(a => {
         const pid = (a as any)[col] as string | null;
         if (!pid) return;
-        next[pid] = { status: a.status, late_reason: a.late_reason || '', late_reason_other: a.late_reason_other || '' };
+        next[pid] = { status: a.status, late_reason: normalizeLateReason(a.late_reason), late_reason_other: a.late_reason_other || '', absence_type: (a as any).absence_type || '', absence_reason: (a as any).absence_reason || '' };
         ex.add(pid);
       });
-      shownPeople.forEach(p => { if (!next[p.id]) next[p.id] = { status: 'present', late_reason: '', late_reason_other: '' }; });
+      shownPeople.forEach(p => { if (!next[p.id]) next[p.id] = { status: 'present', late_reason: '', late_reason_other: '', absence_type: '', absence_reason: '' }; });
       setEntries(next); setExisting(ex);
     };
     load();
@@ -105,18 +116,48 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
         toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(cohort)} متأخرة`, variant: 'destructive' });
         setSaving(false); return;
       }
+      if (e.status === 'absent' && !e.absence_type) {
+        toast({ title: 'تنبيه', description: `حددي «غائبة بعذر» أو «غائبة بدون عذر» لكل ${cohortLabel(cohort)} غائبة`, variant: 'destructive' });
+        setSaving(false); return;
+      }
     }
     const { error } = await supabase.from('attendance').insert(
       toInsert.map(e => ({
         ...subjectPayload(cohort, e.id), date, period, status: e.status,
         late_reason: e.status === 'late' ? e.late_reason : null,
-        late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+        late_reason_other: e.status === 'late' && reasonNeedsNote(e.late_reason, lateReasons) ? (e.late_reason_other || null) : null,
+        absence_type: e.status === 'absent' ? e.absence_type : null,
+        absence_reason: e.status === 'absent' && e.absence_type === 'excused' ? (e.absence_reason || null) : null,
         recorded_by: teacher.teacher_name,
       }))
     );
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     else { toast({ title: `تم تسجيل حضور ${toInsert.length} ${cohortLabel(cohort)}` }); setExisting(new Set(shownPeople.map(p => p.id))); }
     setSaving(false);
+  };
+
+  const openLeave = (p: Person) => { setLeaveFor(p); setLeaveForm({ leave_type: '', reason: '' }); };
+
+  const handleLeave = async () => {
+    if (!leaveFor) return;
+    if (!leaveForm.leave_type) {
+      toast({ title: 'تنبيه', description: 'اختاري نوع الإذن', variant: 'destructive' });
+      return;
+    }
+    setLeaveSaving(true);
+    const { error } = await supabase.from('leave_requests').insert({
+      ...subjectPayload(leaveFor.kind, leaveFor.id),
+      leave_type: leaveForm.leave_type,
+      reason: leaveForm.reason || null,
+      start_date: date, // تاريخ الحضور
+    });
+    if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    else {
+      toast({ title: `تم تسجيل استئذان ${leaveFor.full_name}` });
+      setLeaveDone(prev => new Set(prev).add(leaveFor.id));
+      setLeaveFor(null);
+    }
+    setLeaveSaving(false);
   };
 
   const cohortChips = (
@@ -164,9 +205,16 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
             const isEx = existing.has(s.id);
             return (
               <div key={s.id} className={`p-3 rounded-lg border space-y-2 ${isEx ? 'bg-muted/30 opacity-70' : ''}`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-sm">{s.full_name}</span>
-                  {isEx && <Badge variant="outline" className="text-xs">مسجّل</Badge>}
+                  <div className="flex items-center gap-2">
+                    {leaveDone.has(s.id) && <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/20">استئذان</Badge>}
+                    {isEx && <Badge variant="outline" className="text-xs">مسجّل</Badge>}
+                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-info hover:text-info"
+                      onClick={() => openLeave(s)}>
+                      <DoorOpen size={14} /> استئذان
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {statusOptions.map(opt => (
@@ -178,11 +226,25 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
                 </div>
                 {entry.status === 'late' && !isEx && (
                   <div className="flex gap-2 pt-1">
-                    <SearchableSelect className="h-8 text-xs w-32" options={lateReasons} value={entry.late_reason}
+                    <SearchableSelect className="h-8 text-xs w-32" options={lateReasons.map(r => ({ value: r.label, label: r.label }))} value={entry.late_reason}
                       onValueChange={v => update(s.id, 'late_reason', v)} placeholder="السبب" searchPlaceholder="ابحث…" />
-                    {entry.late_reason === 'other' && (
+                    {reasonNeedsNote(entry.late_reason, lateReasons) && (
                       <Input className="h-8 text-xs" placeholder="حدد السبب" value={entry.late_reason_other}
                         onChange={e => update(s.id, 'late_reason_other', e.target.value)} />
+                    )}
+                  </div>
+                )}
+                {entry.status === 'absent' && !isEx && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {absenceTypes.map(opt => (
+                      <button key={opt.value} type="button" onClick={() => update(s.id, 'absence_type', opt.value)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${entry.absence_type === opt.value ? 'bg-destructive/10 text-destructive border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                    {entry.absence_type === 'excused' && (
+                      <Input className="h-8 text-xs flex-1 min-w-[8rem]" placeholder="العذر (اختياري)" value={entry.absence_reason}
+                        onChange={e => update(s.id, 'absence_reason', e.target.value)} />
                     )}
                   </div>
                 )}
@@ -194,6 +256,31 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       <Button onClick={handleSave} disabled={saving} className="w-full">
         <Save size={18} /> {saving ? 'جارٍ الحفظ…' : 'حفظ الحضور'}
       </Button>
+
+      <Dialog open={!!leaveFor} onOpenChange={o => { if (!o) setLeaveFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>تسجيل استئذان — {leaveFor?.full_name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>نوع الإذن *</Label>
+              <SearchableSelect
+                options={leaveTypes.map(t => ({ value: t, label: t }))}
+                value={leaveForm.leave_type}
+                onValueChange={v => setLeaveForm(f => ({ ...f, leave_type: v }))}
+                placeholder="اختاري النوع" searchPlaceholder="ابحث…"
+              />
+            </div>
+            <div>
+              <Label>ملاحظات</Label>
+              <Input value={leaveForm.reason} onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))} />
+            </div>
+            <p className="text-xs text-muted-foreground">التاريخ: {date}</p>
+            <Button onClick={handleLeave} disabled={leaveSaving} className="w-full">
+              {leaveSaving ? 'جارٍ الحفظ…' : 'تسجيل'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

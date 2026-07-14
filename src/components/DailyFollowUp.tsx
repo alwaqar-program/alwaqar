@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, MicOff, ClipboardX } from 'lucide-react';
+import { lateReasonLabel } from '@/lib/late-reasons';
 
 // Daily follow-up: who hasn't recited today (and why), and who has no attendance.
 // Read-only — depends only on existing tables, so it is safe regardless of new migrations.
@@ -25,13 +26,6 @@ const statusColor: Record<string, string> = {
   exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
   none: 'bg-muted text-muted-foreground',
 };
-const reasonLabel: Record<string, string> = {
-  illness: 'مرض',
-  transport: 'مواصلات',
-  sleep: 'نوم',
-  other: 'أخرى',
-};
-
 interface Student { id: string; full_name: string; circle_id: string | null; }
 interface Att { student_id: string; status: string; period: string; late_reason: string | null; late_reason_other: string | null; }
 interface Rec { student_id: string; period: string; }
@@ -80,9 +74,7 @@ export default function DailyFollowUp() {
       .map(s => {
         const att = attByStudent.get(s.id);
         const status = att?.status ?? 'none';
-        const reason = att?.late_reason
-          ? (att.late_reason === 'other' ? (att.late_reason_other || 'أخرى') : reasonLabel[att.late_reason])
-          : null;
+        const reason = att?.late_reason ? lateReasonLabel(att.late_reason, att.late_reason_other) : null;
         return { id: s.id, name: s.full_name, circle: s.circle_id ? circles[s.circle_id] : '—', status, reason };
       })
       .sort((a, b) => (a.circle || '').localeCompare(b.circle || '', 'ar'));

@@ -23,10 +23,14 @@ import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { useLateReasons, reasonNeedsNote, normalizeLateReason, lateReasonLabel } from '@/lib/late-reasons';
 
 const statusLabels: Record<string, string> = {
   present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
 };
+// الحالات القابلة للتسجيل الآن (بدون «مستأذنة» — استُبدلت بطلب استئذان مستقل).
+// «مستأذنة» يبقى في statusLabels لعرض السجلات القديمة فقط.
+const recordableStatuses: [string, string][] = Object.entries(statusLabels).filter(([v]) => v !== 'excused');
 const statusColors: Record<string, string> = {
   present: 'bg-success/10 text-success border-success/20',
   absent: 'bg-destructive/10 text-destructive border-destructive/20',
@@ -34,14 +38,12 @@ const statusColors: Record<string, string> = {
   excused: 'bg-info/10 text-info border-info/20',
   exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
 };
-const lateReasons = [
-  { value: 'illness', label: 'مرض' },
-  { value: 'transport', label: 'مواصلات' },
-  { value: 'sleep', label: 'نوم' },
-  { value: 'other', label: 'أخرى' },
+// أنواع الغياب: غائبة بعذر / بدون عذر (حقل فرعي على status='absent').
+const absenceTypes = [
+  { value: 'excused', label: 'غائبة بعذر' },
+  { value: 'unexcused', label: 'غائبة بدون عذر' },
 ];
-const lateReasonLabel = (r: string | null, other: string | null) =>
-  r === 'other' ? (other || 'أخرى') : (lateReasons.find(x => x.value === r)?.label ?? '');
+const absenceTypeLabel = (t: string | null) => absenceTypes.find(x => x.value === t)?.label ?? '';
 
 const overviewCsvColumns: CsvColumnDef[] = [
   { key: 'full_name', header: 'الطالبة' },
@@ -58,12 +60,14 @@ interface AttRow {
   student_id: string | null; companion_id: string | null; beginner_id: string | null;
   status: string; period: string;
   late_reason: string | null; late_reason_other: string | null; recorded_by: string | null;
+  absence_type: string | null; absence_reason: string | null;
 }
-interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; existingId?: string; }
+interface Entry { student_id: string; status: string; late_reason: string; late_reason_other: string; absence_type: string; absence_reason: string; existingId?: string; }
 
 export default function AttendancePage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { reasons: lateReasons } = useLateReasons();
   // من أدخل السجل — يظهر في اللوق أنه مدير النظام
   const adminName = user?.email ? `مدير النظام (${user.email})` : 'مدير النظام';
 
@@ -91,7 +95,7 @@ export default function AttendancePage() {
   // ----- Row edit (تعديل سريع لصف واحد) -----
   const [rowEdit, setRowEdit] = useState<null | {
     personId: string; kind: Cohort; name: string;
-    status: string; late_reason: string; late_reason_other: string; existingId: string | null;
+    status: string; late_reason: string; late_reason_other: string; absence_type: string; absence_reason: string; existingId: string | null;
   }>(null);
   const [rowSaving, setRowSaving] = useState(false);
 
@@ -121,7 +125,7 @@ export default function AttendancePage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('attendance')
-      .select('id, student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, recorded_by')
+      .select('id, student_id, companion_id, beginner_id, status, period, late_reason, late_reason_other, absence_type, absence_reason, recorded_by')
       .eq('date', date)
       .eq('is_deleted', false);
     if (error) toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -152,13 +156,19 @@ export default function AttendancePage() {
           full_name: p.full_name,
           circle_name: circleName(p.circle_id),
           status: a?.status ?? null,
-          status_label: a ? (statusLabels[a.status] ?? a.status) : 'لم يُسجّل',
-          reason: a?.status === 'late' ? lateReasonLabel(a.late_reason, a.late_reason_other) : '',
+          status_label: a
+            ? (a.status === 'absent' && a.absence_type ? absenceTypeLabel(a.absence_type) : (statusLabels[a.status] ?? a.status))
+            : 'لم يُسجّل',
+          reason: a?.status === 'late'
+            ? lateReasonLabel(a.late_reason, a.late_reason_other)
+            : (a?.status === 'absent' && a.absence_type === 'excused' ? (a.absence_reason || '') : ''),
           recorded_by: a ? (a.recorded_by || '—') : '',
           circle_id: p.circle_id,
           existingId: a?.id ?? null,
-          late_reason: a?.late_reason ?? '',
+          late_reason: normalizeLateReason(a?.late_reason ?? null),
           late_reason_other: a?.late_reason_other ?? '',
+          absence_type: a?.absence_type ?? '',
+          absence_reason: a?.absence_reason ?? '',
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,8 +223,8 @@ export default function AttendancePage() {
     entryPeople.forEach(p => {
       const a = attFor(p);
       next[p.id] = a
-        ? { student_id: p.id, status: a.status, late_reason: a.late_reason ?? '', late_reason_other: a.late_reason_other ?? '', existingId: a.id }
-        : { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '' };
+        ? { student_id: p.id, status: a.status, late_reason: normalizeLateReason(a.late_reason), late_reason_other: a.late_reason_other ?? '', absence_type: a.absence_type ?? '', absence_reason: a.absence_reason ?? '', existingId: a.id }
+        : { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '', absence_type: '', absence_reason: '' };
     });
     setEntries(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,11 +241,17 @@ export default function AttendancePage() {
         toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(entryCohort)} متأخرة`, variant: 'destructive' });
         return;
       }
+      if (e.status === 'absent' && !e.absence_type) {
+        toast({ title: 'تنبيه', description: `حددي «غائبة بعذر» أو «غائبة بدون عذر» لكل ${cohortLabel(entryCohort)} غائبة`, variant: 'destructive' });
+        return;
+      }
     }
     const fields = (e: Entry) => ({
       status: e.status,
       late_reason: e.status === 'late' ? e.late_reason : null,
-      late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+      late_reason_other: e.status === 'late' && reasonNeedsNote(e.late_reason, lateReasons) ? (e.late_reason_other || null) : null,
+      absence_type: e.status === 'absent' ? e.absence_type : null,
+      absence_reason: e.status === 'absent' && e.absence_type === 'excused' ? (e.absence_reason || null) : null,
       recorded_by: adminName, // اللوق: أدخلها مدير النظام
     });
     const toInsert = all.filter(e => !e.existingId);
@@ -266,6 +282,7 @@ export default function AttendancePage() {
       personId: r.id, kind: r.kind, name: r.full_name,
       status: r.status ?? 'present',
       late_reason: r.late_reason, late_reason_other: r.late_reason_other,
+      absence_type: r.absence_type, absence_reason: r.absence_reason,
       existingId: r.existingId,
     });
   };
@@ -276,11 +293,17 @@ export default function AttendancePage() {
       toast({ title: 'تنبيه', description: 'سبب التأخير مطلوب', variant: 'destructive' });
       return;
     }
+    if (rowEdit.status === 'absent' && !rowEdit.absence_type) {
+      toast({ title: 'تنبيه', description: 'حددي «غائبة بعذر» أو «غائبة بدون عذر»', variant: 'destructive' });
+      return;
+    }
     setRowSaving(true);
     const fields = {
       status: rowEdit.status,
       late_reason: rowEdit.status === 'late' ? rowEdit.late_reason : null,
-      late_reason_other: rowEdit.status === 'late' && rowEdit.late_reason === 'other' ? rowEdit.late_reason_other : null,
+      late_reason_other: rowEdit.status === 'late' && reasonNeedsNote(rowEdit.late_reason, lateReasons) ? (rowEdit.late_reason_other || null) : null,
+      absence_type: rowEdit.status === 'absent' ? rowEdit.absence_type : null,
+      absence_reason: rowEdit.status === 'absent' && rowEdit.absence_type === 'excused' ? (rowEdit.absence_reason || null) : null,
       recorded_by: adminName,
     };
     const { error } = rowEdit.existingId
@@ -501,7 +524,7 @@ export default function AttendancePage() {
                           {entry.existingId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">مسجّلة — تعديل</span>}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {Object.entries(statusLabels).map(([value, label]) => (
+                          {recordableStatuses.map(([value, label]) => (
                             <button key={value} onClick={() => updateEntry(s.id, 'status', value)}
                               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                                 entry.status === value ? statusColors[value] + ' border-current' : 'bg-background border-border hover:bg-muted'}`}>
@@ -511,12 +534,27 @@ export default function AttendancePage() {
                         </div>
                         {entry.status === 'late' && (
                           <div className="flex gap-2 pt-1">
-                            <SearchableSelect className="h-8 text-xs w-32" options={lateReasons}
+                            <SearchableSelect className="h-8 text-xs w-32" options={lateReasons.map(r => ({ value: r.label, label: r.label }))}
                               value={entry.late_reason} onValueChange={v => updateEntry(s.id, 'late_reason', v)}
                               placeholder="السبب" searchPlaceholder="ابحث..." />
-                            {entry.late_reason === 'other' && (
+                            {reasonNeedsNote(entry.late_reason, lateReasons) && (
                               <Input className="h-8 text-xs" placeholder="حدد السبب" value={entry.late_reason_other}
                                 onChange={e => updateEntry(s.id, 'late_reason_other', e.target.value)} />
+                            )}
+                          </div>
+                        )}
+                        {entry.status === 'absent' && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {absenceTypes.map(opt => (
+                              <button key={opt.value} type="button" onClick={() => updateEntry(s.id, 'absence_type', opt.value)}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                  entry.absence_type === opt.value ? 'bg-destructive/10 text-destructive border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                                {opt.label}
+                              </button>
+                            ))}
+                            {entry.absence_type === 'excused' && (
+                              <Input className="h-8 text-xs flex-1 min-w-[8rem]" placeholder="العذر (اختياري)" value={entry.absence_reason}
+                                onChange={e => updateEntry(s.id, 'absence_reason', e.target.value)} />
                             )}
                           </div>
                         )}
@@ -547,7 +585,7 @@ export default function AttendancePage() {
                 {date} ({period === 'morning' ? 'صباحي' : 'مسائي'}) — سيُسجَّل المدخِل: {adminName}
               </p>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(statusLabels).map(([value, label]) => (
+                {recordableStatuses.map(([value, label]) => (
                   <button key={value} type="button"
                     onClick={() => setRowEdit(re => re && ({ ...re, status: value }))}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
@@ -558,12 +596,28 @@ export default function AttendancePage() {
               </div>
               {rowEdit.status === 'late' && (
                 <div className="flex gap-2">
-                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons}
+                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons.map(r => ({ value: r.label, label: r.label }))}
                     value={rowEdit.late_reason} onValueChange={v => setRowEdit(re => re && ({ ...re, late_reason: v }))}
                     placeholder="السبب" searchPlaceholder="ابحث..." />
-                  {rowEdit.late_reason === 'other' && (
+                  {reasonNeedsNote(rowEdit.late_reason, lateReasons) && (
                     <Input className="h-8 text-xs" placeholder="حدد السبب" value={rowEdit.late_reason_other}
                       onChange={e => setRowEdit(re => re && ({ ...re, late_reason_other: e.target.value }))} />
+                  )}
+                </div>
+              )}
+              {rowEdit.status === 'absent' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {absenceTypes.map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setRowEdit(re => re && ({ ...re, absence_type: opt.value }))}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                        rowEdit.absence_type === opt.value ? 'bg-destructive/10 text-destructive border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                  {rowEdit.absence_type === 'excused' && (
+                    <Input className="h-8 text-xs flex-1 min-w-[8rem]" placeholder="العذر (اختياري)" value={rowEdit.absence_reason}
+                      onChange={e => setRowEdit(re => re && ({ ...re, absence_reason: e.target.value }))} />
                   )}
                 </div>
               )}

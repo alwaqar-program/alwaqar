@@ -136,11 +136,12 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
     const [{ data: rec }, { data: att }] = await Promise.all([
       supabase.from('recitation_log').select('student_id, companion_id, beginner_id, period, to_page, to_surah, to_verse, pages_recited')
         .eq('circle_id', circle.id).eq('date', date).eq('is_deleted', false),
-      supabase.from('attendance').select('student_id, companion_id, beginner_id, status, period').eq('date', date).in(col, ids),
+      supabase.from('attendance').select('student_id, companion_id, beginner_id, status, absence_type, period').eq('date', date).in(col, ids),
     ]);
     setTodayRecs(rec || []);
+    // يُمنع من التسميع الغائبات بدون عذر فقط؛ الغائبة بعذر (وغيرها) يمكنها التسميع.
     setAbsentIds(new Set((att || [])
-      .filter(a => a.period === period && a.status === 'absent')
+      .filter(a => a.period === period && a.status === 'absent' && (a as any).absence_type === 'unexcused')
       .map(a => (a as any)[col] as string | null)
       .filter((id): id is string => !!id)));
   };
@@ -187,7 +188,7 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
     if (!orderOk) { toast({ title: 'تنبيه', description: 'بداية النطاق يجب أن تكون قبل نهايته في ترتيب المصحف', variant: 'destructive' }); return; }
     // نصاب التثبيت ونصاب الحفظ إجباريان — لا حفظ بدونهما (عدا حلقات الحرم)
     if (!sponsor && (!thabit || !hifz)) { toast({ title: 'تنبيه', description: 'يجب تأكيد نصاب التثبيت (سرد ذاتي) ونصاب الحفظ (سرد على شخص) قبل الحفظ', variant: 'destructive' }); return; }
-    if (isAbsent(selected)) { toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ل${cohortLabel(cohort)} غائبة`, variant: 'destructive' }); return; }
+    if (isAbsent(selected)) { toast({ title: 'تنبيه', description: `لا يمكن تسجيل تسميع ل${cohortLabel(cohort)} غائبة بدون عذر`, variant: 'destructive' }); return; }
     setSaving(true);
     const { error } = await supabase.from('recitation_log').insert({
       ...subjectPayload(cohort, selected), teacher_id: teacher.id || null, circle_id: circle.id, date, period,
@@ -316,7 +317,7 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
                         سمّعت: {info.reduce((sum, r) => sum + (r.pages_recited || 0), 0)} صفحات · آخر موضع {info[info.length - 1]?.to_surah} ص{info[info.length - 1]?.to_page}{info[info.length - 1]?.to_verse ? ` آية ${info[info.length - 1]?.to_verse}` : ''}
                       </p>
                     )}
-                    {absent && <p className="text-xs text-destructive">غائبة هذه الفترة</p>}
+                    {absent && <p className="text-xs text-destructive">غائبة بدون عذر — لا تسميع</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
