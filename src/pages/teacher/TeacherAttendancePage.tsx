@@ -271,7 +271,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
               />
             </div>
             <div>
-              <Label>السبب</Label>
+              <Label>ملاحظات</Label>
               <Input value={leaveForm.reason} onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))} />
             </div>
             <p className="text-xs text-muted-foreground">التاريخ: {date}</p>
