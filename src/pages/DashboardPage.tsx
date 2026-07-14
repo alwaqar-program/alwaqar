@@ -215,7 +215,7 @@ export default function DashboardPage() {
       setRecentRecitations(recentRec || []);
 
       // Top students by pages (this week) — مرقّم لأن أسبوعاً كاملاً قد يتجاوز ١٠٠٠ صف.
-      const cumStart = courseStart; // تراكمي من بداية الدورة إلى الآن
+      const cumStart = recDates.length ? [...recDates].sort()[0] : today; // من أول يوم فيه تسميع
       const weekRec: { student_id: string | null; pages_recited: number | null; students: any }[] = [];
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase
