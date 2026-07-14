@@ -16,13 +16,18 @@ import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
 import { DoorOpen, Plus, Search, Check, X } from 'lucide-react';
+import { useLeaveTypes, leaveStatusLabels as statusLabels } from '@/lib/leave';
 
-const leaveTypes = ['إذن خروج', 'إجازة مرضية', 'إجازة طارئة', 'إذن زيارة', 'أخرى'];
-const statusLabels: Record<string, string> = { pending: 'قيد الانتظار', approved: 'مقبول', rejected: 'مرفوض' };
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = { pending: 'secondary', approved: 'default', rejected: 'destructive' };
 
+// الفئة + الاسم لأي طلب (طالبة / مرافقة / مبتدئة).
+const subjectName = (r: any): string =>
+  r.students?.full_name || r.companions?.full_name || r.beginners?.full_name || '—';
+const cohortTag = (r: any): string =>
+  r.companion_id ? 'مرافقة' : r.beginner_id ? 'مبتدئة' : 'طالبة';
+
 const csvColumns: CsvColumnDef[] = [
-  { key: 'student_name', header: 'الطالبة' },
+  { key: 'student_name', header: 'الاسم' },
   { key: 'leave_type', header: 'نوع الإذن' },
   { key: 'reason', header: 'السبب' },
   { key: 'start_date', header: 'من' },
@@ -33,6 +38,7 @@ const csvColumns: CsvColumnDef[] = [
 
 export default function LeaveRequestsPage() {
   const { toast } = useToast();
+  const { types: leaveTypes } = useLeaveTypes();
   const [requests, setRequests] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +54,7 @@ export default function LeaveRequestsPage() {
   const fetchData = async () => {
     setLoading(true);
     const [{ data: r }, { data: s }] = await Promise.all([
-      supabase.from('leave_requests').select('*, students(full_name)').order('created_at', { ascending: false }),
+      supabase.from('leave_requests').select('*, students(full_name), companions(full_name), beginners(full_name)').order('created_at', { ascending: false }),
       supabase.from('students').select('id, full_name').eq('is_active', true).order('full_name'),
     ]);
     setRequests(r || []);
@@ -60,7 +66,7 @@ export default function LeaveRequestsPage() {
 
   const filtered = useMemo(() => {
     return requests.filter(r => {
-      if (search && !r.students?.full_name?.includes(search) && !r.reason?.includes(search)) return false;
+      if (search && !subjectName(r).includes(search) && !r.reason?.includes(search)) return false;
       if (filterStatus.length > 0 && !filterStatus.includes(r.status)) return false;
       if (filterType.length > 0 && !filterType.includes(r.leave_type)) return false;
       return true;
@@ -83,7 +89,7 @@ export default function LeaveRequestsPage() {
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'تم', description: 'تم تقديم طلب الاستئذان' });
+      toast({ title: 'تم', description: 'تم تسجيل الاستئذان' });
       setOpen(false);
       setForm({ student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '' });
       fetchData();
@@ -106,7 +112,7 @@ export default function LeaveRequestsPage() {
   const { sortKey, sortDir, toggleSort } = useTableSort();
   const sorted = useMemo(() => {
     const acc: Record<string, (r: any) => unknown> = {
-      student: (r) => r.students?.full_name,
+      student: (r) => subjectName(r),
       type: (r) => r.leave_type,
       reason: (r) => r.reason,
       start: (r) => r.start_date,
@@ -118,7 +124,7 @@ export default function LeaveRequestsPage() {
     return sortRows(filtered, acc[sortKey], sortDir, types[sortKey] ?? 'text');
   }, [filtered, sortKey, sortDir]);
 
-  const csvData = filtered.map(r => ({ ...r, student_name: r.students?.full_name }));
+  const csvData = filtered.map(r => ({ ...r, student_name: subjectName(r) }));
 
   return (
     <div className="space-y-6">
@@ -127,17 +133,17 @@ export default function LeaveRequestsPage() {
           <DoorOpen className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-2xl font-display">الاستئذان</h1>
-            <p className="text-sm text-muted-foreground">إدارة طلبات الاستئذان والإجازات</p>
+            <p className="text-sm text-muted-foreground">تسجيل وإدارة الاستئذان والإجازات</p>
           </div>
         </div>
         <div className="flex gap-2">
           <CsvActions tableName="leave_requests" columns={csvColumns} data={csvData} filename="الاستئذان" onImportComplete={fetchData} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus size={16} /> طلب استئذان</Button>
+              <Button><Plus size={16} /> تسجيل استئذان</Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>طلب استئذان جديد</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>تسجيل استئذان</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div>
                   <Label>الطالبة *</Label>
@@ -176,7 +182,7 @@ export default function LeaveRequestsPage() {
                   <Label>ملاحظات</Label>
                   <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
                 </div>
-                <Button onClick={handleSubmit} className="w-full">تقديم الطلب</Button>
+                <Button onClick={handleSubmit} className="w-full">تسجيل</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -221,7 +227,7 @@ export default function LeaveRequestsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableHead label="الطالبة" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <SortableHead label="الاسم" sortKey="student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="نوع الإذن" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="السبب" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="من" sortKey="start" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
@@ -234,10 +240,15 @@ export default function LeaveRequestsPage() {
               {loading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد طلبات</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
               ) : sorted.map(r => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.students?.full_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{subjectName(r)}</span>
+                      <Badge variant="secondary" className="text-[10px]">{cohortTag(r)}</Badge>
+                    </div>
+                  </TableCell>
                   <TableCell><Badge variant="outline">{r.leave_type}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{r.reason || '—'}</TableCell>
                   <TableCell>{r.start_date}</TableCell>
