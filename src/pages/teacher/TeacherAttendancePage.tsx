@@ -12,16 +12,13 @@ import { Save, ClipboardCheck, DoorOpen } from 'lucide-react';
 import TeacherGate, { TeacherSession } from '@/components/teacher/TeacherGate';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { useLeaveTypes } from '@/lib/leave';
+import { useLateReasons, reasonNeedsNote, normalizeLateReason } from '@/lib/late-reasons';
 
 const statusOptions = [
   { value: 'present', label: 'حاضرة', color: 'bg-success/10 text-success' },
   { value: 'absent', label: 'غائبة', color: 'bg-destructive/10 text-destructive' },
   { value: 'late', label: 'متأخرة', color: 'bg-warning/10 text-warning' },
   { value: 'exempted', label: 'معذورة', color: 'bg-accent/15 text-accent-foreground' },
-];
-const lateReasons = [
-  { value: 'illness', label: 'مرض' }, { value: 'transport', label: 'مواصلات' },
-  { value: 'sleep', label: 'نوم' }, { value: 'other', label: 'أخرى' },
 ];
 
 interface Entry { status: string; late_reason: string; late_reason_other: string; absence_type: string; absence_reason: string; }
@@ -36,6 +33,7 @@ interface Person { id: string; full_name: string; kind: Cohort; }
 export function AttendanceForm({ session }: { session: TeacherSession }) {
   const { toast } = useToast();
   const { types: leaveTypes } = useLeaveTypes();
+  const { reasons: lateReasons } = useLateReasons();
   // date يأتي من حقل التاريخ في الترويسة (TeacherGate)
   const { circle, period, date, students, loadingStudents, teacher } = session;
 
@@ -97,7 +95,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       (data || []).forEach(a => {
         const pid = (a as any)[col] as string | null;
         if (!pid) return;
-        next[pid] = { status: a.status, late_reason: a.late_reason || '', late_reason_other: a.late_reason_other || '', absence_type: (a as any).absence_type || '', absence_reason: (a as any).absence_reason || '' };
+        next[pid] = { status: a.status, late_reason: normalizeLateReason(a.late_reason), late_reason_other: a.late_reason_other || '', absence_type: (a as any).absence_type || '', absence_reason: (a as any).absence_reason || '' };
         ex.add(pid);
       });
       shownPeople.forEach(p => { if (!next[p.id]) next[p.id] = { status: 'present', late_reason: '', late_reason_other: '', absence_type: '', absence_reason: '' }; });
@@ -127,7 +125,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       toInsert.map(e => ({
         ...subjectPayload(cohort, e.id), date, period, status: e.status,
         late_reason: e.status === 'late' ? e.late_reason : null,
-        late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+        late_reason_other: e.status === 'late' && reasonNeedsNote(e.late_reason, lateReasons) ? (e.late_reason_other || null) : null,
         absence_type: e.status === 'absent' ? e.absence_type : null,
         absence_reason: e.status === 'absent' && e.absence_type === 'excused' ? (e.absence_reason || null) : null,
         recorded_by: teacher.teacher_name,
@@ -228,9 +226,9 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
                 </div>
                 {entry.status === 'late' && !isEx && (
                   <div className="flex gap-2 pt-1">
-                    <SearchableSelect className="h-8 text-xs w-32" options={lateReasons} value={entry.late_reason}
+                    <SearchableSelect className="h-8 text-xs w-32" options={lateReasons.map(r => ({ value: r.label, label: r.label }))} value={entry.late_reason}
                       onValueChange={v => update(s.id, 'late_reason', v)} placeholder="السبب" searchPlaceholder="ابحث…" />
-                    {entry.late_reason === 'other' && (
+                    {reasonNeedsNote(entry.late_reason, lateReasons) && (
                       <Input className="h-8 text-xs" placeholder="حدد السبب" value={entry.late_reason_other}
                         onChange={e => update(s.id, 'late_reason_other', e.target.value)} />
                     )}

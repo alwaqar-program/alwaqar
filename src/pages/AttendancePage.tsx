@@ -23,6 +23,7 @@ import { RecordHistoryButton } from '@/components/RecordHistoryButton';
 import { exportToCsv, CsvColumnDef } from '@/lib/csv-utils';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
+import { useLateReasons, reasonNeedsNote, normalizeLateReason, lateReasonLabel } from '@/lib/late-reasons';
 
 const statusLabels: Record<string, string> = {
   present: 'حاضرة', absent: 'غائبة', late: 'متأخرة', excused: 'مستأذنة', exempted: 'معذورة',
@@ -37,15 +38,6 @@ const statusColors: Record<string, string> = {
   excused: 'bg-info/10 text-info border-info/20',
   exempted: 'bg-accent/15 text-accent-foreground border-accent/30',
 };
-const lateReasons = [
-  { value: 'illness', label: 'مرض' },
-  { value: 'transport', label: 'مواصلات' },
-  { value: 'sleep', label: 'نوم' },
-  { value: 'other', label: 'أخرى' },
-];
-const lateReasonLabel = (r: string | null, other: string | null) =>
-  r === 'other' ? (other || 'أخرى') : (lateReasons.find(x => x.value === r)?.label ?? '');
-
 // أنواع الغياب: غائبة بعذر / بدون عذر (حقل فرعي على status='absent').
 const absenceTypes = [
   { value: 'excused', label: 'غائبة بعذر' },
@@ -75,6 +67,7 @@ interface Entry { student_id: string; status: string; late_reason: string; late_
 export default function AttendancePage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { reasons: lateReasons } = useLateReasons();
   // من أدخل السجل — يظهر في اللوق أنه مدير النظام
   const adminName = user?.email ? `مدير النظام (${user.email})` : 'مدير النظام';
 
@@ -172,7 +165,7 @@ export default function AttendancePage() {
           recorded_by: a ? (a.recorded_by || '—') : '',
           circle_id: p.circle_id,
           existingId: a?.id ?? null,
-          late_reason: a?.late_reason ?? '',
+          late_reason: normalizeLateReason(a?.late_reason ?? null),
           late_reason_other: a?.late_reason_other ?? '',
           absence_type: a?.absence_type ?? '',
           absence_reason: a?.absence_reason ?? '',
@@ -230,7 +223,7 @@ export default function AttendancePage() {
     entryPeople.forEach(p => {
       const a = attFor(p);
       next[p.id] = a
-        ? { student_id: p.id, status: a.status, late_reason: a.late_reason ?? '', late_reason_other: a.late_reason_other ?? '', absence_type: a.absence_type ?? '', absence_reason: a.absence_reason ?? '', existingId: a.id }
+        ? { student_id: p.id, status: a.status, late_reason: normalizeLateReason(a.late_reason), late_reason_other: a.late_reason_other ?? '', absence_type: a.absence_type ?? '', absence_reason: a.absence_reason ?? '', existingId: a.id }
         : { student_id: p.id, status: 'present', late_reason: '', late_reason_other: '', absence_type: '', absence_reason: '' };
     });
     setEntries(next);
@@ -256,7 +249,7 @@ export default function AttendancePage() {
     const fields = (e: Entry) => ({
       status: e.status,
       late_reason: e.status === 'late' ? e.late_reason : null,
-      late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+      late_reason_other: e.status === 'late' && reasonNeedsNote(e.late_reason, lateReasons) ? (e.late_reason_other || null) : null,
       absence_type: e.status === 'absent' ? e.absence_type : null,
       absence_reason: e.status === 'absent' && e.absence_type === 'excused' ? (e.absence_reason || null) : null,
       recorded_by: adminName, // اللوق: أدخلها مدير النظام
@@ -308,7 +301,7 @@ export default function AttendancePage() {
     const fields = {
       status: rowEdit.status,
       late_reason: rowEdit.status === 'late' ? rowEdit.late_reason : null,
-      late_reason_other: rowEdit.status === 'late' && rowEdit.late_reason === 'other' ? rowEdit.late_reason_other : null,
+      late_reason_other: rowEdit.status === 'late' && reasonNeedsNote(rowEdit.late_reason, lateReasons) ? (rowEdit.late_reason_other || null) : null,
       absence_type: rowEdit.status === 'absent' ? rowEdit.absence_type : null,
       absence_reason: rowEdit.status === 'absent' && rowEdit.absence_type === 'excused' ? (rowEdit.absence_reason || null) : null,
       recorded_by: adminName,
@@ -541,10 +534,10 @@ export default function AttendancePage() {
                         </div>
                         {entry.status === 'late' && (
                           <div className="flex gap-2 pt-1">
-                            <SearchableSelect className="h-8 text-xs w-32" options={lateReasons}
+                            <SearchableSelect className="h-8 text-xs w-32" options={lateReasons.map(r => ({ value: r.label, label: r.label }))}
                               value={entry.late_reason} onValueChange={v => updateEntry(s.id, 'late_reason', v)}
                               placeholder="السبب" searchPlaceholder="ابحث..." />
-                            {entry.late_reason === 'other' && (
+                            {reasonNeedsNote(entry.late_reason, lateReasons) && (
                               <Input className="h-8 text-xs" placeholder="حدد السبب" value={entry.late_reason_other}
                                 onChange={e => updateEntry(s.id, 'late_reason_other', e.target.value)} />
                             )}
@@ -603,10 +596,10 @@ export default function AttendancePage() {
               </div>
               {rowEdit.status === 'late' && (
                 <div className="flex gap-2">
-                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons}
+                  <SearchableSelect className="h-8 text-xs w-36" options={lateReasons.map(r => ({ value: r.label, label: r.label }))}
                     value={rowEdit.late_reason} onValueChange={v => setRowEdit(re => re && ({ ...re, late_reason: v }))}
                     placeholder="السبب" searchPlaceholder="ابحث..." />
-                  {rowEdit.late_reason === 'other' && (
+                  {reasonNeedsNote(rowEdit.late_reason, lateReasons) && (
                     <Input className="h-8 text-xs" placeholder="حدد السبب" value={rowEdit.late_reason_other}
                       onChange={e => setRowEdit(re => re && ({ ...re, late_reason_other: e.target.value }))} />
                   )}
