@@ -24,7 +24,12 @@ const lateReasons = [
   { value: 'sleep', label: 'نوم' }, { value: 'other', label: 'أخرى' },
 ];
 
-interface Entry { status: string; late_reason: string; late_reason_other: string; }
+interface Entry { status: string; late_reason: string; late_reason_other: string; absence_type: string; absence_reason: string; }
+
+const absenceTypes = [
+  { value: 'excused', label: 'غائبة بعذر' },
+  { value: 'unexcused', label: 'غائبة بدون عذر' },
+];
 
 interface Person { id: string; full_name: string; kind: Cohort; }
 
@@ -83,7 +88,7 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
     const load = async () => {
       const { data } = await supabase
         .from('attendance')
-        .select('student_id, companion_id, beginner_id, status, late_reason, late_reason_other')
+        .select('student_id, companion_id, beginner_id, status, late_reason, late_reason_other, absence_type, absence_reason')
         .eq('date', date).eq('period', period)
         .in(col, shownPeople.map(p => p.id));
       const next: Record<string, Entry> = {};
@@ -91,10 +96,10 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
       (data || []).forEach(a => {
         const pid = (a as any)[col] as string | null;
         if (!pid) return;
-        next[pid] = { status: a.status, late_reason: a.late_reason || '', late_reason_other: a.late_reason_other || '' };
+        next[pid] = { status: a.status, late_reason: a.late_reason || '', late_reason_other: a.late_reason_other || '', absence_type: (a as any).absence_type || '', absence_reason: (a as any).absence_reason || '' };
         ex.add(pid);
       });
-      shownPeople.forEach(p => { if (!next[p.id]) next[p.id] = { status: 'present', late_reason: '', late_reason_other: '' }; });
+      shownPeople.forEach(p => { if (!next[p.id]) next[p.id] = { status: 'present', late_reason: '', late_reason_other: '', absence_type: '', absence_reason: '' }; });
       setEntries(next); setExisting(ex);
     };
     load();
@@ -112,12 +117,18 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
         toast({ title: 'تنبيه', description: `سبب التأخير مطلوب لكل ${cohortLabel(cohort)} متأخرة`, variant: 'destructive' });
         setSaving(false); return;
       }
+      if (e.status === 'absent' && !e.absence_type) {
+        toast({ title: 'تنبيه', description: `حددي «غائبة بعذر» أو «غائبة بدون عذر» لكل ${cohortLabel(cohort)} غائبة`, variant: 'destructive' });
+        setSaving(false); return;
+      }
     }
     const { error } = await supabase.from('attendance').insert(
       toInsert.map(e => ({
         ...subjectPayload(cohort, e.id), date, period, status: e.status,
         late_reason: e.status === 'late' ? e.late_reason : null,
         late_reason_other: e.status === 'late' && e.late_reason === 'other' ? e.late_reason_other : null,
+        absence_type: e.status === 'absent' ? e.absence_type : null,
+        absence_reason: e.status === 'absent' && e.absence_type === 'excused' ? (e.absence_reason || null) : null,
         recorded_by: teacher.teacher_name,
       }))
     );
@@ -221,6 +232,20 @@ export function AttendanceForm({ session }: { session: TeacherSession }) {
                     {entry.late_reason === 'other' && (
                       <Input className="h-8 text-xs" placeholder="حدد السبب" value={entry.late_reason_other}
                         onChange={e => update(s.id, 'late_reason_other', e.target.value)} />
+                    )}
+                  </div>
+                )}
+                {entry.status === 'absent' && !isEx && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {absenceTypes.map(opt => (
+                      <button key={opt.value} type="button" onClick={() => update(s.id, 'absence_type', opt.value)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${entry.absence_type === opt.value ? 'bg-destructive/10 text-destructive border-current' : 'bg-background border-border hover:bg-muted'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                    {entry.absence_type === 'excused' && (
+                      <Input className="h-8 text-xs flex-1 min-w-[8rem]" placeholder="العذر (اختياري)" value={entry.absence_reason}
+                        onChange={e => update(s.id, 'absence_reason', e.target.value)} />
                     )}
                   </div>
                 )}
