@@ -550,8 +550,8 @@ export default function RecitationPage() {
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                <TableHead>مقدار العجز</TableHead>
-                <TableHead>سبب العجز</TableHead>
+                <TableHead className="text-right">مقدار العجز</TableHead>
+                <TableHead className="text-right">سبب العجز</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -564,8 +564,8 @@ export default function RecitationPage() {
                       <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(r.circle_id))}</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="font-bold text-destructive tabular-nums">{r.deficit.toLocaleString('ar-EG')}</TableCell>
-                  <TableCell className="text-sm">{r.cause}</TableCell>
+                  <TableCell className="text-right font-bold text-destructive tabular-nums">{r.deficit.toLocaleString('ar-EG')}</TableCell>
+                  <TableCell className="text-right text-sm">{r.cause}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
