@@ -65,7 +65,7 @@ interface Person {
   from_surah: string | null; to_surah: string | null;
   registered: boolean; // طالبة مقبولة (النصاب/التعثّر يُحتسب لها فقط)
 }
-interface Circle { id: string; circle_name: string; circle_type: string; branch_id: string | null; }
+interface Circle { id: string; circle_name: string; circle_type: string; branch_id: string | null; allow_unrestricted_recitation?: boolean; }
 interface MushafPage {
   page_number: number; surah_name: string; surah_number: number;
   juz_number: number; sort_order: number; verse_start: number; verse_end: number;
@@ -118,6 +118,7 @@ export default function RecitationPage() {
   const [entryOpen, setEntryOpen] = useState(false);
   const [entryCohort, setEntryCohort] = useState<Cohort>('student');
   const [entryStudent, setEntryStudent] = useState('');
+  const [freeRange, setFreeRange] = useState(false); // true = كل السور (إن سمحت الحلقة)
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
@@ -141,7 +142,7 @@ export default function RecitationPage() {
           .eq('is_active', true).order('full_name'),
         supabase.from('companions').select('id, full_name, circle_id, is_active').order('full_name'),
         supabase.from('beginners').select('id, full_name, circle_id, is_active').order('full_name'),
-        supabase.from('circles').select('id, circle_name, circle_type, branch_id').eq('is_active', true),
+        supabase.from('circles').select('id, circle_name, circle_type, branch_id, allow_unrestricted_recitation').eq('is_active', true),
         supabase.from('branches').select('id, juz_count, program_start_date'),
         supabase.from('mushaf_reference')
           .select('page_number, surah_name, surah_number, juz_number, sort_order, verse_start, verse_end')
@@ -326,16 +327,19 @@ export default function RecitationPage() {
   const entryStudentObj = people.find(p => p.id === entryStudent && p.kind === entryCohort);
   // حلقات الحرم لا تتبع النِّصاب: تُخفى حقول (زيادة/تثبيت/حفظ) ولا تُشترط.
   const entrySponsor = isSponsor(circleTypeOf(entryStudentObj?.circle_id ?? null));
+  const entryHasRange = !!(entryStudentObj?.from_surah && entryStudentObj?.to_surah);
+  // خيار «كل السور» متاح فقط إن سمحت حلقة هذه الطالبة به (إعداد إداري لكل حلقة).
+  const entryCircleAllows = !!circles.find(c => c.id === entryStudentObj?.circle_id)?.allow_unrestricted_recitation;
+  const entryFree = freeRange && entryCircleAllows;
   const verseOpts = useMemo(() => {
-    if (entryStudentObj?.from_surah && entryStudentObj?.to_surah) {
-      return verseOptionsInRange(entryStudentObj.from_surah, entryStudentObj.to_surah);
+    if (entryHasRange && !entryFree) {
+      return verseOptionsInRange(entryStudentObj!.from_surah!, entryStudentObj!.to_surah!);
     }
     return allVerseOptions();
-  }, [entryStudentObj?.from_surah, entryStudentObj?.to_surah]);
-  const isRestricted = entryStudentObj?.from_surah && entryStudentObj?.to_surah
-    && verseOpts.length < allVerseOptions().length;
+  }, [entryHasRange, entryFree, entryStudentObj?.from_surah, entryStudentObj?.to_surah]);
+  const isRestricted = entryHasRange && !entryFree && verseOpts.length < allVerseOptions().length;
 
-  useEffect(() => { if (loadingEditRef.current) return; setFromVerse(''); setToVerse(''); }, [entryStudent]);
+  useEffect(() => { if (loadingEditRef.current) return; setFromVerse(''); setToVerse(''); setFreeRange(false); }, [entryStudent]);
   // Switching cohort clears the selected person (ids don't cross cohorts).
   useEffect(() => { if (loadingEditRef.current) return; setEntryStudent(''); }, [entryCohort]);
   // بعد تعبئة نموذج التعديل (كل التغييرات في نفس الدورة) نُعيد تفعيل المسح للتغييرات اللاحقة.
@@ -358,7 +362,7 @@ export default function RecitationPage() {
 
   const resetEntry = () => {
     setEditingId(null);
-    setEntryCohort('student'); setEntryStudent(''); setFromVerse(''); setToVerse('');
+    setEntryCohort('student'); setEntryStudent(''); setFreeRange(false); setFromVerse(''); setToVerse('');
     setErrorCount(0); setLahnCount(0); setIsExtra(false); setThabitConfirmed(false); setHifzConfirmed(false);
   };
 
@@ -725,10 +729,23 @@ export default function RecitationPage() {
 
             {entryStudent && (
               <>
-                {isRestricted && (
-                  <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                    نطاق حفظ {cohortLabel(entryCohort)}: <strong>{entryStudentObj?.from_surah}</strong> ← <strong>{entryStudentObj?.to_surah}</strong> — الخيارات محصورة فيه.
-                  </p>
+                {entryHasRange && (
+                  <div className="space-y-1.5 bg-muted/50 p-2 rounded">
+                    <p className="text-xs text-muted-foreground">
+                      نطاق حفظ {cohortLabel(entryCohort)}: <strong>{entryStudentObj?.from_surah}</strong> ← <strong>{entryStudentObj?.to_surah}</strong>
+                      {!entryCircleAllows && ' — الخيارات محصورة فيه.'}
+                    </p>
+                    {entryCircleAllows && (
+                      <div className="flex rounded-md border border-border overflow-hidden text-xs w-fit bg-background">
+                        {([[false, 'محصور بالنطاق'], [true, 'كل السور']] as [boolean, string][]).map(([v, label]) => (
+                          <button key={label} type="button" onClick={() => { setFreeRange(v); setFromVerse(''); setToVerse(''); }}
+                            className={`px-3 h-8 transition-colors ${freeRange === v ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-3">

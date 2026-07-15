@@ -30,6 +30,7 @@ interface Circle {
   branch_id: string;
   is_active: boolean;
   circle_type: string;
+  allow_unrestricted_recitation?: boolean; // يتيح خيار «كل السور» في التسميع
   branches?: { branch_name: string } | null;
 }
 
@@ -83,7 +84,7 @@ export default function CirclesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Circle | null>(null);
-  const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '', circle_type: 'regular' as CircleType });
+  const [form, setForm] = useState({ circle_name: '', branch_id: '', morning: '', evening: '', circle_type: 'regular' as CircleType, allow_unrestricted_recitation: false });
   const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
   // Roster dialog (add/remove members of one circle)
   const [rosterCircle, setRosterCircle] = useState<Circle | null>(null);
@@ -135,7 +136,7 @@ export default function CirclesPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ circle_name: '', branch_id: branches[0]?.id || '', morning: '', evening: '', circle_type: 'regular' });
+    setForm({ circle_name: '', branch_id: branches[0]?.id || '', morning: '', evening: '', circle_type: 'regular', allow_unrestricted_recitation: false });
     setDialogOpen(true);
   };
 
@@ -148,6 +149,7 @@ export default function CirclesPage() {
       morning: a?.morning || '',
       evening: a?.evening || '',
       circle_type: (c.circle_type as CircleType) || 'regular',
+      allow_unrestricted_recitation: c.allow_unrestricted_recitation ?? false,
     });
     setDialogOpen(true);
   };
@@ -172,7 +174,7 @@ export default function CirclesPage() {
     // `period` is vestigial: a circle runs both periods, the period is chosen at
     // recitation/attendance time. Sent only to satisfy the legacy NOT NULL column
     // until 19_tasmee_exams.sql makes it nullable.
-    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning', circle_type: form.circle_type };
+    const payload = { circle_name: form.circle_name, branch_id: form.branch_id, period: 'morning', circle_type: form.circle_type, allow_unrestricted_recitation: form.allow_unrestricted_recitation };
     let circleId = editing?.id;
     if (editing) {
       const { error } = await supabase.from('circles').update(payload).eq('id', editing.id);
@@ -270,6 +272,15 @@ export default function CirclesPage() {
               <p className="text-xs text-muted-foreground">
                 الحلقة تعمل في الفترتين الصباحية والمسائية؛ تُحدَّد الفترة عند تسجيل التسميع أو الحضور.
               </p>
+
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm">السماح بالتسميع خارج نطاق الحفظ</Label>
+                  <p className="text-xs text-muted-foreground">يتيح للمعلمة خيار «كل السور» بدل الحصر بنطاق حفظ الطالبة</p>
+                </div>
+                <Switch checked={form.allow_unrestricted_recitation}
+                  onCheckedChange={v => setForm(f => ({ ...f, allow_unrestricted_recitation: v }))} />
+              </div>
 
               <div className="border-t pt-3 space-y-3">
                 <Label className="text-sm font-medium">تكليف المعلمات</Label>

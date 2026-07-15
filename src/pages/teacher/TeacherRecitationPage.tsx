@@ -50,6 +50,7 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
   const [loadingExtra, setLoadingExtra] = useState(false);
 
   const [selected, setSelected] = useState('');
+  const [freeRange, setFreeRange] = useState(false); // true = كل السور (تجاوز نطاق الحفظ)
   const [fromVerse, setFromVerse] = useState('');
   const [toVerse, setToVerse] = useState('');
   const [errorCount, setErrorCount] = useState(0);
@@ -170,17 +171,22 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
 
   // نطاق التسميع المسموح = نطاق حفظ الطالبة (من سورة → إلى سورة) إن وُجد.
   // المرافقات/المبتدئات بلا نطاق محفوظ → كل السور متاحة.
+  // الوضع الحر (freeRange) يتجاوز النطاق ويتيح كل السور.
+  const hasRange = !!(selectedStudent?.from_surah && selectedStudent?.to_surah);
+  // خيار «كل السور» متاح فقط إن سمحت الحلقة به (إعداد إداري لكل حلقة).
+  const allowUnrestricted = !!circle.allow_unrestricted_recitation;
+  // الوضع الحر الفعّال: لا يُطبَّق إلا إن كان مسموحاً للحلقة.
+  const free = freeRange && allowUnrestricted;
   const verseOpts = useMemo(() => {
-    if (selectedStudent?.from_surah && selectedStudent?.to_surah) {
-      return verseOptionsInRange(selectedStudent.from_surah, selectedStudent.to_surah);
+    if (hasRange && !free) {
+      return verseOptionsInRange(selectedStudent!.from_surah!, selectedStudent!.to_surah!);
     }
     return allVerseOptions();
-  }, [selectedStudent?.from_surah, selectedStudent?.to_surah]);
-  const isRestricted = selectedStudent?.from_surah && selectedStudent?.to_surah
-    && verseOpts.length < allVerseOptions().length;
+  }, [hasRange, free, selectedStudent?.from_surah, selectedStudent?.to_surah]);
+  const isRestricted = hasRange && !free && verseOpts.length < allVerseOptions().length;
 
-  // Clear the picked range + selection when switching person or cohort.
-  useEffect(() => { setFromVerse(''); setToVerse(''); }, [selected]);
+  // Clear the picked range + selection when switching person or cohort; reset to restricted.
+  useEffect(() => { setFromVerse(''); setToVerse(''); setFreeRange(false); }, [selected]);
   useEffect(() => { setSelected(''); setFromVerse(''); setToVerse(''); }, [cohort]);
 
   const save = async () => {
@@ -375,10 +381,24 @@ export function RecitationForm({ session, enableExam = false }: { session: Teach
         <Card>
           <CardContent className="pt-4 space-y-4">
             <p className="font-medium text-sm">تسجيل تسميع — {selectedStudent.full_name}</p>
-            {isRestricted && (
-              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                نطاق حفظ ال{cohortLabel(cohort)}: <strong>{selectedStudent.from_surah}</strong> ← <strong>{selectedStudent.to_surah}</strong> — الخيارات محصورة فيه.
-              </p>
+            {/* نطاق حفظ الطالبة + (إن سمحت الحلقة) تبديل بين الحصر وكل السور. */}
+            {hasRange && (
+              <div className="space-y-1.5 bg-muted/50 p-2 rounded">
+                <p className="text-xs text-muted-foreground">
+                  نطاق حفظ ال{cohortLabel(cohort)}: <strong>{selectedStudent.from_surah}</strong> ← <strong>{selectedStudent.to_surah}</strong>
+                  {!allowUnrestricted && ' — الخيارات محصورة فيه.'}
+                </p>
+                {allowUnrestricted && (
+                  <div className="flex rounded-md border border-border overflow-hidden text-xs w-fit bg-background">
+                    {([[false, 'محصور بالنطاق'], [true, 'كل السور']] as [boolean, string][]).map(([v, label]) => (
+                      <button key={label} type="button" onClick={() => { setFreeRange(v); setFromVerse(''); setToVerse(''); }}
+                        className={`px-3 h-8 transition-colors ${freeRange === v ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
