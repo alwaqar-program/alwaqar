@@ -6,8 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SortableHead } from '@/components/ui/sortable-head';
 import { useTableSort, sortRows } from '@/lib/use-table-sort';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -15,7 +15,7 @@ import { MultiSearchableSelect } from '@/components/ui/multi-searchable-select';
 import { useUrlMultiFilter } from '@/lib/use-url-multi-filter';
 import { CsvActions } from '@/components/CsvActions';
 import { CsvColumnDef } from '@/lib/csv-utils';
-import { DoorOpen, Plus, Search } from 'lucide-react';
+import { DoorOpen, Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { useLeaveTypes } from '@/lib/leave';
 
 // الفئة + الاسم لأي طلب (طالبة / مرافقة / مبتدئة).
@@ -51,13 +51,33 @@ export default function LeaveRequestsPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useUrlMultiFilter('type');
   const [filterCount, setFilterCount] = useUrlMultiFilter('count');
 
+  const today = () => new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
-    student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '',
+    student_id: '', leave_type: '', reason: '', start_date: today(), end_date: '', notes: '',
   });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setEditingName('');
+    setForm({ student_id: '', leave_type: '', reason: '', start_date: today(), end_date: '', notes: '' });
+    setOpen(true);
+  };
+
+  const openEdit = (r: any) => {
+    setEditingId(r.id);
+    setEditingName(subjectName(r));
+    setForm({
+      student_id: personKey(r), leave_type: r.leave_type || '', reason: r.reason || '',
+      start_date: r.start_date || today(), end_date: r.end_date || '', notes: r.notes || '',
+    });
+    setOpen(true);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -89,27 +109,41 @@ export default function LeaveRequestsPage() {
   }, [requests, search, filterType, filterCount, leaveCounts]);
 
   const handleSubmit = async () => {
-    if (!form.student_id || !form.leave_type) {
-      toast({ title: 'خطأ', description: 'اختر الطالبة ونوع الإذن', variant: 'destructive' });
+    if (!form.leave_type || (!editingId && !form.student_id)) {
+      toast({ title: 'خطأ', description: editingId ? 'اختر نوع الإذن' : 'اختر الطالبة ونوع الإذن', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.from('leave_requests').insert({
-      student_id: form.student_id,
-      leave_type: form.leave_type,
-      reason: form.reason || null,
-      start_date: form.start_date,
-      end_date: form.end_date || null,
-      notes: form.notes || null,
-      status: 'approved', // الاستئذان يُعتمد تلقائياً (لا مسار موافقة)
-    });
+    // التعديل لا يغيّر الشخص (قد يكون مرافقة/مبتدئة) — نعدّل النوع/التاريخ/الملاحظات فقط.
+    const { error } = editingId
+      ? await supabase.from('leave_requests').update({
+          leave_type: form.leave_type,
+          reason: form.reason || null,
+          start_date: form.start_date,
+        }).eq('id', editingId)
+      : await supabase.from('leave_requests').insert({
+          student_id: form.student_id,
+          leave_type: form.leave_type,
+          reason: form.reason || null,
+          start_date: form.start_date,
+          end_date: form.end_date || null,
+          notes: form.notes || null,
+          status: 'approved', // الاستئذان يُعتمد تلقائياً (لا مسار موافقة)
+        });
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'تم', description: 'تم تسجيل الاستئذان' });
+      toast({ title: 'تم', description: editingId ? 'تم تعديل الاستئذان' : 'تم تسجيل الاستئذان' });
       setOpen(false);
-      setForm({ student_id: '', leave_type: '', reason: '', start_date: new Date().toISOString().split('T')[0], end_date: '', notes: '' });
       fetchData();
     }
+  };
+
+  const handleDelete = async (r: any) => {
+    if (!window.confirm(`حذف استئذان «${subjectName(r)}»؟`)) return;
+    const { error } = await supabase.from('leave_requests').delete().eq('id', r.id);
+    if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'تم', description: 'تم حذف الاستئذان' });
+    fetchData();
   };
 
   const { sortKey, sortDir, toggleSort } = useTableSort();
@@ -139,22 +173,27 @@ export default function LeaveRequestsPage() {
         </div>
         <div className="flex gap-2">
           <CsvActions tableName="leave_requests" columns={csvColumns} data={csvData} filename="الاستئذان" onImportComplete={fetchData} />
+          <Button onClick={openCreate}><Plus size={16} /> تسجيل استئذان</Button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus size={16} /> تسجيل استئذان</Button>
-            </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>تسجيل استئذان</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? 'تعديل استئذان' : 'تسجيل استئذان'}</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label>الطالبة *</Label>
-                  <SearchableSelect
-                    options={students.map(s => ({ value: s.id, label: s.full_name }))}
-                    value={form.student_id}
-                    onValueChange={v => setForm({ ...form, student_id: v })}
-                    placeholder="اختر الطالبة"
-                  />
-                </div>
+                {editingId ? (
+                  <div>
+                    <Label>الاسم</Label>
+                    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted/40 text-sm">{editingName}</div>
+                  </div>
+                ) : (
+                  <div>
+                    <Label>الطالبة *</Label>
+                    <SearchableSelect
+                      options={students.map(s => ({ value: s.id, label: s.full_name }))}
+                      value={form.student_id}
+                      onValueChange={v => setForm({ ...form, student_id: v })}
+                      placeholder="اختر الطالبة"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label>نوع الإذن *</Label>
                   <SearchableSelect
@@ -173,7 +212,7 @@ export default function LeaveRequestsPage() {
                   <Label>ملاحظات</Label>
                   <Input value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
                 </div>
-                <Button onClick={handleSubmit} className="w-full">تسجيل</Button>
+                <Button onClick={handleSubmit} className="w-full">{editingId ? 'حفظ التعديلات' : 'تسجيل'}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -218,13 +257,14 @@ export default function LeaveRequestsPage() {
                 <SortableHead label="نوع الإذن" sortKey="type" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="ملاحظات" sortKey="reason" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="التاريخ" sortKey="start" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <TableHead>إجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8">جارٍ التحميل...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">لا توجد سجلات</TableCell></TableRow>
               ) : sorted.map(r => {
                 const cnt = leaveCounts.get(personKey(r)) || 0;
                 const frequent = cnt >= FREQUENT_LEAVE_THRESHOLD;
@@ -244,6 +284,16 @@ export default function LeaveRequestsPage() {
                   <TableCell><Badge variant="outline">{r.leave_type}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{r.reason || '—'}</TableCell>
                   <TableCell>{r.start_date}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(r)}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(r)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
                 );
               })}
