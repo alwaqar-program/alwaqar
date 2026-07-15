@@ -15,6 +15,8 @@ export interface TeacherCircle {
   branch_id: string | null;
   /** 'regular' (our circles) | 'sponsor' (تابعة للحرم). */
   circle_type?: string | null;
+  /** يتيح خيار «كل السور» (تجاوز نطاق حفظ الطالبة) في التسميع. */
+  allow_unrestricted_recitation?: boolean;
   /** Periods this teacher covers on this circle (from her active assignments). */
   periods: Period[];
 }
@@ -70,7 +72,7 @@ export async function lookupTeacherByNationalId(
 
   const { data: assignments, error: aErr } = await supabase
     .from('teacher_assignments')
-    .select('circle_id, period, circles(id, circle_name, branch_id, is_active, circle_type)')
+    .select('circle_id, period, circles(id, circle_name, branch_id, is_active, circle_type, allow_unrestricted_recitation)')
     .eq('teacher_id', teacher.id)
     .eq('is_active', true);
   if (aErr) throw aErr;
@@ -90,6 +92,7 @@ export async function lookupTeacherByNationalId(
         circle_name: c.circle_name,
         branch_id: c.branch_id ?? null,
         circle_type: c.circle_type ?? null,
+        allow_unrestricted_recitation: c.allow_unrestricted_recitation ?? false,
         periods,
       });
     }

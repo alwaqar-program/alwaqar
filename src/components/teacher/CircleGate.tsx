@@ -57,13 +57,14 @@ export default function CircleGate({ title, subtitle, needsPeriod = false, dateL
   // Load every active circle. Any circle covers both periods here (the
   // recorder chooses), matching the admin recitation/attendance pages.
   useEffect(() => {
-    supabase.from('circles').select('id, circle_name, branch_id, circle_type').eq('is_active', true)
+    supabase.from('circles').select('id, circle_name, branch_id, circle_type, allow_unrestricted_recitation').eq('is_active', true)
       .eq('circle_type', circleType ?? 'regular').order('circle_name')
       .then(({ data, error }) => {
         if (error) { toast({ title: 'خطأ', description: error.message, variant: 'destructive' }); return; }
         setCircles(sortCircles((data || []).map(c => ({
           id: c.id, circle_name: c.circle_name, branch_id: c.branch_id ?? null,
           circle_type: c.circle_type ?? 'regular',
+          allow_unrestricted_recitation: c.allow_unrestricted_recitation ?? false,
           periods: ['morning', 'evening'] as Period[],
         }))));
       });
