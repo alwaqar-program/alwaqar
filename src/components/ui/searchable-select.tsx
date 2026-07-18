@@ -131,8 +131,7 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[--radix-popover-trigger-width] p-0 flex flex-col
-                   max-h-[min(20rem,var(--radix-popover-content-available-height))]"
+        className="w-[--radix-popover-trigger-width] p-0 flex flex-col max-h-[min(20rem,60vh)]"
       >
         <div className="flex items-center border-b px-3 py-2 gap-2 shrink-0">
           <Search size={14} className="text-muted-foreground shrink-0" />
