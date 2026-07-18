@@ -251,6 +251,10 @@ export default function RecitationPage() {
         const cumPages = cumPagesBy.get(`${p.kind}:${p.id}`) ?? 0;
         const cumTarget = eligible ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
         const cumDeficit = cumPages - cumTarget;
+        // العجز اليومي = ما سمّعته اليوم − النصاب اليومي (للطالبات المؤهّلات فقط).
+        const dailyTarget = eligible ? (dailyNisab(juz) ?? 0) : 0;
+        const todayPages = recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0);
+        const dailyDeficit = eligible ? todayPages - dailyTarget : 0;
         const isStruggling = eligible && cumTarget > 0 && cumPages < cumTarget;
         const cause = !isStruggling ? '' : (cumPages === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ');
         return {
@@ -263,7 +267,7 @@ export default function RecitationPage() {
           recited: recs.length > 0,
           count: recs.length,
           range: last ? fmtRange(last) : '',
-          pages: recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0) || '',
+          pages: todayPages || '',
           errors: last ? last.error_count : '',
           lahn: last ? (last.lahn_count ?? 0) : '',
           score: last?.score ?? '',
@@ -271,6 +275,9 @@ export default function RecitationPage() {
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
           absent,
           struggling: isStruggling,
+          cumTarget,        // المطلوب التراكمي من الطالبة
+          cumPages,         // كل صفحة سمّعتها الطالبة (تراكمي)
+          dailyDeficit,     // العجز اليومي
           deficit: cumDeficit,
           cause,
           editRec: last ?? null, // آخر سجل تسميع (للتعديل)
@@ -585,6 +592,9 @@ export default function RecitationPage() {
               <TableRow>
                 <SortableHead label="الطالبة" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <SortableHead label="الحلقة" sortKey="circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                <TableHead className="text-right">المطلوب من الطالبة</TableHead>
+                <TableHead className="text-right">ما سمّعته الطالبة</TableHead>
+                <TableHead className="text-right">العجز اليومي</TableHead>
                 <SortableHead label="العجز التراكمي" sortKey="deficit" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                 <TableHead className="text-right">سبب العجز</TableHead>
               </TableRow>
@@ -599,6 +609,9 @@ export default function RecitationPage() {
                       <Badge variant="secondary" className="mr-1.5 text-[10px]">{circleTypeLabel(circleTypeOf(r.circle_id))}</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-right tabular-nums">{r.cumTarget.toLocaleString('ar-EG')}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.cumPages.toLocaleString('ar-EG')}</TableCell>
+                  <TableCell className={`text-right tabular-nums ${r.dailyDeficit < 0 ? 'text-destructive' : 'text-success'}`}>{r.dailyDeficit.toLocaleString('ar-EG')}</TableCell>
                   <TableCell className="text-right font-bold text-destructive tabular-nums">{r.deficit.toLocaleString('ar-EG')}</TableCell>
                   <TableCell className="text-right text-sm">{r.cause}</TableCell>
                 </TableRow>
