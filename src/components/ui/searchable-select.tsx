@@ -40,12 +40,15 @@ function matches(label: string, search: string): boolean {
     .every(token => norm.includes(token));
 }
 
-/** Lower = better. Exact match first, then prefix, then everything else —
- *  so a one-letter query like «ق» surfaces surah ق above البقرة/الطلاق/الفلق. */
+/** Lower = better. An exact match — whole label OR the name segment before «|»
+ *  (the surah name in «السورة|الآية» options) — sorts first, then prefix, then
+ *  substring. So «الحج» surfaces سورة الحج above سورة الحجر, and «ق» surfaces
+ *  سورة ق above البقرة/الطلاق/الفلق, instead of being buried by the cap. */
 function matchRank(label: string, search: string): number {
   const norm = normalizeText(label);
   const q = normalizeText(search).replace(/[\s|،,]+/g, ' ').trim();
-  if (norm === q) return 0;
+  const namePart = norm.split('|')[0].trim();
+  if (norm === q || namePart === q) return 0;
   if (norm.startsWith(q)) return 1;
   return 2;
 }
