@@ -129,8 +129,12 @@ export function SearchableSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <div className="flex items-center border-b px-3 py-2 gap-2">
+      <PopoverContent
+        align="start"
+        className="w-[--radix-popover-trigger-width] p-0 flex flex-col
+                   max-h-[min(20rem,var(--radix-popover-content-available-height))]"
+      >
+        <div className="flex items-center border-b px-3 py-2 gap-2 shrink-0">
           <Search size={14} className="text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
@@ -140,7 +144,7 @@ export function SearchableSelect({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-[min(15rem,50vh)] overflow-y-auto p-1">
+        <div className="flex-1 overflow-y-auto p-1">
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
           ) : (
