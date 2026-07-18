@@ -28,7 +28,11 @@ import {
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, isSponsor, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
-import { dailyNisab, nisabWorkingDaysSum } from '@/lib/program-target';
+import { dailyNisab } from '@/lib/program-target';
+
+// المطلوب من الطالبة = حصة فرعها كاملةً (ثابت): القرآن كامل لفرع 30، وحصّة الأجزاء لغيره.
+//   30 جزء = 604 · 20 جزء = 402 · 10 أجزاء = 201 · 5 أجزاء = 101 (وجه).
+const PORTION_BY_JUZ: Record<number, number> = { 30: 604, 20: 402, 10: 201, 5: 101 };
 
 // درجة التسميع اليومي من 20: ربع درجة خصمًا لكل خطأ ولحن (تُحسب في قاعدة البيانات).
 // المدخل هنا هو مجموع (الأخطاء + اللحون) — نفس نموذج الاختبارات.
@@ -232,9 +236,6 @@ export default function RecitationPage() {
   // Overview: one row per person (any cohort) for date+period.
   // `overviewAll` ignores the status filter so the summary counts stay totals.
   const overviewAll = useMemo(() => {
-    // «أيام العمل» التراكمية من بداية الدورة لليوم المختار (تستبعد الجُمَع، الفترة الصباحية 0.5).
-    const start = courseStart || cumStart || date;
-    const effectiveDays = nisabWorkingDaysSum(start, date);
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -244,12 +245,12 @@ export default function RecitationPage() {
         const recs = recsFor(p.id, p.kind);
         const last = recs[recs.length - 1];
         const absent = isAbsent(p.id, p.kind);
-        // التعثّر تراكميّاً: للطالبات المقبولات فقط. المتعثرة = مجموعها التراكمي أقل من
-        // المطلوب التراكمي (النصاب اليومي × أيام العمل من بداية الدورة لليوم المختار).
+        // التعثّر: للطالبات المقبولات فقط. المتعثرة = مجموعها التراكمي أقل من
+        // المطلوب = حصة فرعها كاملةً (القرآن كامل لفرع 30، وحصّة الأجزاء لغيره).
         const juz = circleJuz.get(p.circle_id ?? '') ?? 0;
         const eligible = p.kind === 'student' && p.registered && !isSponsor(circleTypeOf(p.circle_id)) && juz > 0;
         const cumPages = cumPagesBy.get(`${p.kind}:${p.id}`) ?? 0;
-        const cumTarget = eligible ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
+        const cumTarget = eligible ? (PORTION_BY_JUZ[juz] ?? 0) : 0;
         const cumDeficit = cumPages - cumTarget;
         // العجز اليومي = ما سمّعته اليوم − النصاب اليومي (للطالبات المؤهّلات فقط).
         const dailyTarget = eligible ? (dailyNisab(juz) ?? 0) : 0;
