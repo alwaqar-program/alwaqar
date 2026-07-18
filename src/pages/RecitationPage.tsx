@@ -28,7 +28,7 @@ import {
 } from '@/lib/quran-verses';
 import { Cohort, COHORTS, cohortLabel, COHORT_PLURAL, cohortSubjectColumn, subjectPayload } from '@/lib/cohorts';
 import { CircleType, isSponsor, circleTypeLabel, CIRCLE_TYPE_FILTERS } from '@/lib/circle-type';
-import { dailyNisab } from '@/lib/program-target';
+import { dailyNisab, nisabWorkingDaysSum } from '@/lib/program-target';
 
 // المطلوب من الطالبة = حصة فرعها كاملةً (ثابت): القرآن كامل لفرع 30، وحصّة الأجزاء لغيره.
 //   30 جزء = 604 · 20 جزء = 402 · 10 أجزاء = 201 · 5 أجزاء = 101 (وجه).
@@ -236,6 +236,9 @@ export default function RecitationPage() {
   // Overview: one row per person (any cohort) for date+period.
   // `overviewAll` ignores the status filter so the summary counts stay totals.
   const overviewAll = useMemo(() => {
+    // الوتيرة اليومية التراكمية (للحكم على التعثّر): النصاب × أيام العمل من البداية لليوم.
+    const start = courseStart || cumStart || date;
+    const effectiveDays = nisabWorkingDaysSum(start, date);
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -245,18 +248,19 @@ export default function RecitationPage() {
         const recs = recsFor(p.id, p.kind);
         const last = recs[recs.length - 1];
         const absent = isAbsent(p.id, p.kind);
-        // التعثّر: للطالبات المقبولات فقط. المتعثرة = مجموعها التراكمي أقل من
-        // المطلوب = حصة فرعها كاملةً (القرآن كامل لفرع 30، وحصّة الأجزاء لغيره).
+        // المطلوب (المعروض) = حصة الفرع كاملةً؛ لكن التعثّر يُقاس بالوتيرة اليومية (أدناه).
         const juz = circleJuz.get(p.circle_id ?? '') ?? 0;
         const eligible = p.kind === 'student' && p.registered && !isSponsor(circleTypeOf(p.circle_id)) && juz > 0;
         const cumPages = cumPagesBy.get(`${p.kind}:${p.id}`) ?? 0;
-        const cumTarget = eligible ? (PORTION_BY_JUZ[juz] ?? 0) : 0;
-        const cumDeficit = cumPages - cumTarget;
+        const cumTarget = eligible ? (PORTION_BY_JUZ[juz] ?? 0) : 0; // حصة الفرع كاملة (604/402/201/101)
+        const cumDeficit = cumPages - cumTarget;                    // العجز التراكمي = ما سمّعته − الحصة الكاملة
         // العجز اليومي = ما سمّعته اليوم − النصاب اليومي (للطالبات المؤهّلات فقط).
         const dailyTarget = eligible ? (dailyNisab(juz) ?? 0) : 0;
         const todayPages = recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0);
         const dailyDeficit = eligible ? todayPages - dailyTarget : 0;
-        const isStruggling = eligible && cumTarget > 0 && cumPages < cumTarget;
+        // التعثّر = تأخّر عن الوتيرة اليومية (النصاب × أيام العمل)، لا عن الحصة الكاملة.
+        const pacedTarget = eligible ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
+        const isStruggling = eligible && pacedTarget > 0 && cumPages < pacedTarget;
         const cause = !isStruggling ? '' : (cumPages === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ');
         return {
           id: p.id,
