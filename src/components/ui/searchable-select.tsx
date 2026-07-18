@@ -82,6 +82,7 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const allFiltered = search.trim()
     ? options
@@ -101,6 +102,25 @@ export function SearchableSelect({
     } else {
       setSearch('');
     }
+  }, [open]);
+
+  // When this popover opens inside a Radix Dialog, the Dialog's scroll-lock
+  // (react-remove-scroll) swallows wheel/touch events on the portaled popover,
+  // so the list won't scroll (works fine outside a dialog). Drive the scroll
+  // ourselves with a non-passive wheel listener — consistent in both contexts.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!open || !el) return;
+    const onWheel = (e: WheelEvent) => {
+      const atTop = el.scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight && e.deltaY > 0;
+      if (!atTop && !atBottom) {
+        el.scrollTop += e.deltaY;
+        e.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   }, [open]);
 
   return (
@@ -140,7 +160,7 @@ export function SearchableSelect({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-[min(20rem,60vh)] overflow-y-auto p-1">
+        <div ref={listRef} className="max-h-[min(20rem,60vh)] overflow-y-auto p-1">
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
           ) : (
