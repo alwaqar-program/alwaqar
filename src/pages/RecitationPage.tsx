@@ -113,6 +113,7 @@ export default function RecitationPage() {
   const [recRows, setRecRows] = useState<RecRow[]>([]);
   // للتعثّر التراكمي: مجموع صفحات كل شخص من بداية الدورة لليوم المختار + بداية الدورة.
   const [cumPagesBy, setCumPagesBy] = useState<Map<string, number>>(new Map());
+  const [cumPagesYesterdayBy, setCumPagesYesterdayBy] = useState<Map<string, number>>(new Map());
   const [courseStart, setCourseStart] = useState<string | null>(null);
   const [cumStart, setCumStart] = useState<string | null>(null);
   const [attRows, setAttRows] = useState<AttRow[]>([]);
@@ -194,6 +195,9 @@ export default function RecitationPage() {
     // مجموع صفحات كل شخص تراكميّاً من بداية الدورة حتى اليوم المختار (للتعثّر التراكمي).
     // بترقيم لأن المدى قد يتجاوز ١٠٠٠ صف.
     const cum = new Map<string, number>();
+    const cumY = new Map<string, number>(); // تراكمي حتى «أمس» (اليوم المختار − ١) لقياس الوتيرة
+    const yd = new Date(date + 'T12:00:00'); yd.setDate(yd.getDate() - 1);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
     let minDate: string | null = null;
     for (let from = 0; ; from += 1000) {
       const { data } = await supabase.from('recitation_log')
@@ -204,13 +208,15 @@ export default function RecitationPage() {
       for (const r of data as any[]) {
         if (!minDate || r.date < minDate) minDate = r.date;
         const p = r.pages_recited || 0;
-        if (r.student_id) cum.set(`student:${r.student_id}`, (cum.get(`student:${r.student_id}`) || 0) + p);
-        if (r.companion_id) cum.set(`companion:${r.companion_id}`, (cum.get(`companion:${r.companion_id}`) || 0) + p);
-        if (r.beginner_id) cum.set(`beginner:${r.beginner_id}`, (cum.get(`beginner:${r.beginner_id}`) || 0) + p);
+        const y = r.date <= yesterday;
+        if (r.student_id) { const k = `student:${r.student_id}`; cum.set(k, (cum.get(k) || 0) + p); if (y) cumY.set(k, (cumY.get(k) || 0) + p); }
+        if (r.companion_id) { const k = `companion:${r.companion_id}`; cum.set(k, (cum.get(k) || 0) + p); if (y) cumY.set(k, (cumY.get(k) || 0) + p); }
+        if (r.beginner_id) { const k = `beginner:${r.beginner_id}`; cum.set(k, (cum.get(k) || 0) + p); if (y) cumY.set(k, (cumY.get(k) || 0) + p); }
       }
       if (data.length < 1000) break;
     }
     setCumPagesBy(cum);
+    setCumPagesYesterdayBy(cumY);
     setCumStart(minDate);
     setLoading(false);
   };
@@ -236,9 +242,11 @@ export default function RecitationPage() {
   // Overview: one row per person (any cohort) for date+period.
   // `overviewAll` ignores the status filter so the summary counts stay totals.
   const overviewAll = useMemo(() => {
-    // الوتيرة اليومية التراكمية (للحكم على التعثّر): النصاب × أيام العمل من البداية لليوم.
+    // الوتيرة تُقاس من بداية الدورة حتى «أمس» (اليوم المختار − ١)، لأن تسميع اليوم لم يكتمل بعد.
     const start = courseStart || cumStart || date;
-    const effectiveDays = nisabWorkingDaysSum(start, date);
+    const yd = new Date(date + 'T12:00:00'); yd.setDate(yd.getDate() - 1);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+    const effectiveDays = yesterday >= start ? nisabWorkingDaysSum(start, yesterday) : 0;
     return people
       .filter(p => !filterCohort || p.kind === filterCohort)
       .filter(p => !filterCircle || p.circle_id === filterCircle)
@@ -258,10 +266,16 @@ export default function RecitationPage() {
         const dailyTarget = eligible ? (dailyNisab(juz) ?? 0) : 0;
         const todayPages = recs.reduce((sum, r) => sum + (r.pages_recited || 0), 0);
         const dailyDeficit = eligible ? todayPages - dailyTarget : 0;
-        // التعثّر = تأخّر عن الوتيرة اليومية (النصاب × أيام العمل)، لا عن الحصة الكاملة.
+        // التصنيف حسب الوتيرة حتى أمس (النصاب × أيام العمل): متعثرة/على الوتيرة/متقدمة.
         const pacedTarget = eligible ? (dailyNisab(juz) ?? 0) * effectiveDays : 0;
-        const isStruggling = eligible && pacedTarget > 0 && cumPages < pacedTarget;
-        const cause = !isStruggling ? '' : (cumPages === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ');
+        const cumPagesY = cumPagesYesterdayBy.get(`${p.kind}:${p.id}`) ?? 0; // التراكمي حتى أمس
+        const paceStatus: 'behind' | 'ontrack' | 'ahead' | '' =
+          (eligible && pacedTarget > 0)
+            ? (cumPagesY < pacedTarget ? 'behind' : cumPagesY > pacedTarget ? 'ahead' : 'ontrack')
+            : '';
+        const isStruggling = paceStatus === 'behind';
+        const pacedDeficit = eligible ? cumPagesY - pacedTarget : 0; // الفرق عن الوتيرة (− متعثرة / + متقدمة)
+        const cause = !isStruggling ? '' : (cumPagesY === 0 ? 'لم تبدأ التسميع' : 'عجز تراكمي في الحفظ');
         return {
           id: p.id,
           kind: p.kind,
@@ -280,6 +294,10 @@ export default function RecitationPage() {
           recorded_by: last ? (last.recorded_by || last.teachers?.teacher_name || '—') : '',
           absent,
           struggling: isStruggling,
+          paceStatus,       // '' | behind | ontrack | ahead (حتى أمس)
+          pacedTarget,      // الوتيرة المطلوبة حتى أمس
+          pacedDeficit,     // الفرق عن الوتيرة (سالب متعثرة / موجب متقدمة)
+          cumPagesY,        // التراكمي حتى أمس
           cumTarget,        // المطلوب التراكمي من الطالبة
           cumPages,         // كل صفحة سمّعتها الطالبة (تراكمي)
           dailyDeficit,     // العجز اليومي
@@ -290,16 +308,20 @@ export default function RecitationPage() {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, recRows, attRows, period, date, filterCircle, filterCohort, filterCircleType, search, circles, circleJuz, cumPagesBy, courseStart, cumStart]);
+  }, [people, recRows, attRows, period, date, filterCircle, filterCohort, filterCircleType, search, circles, circleJuz, cumPagesBy, cumPagesYesterdayBy, courseStart, cumStart]);
 
   const recitedCount = overviewAll.filter(r => r.recited).length;
   const notRecited = overviewAll.length - recitedCount;
-  const strugglingCount = overviewAll.filter(r => r.struggling).length;
+  const strugglingCount = overviewAll.filter(r => r.paceStatus === 'behind').length;
+  const onTrackCount = overviewAll.filter(r => r.paceStatus === 'ontrack').length;
+  const aheadCount = overviewAll.filter(r => r.paceStatus === 'ahead').length;
 
   // Apply the clickable status filter on top of the other filters.
   const filteredOverview = useMemo(() => {
     if (!filterStatus) return overviewAll;
-    if (filterStatus === 'struggling') return overviewAll.filter(r => r.struggling);
+    if (filterStatus === 'struggling') return overviewAll.filter(r => r.paceStatus === 'behind');
+    if (filterStatus === 'ontrack') return overviewAll.filter(r => r.paceStatus === 'ontrack');
+    if (filterStatus === 'ahead') return overviewAll.filter(r => r.paceStatus === 'ahead');
     return overviewAll.filter(r => filterStatus === 'recited' ? r.recited : !r.recited);
   }, [overviewAll, filterStatus]);
 
@@ -557,6 +579,8 @@ export default function RecitationPage() {
           { key: 'recited', label: 'سمّعت', color: 'bg-success/10 text-success border-success/20', n: recitedCount },
           { key: 'notRecited', label: 'لم تُسمِّع', color: 'bg-destructive/10 text-destructive border-destructive/20', n: notRecited },
           { key: 'struggling', label: 'متعثرة', color: 'bg-warning/10 text-warning border-warning/20', n: strugglingCount },
+          { key: 'ontrack', label: 'على الوتيرة', color: 'bg-info/10 text-info border-info/20', n: onTrackCount },
+          { key: 'ahead', label: 'متقدمة', color: 'bg-accent/10 text-accent border-accent/20', n: aheadCount },
         ] as const).map(f => {
           const active = filterStatus === f.key;
           return (
