@@ -31,6 +31,7 @@ import RegNumberPage from "./pages/RegNumberPage";
 import RoommatesPage from "./pages/RoommatesPage";
 import SupervisorRegistrationPage from "./pages/SupervisorRegistrationPage";
 import PaymentPage from "./pages/PaymentPage";
+import StaffPaymentPage from "./pages/StaffPaymentPage";
 import InterviewPage from "./pages/InterviewPage";
 import TeacherRecitationPage from "./pages/teacher/TeacherRecitationPage";
 import TeacherAttendancePage from "./pages/teacher/TeacherAttendancePage";
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/roommates" element={<RoommatesPage />} />
             <Route path="/supervisor-registration" element={<SupervisorRegistrationPage />} />
             <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/staff-payment" element={<StaffPaymentPage />} />
             <Route path="/interview" element={<InterviewPage />} />
             <Route path="/teacher/recitation" element={<TeacherRecitationPage />} />
             <Route path="/teacher/attendance" element={<TeacherAttendancePage />} />
