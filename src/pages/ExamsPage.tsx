@@ -304,12 +304,17 @@ export default function ExamsPage() {
   // Coverage sorting — distinct keys (cov_*) so it never collides with the
   // log table's sort, since both tables share the one useTableSort.
   const sortedCoverage = (() => {
-    const acc: Record<string, (r: (typeof coverage)[number]) => unknown> = {
-      cov_student: (r) => r.full_name,
-      cov_circle: (r) => r.circle_name,
+    const acc: Record<string, { get: (r: (typeof coverage)[number]) => unknown; type: 'text' | 'number' }> = {
+      cov_student: { get: (r) => r.full_name, type: 'text' },
+      cov_circle: { get: (r) => r.circle_name, type: 'text' },
     };
-    if (!sortKey || !acc[sortKey]) return coverage;
-    return sortRows(coverage, acc[sortKey], sortDir, 'text');
+    // One key per exam-type column — sort by its score, untested (—) sorts last.
+    newExamTypes.forEach(t => {
+      acc[`cov_${t}`] = { get: (r) => r.types[t]?.total_score ?? '', type: 'number' };
+    });
+    const col = sortKey ? acc[sortKey] : null;
+    if (!col) return coverage;
+    return sortRows(coverage, col.get, sortDir, col.type);
   })();
 
   // Clickable «لم تُختبر» filter: show only those not tested for the chosen type.
@@ -498,7 +503,10 @@ export default function ExamsPage() {
                   <TableRow>
                     <SortableHead label="الطالبة" sortKey="cov_student" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
                     <SortableHead label="الحلقة" sortKey="cov_circle" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
-                    {newExamTypes.map(t => <TableHead key={t} className="text-right">{examTypes[t]}</TableHead>)}
+                    {newExamTypes.map(t => (
+                      <SortableHead key={t} label={examTypes[t]} sortKey={`cov_${t}`}
+                        currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} />
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
