@@ -8,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import CertificateView, { CertificateData } from '@/components/CertificateView';
 import logoImg from '@/assets/logo.png';
-import qrImg from '@/assets/certificate-qr.svg';
 
 // عرض الشهادة الحقيقي بالبكسل (297mm × 96dpi) لتصغير المعاينة على الشاشة
 const CERT_WIDTH_PX = 1123;
@@ -215,13 +214,6 @@ export default function CertificatePage() {
                 {lookup.kind === 'error' && (
                   <p className="text-sm text-destructive">تعذر البحث: {lookup.message}</p>
                 )}
-              </div>
-              <div className="mt-6 flex items-center gap-4 border-t pt-4">
-                <img src={qrImg} alt="رمز QR لصفحة الشهادات" className="h-24 w-24 rounded border bg-white p-1" />
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">شاركي الصفحة</p>
-                  <p>امسحي الرمز أو انسخي الرابط: alwaqar.org/certificate</p>
-                </div>
               </div>
             </CardContent>
           </Card>
