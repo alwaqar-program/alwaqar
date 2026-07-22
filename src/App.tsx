@@ -38,6 +38,7 @@ import TeacherAttendancePage from "./pages/teacher/TeacherAttendancePage";
 import TeacherExamPage from "./pages/teacher/TeacherExamPage";
 import PublicRecitationPage from "./pages/PublicRecitationPage";
 import PublicAttendancePage from "./pages/PublicAttendancePage";
+import CertificatePage from "./pages/CertificatePage";
 import StaffRecitationPage from "./pages/StaffRecitationPage";
 import InterviewCommitteePage from "./pages/InterviewCommitteePage";
 import CommitteeMemberProfilePage from "./pages/CommitteeMemberProfilePage";
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/attend" element={<PublicAttendancePage circleType="regular" />} />
             <Route path="/recite-haram" element={<PublicRecitationPage circleType="sponsor" />} />
             <Route path="/attend-haram" element={<PublicAttendancePage circleType="sponsor" />} />
+            <Route path="/certificate" element={<CertificatePage />} />
             <Route path="/recite-staff" element={<StaffRecitationPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/daily-report" element={<ProtectedRoute><DailyReportPage /></ProtectedRoute>} />
