@@ -39,12 +39,18 @@ export default function CompanionProfilePage() {
     if (!id) return;
     const load = async () => {
       // companions/recitation_log(companion_id) خارج الأنواع المولّدة — نفس نمط بقية الصفحات
+      // لا FK بين companions.circle_id و circles → الـ join المضمّن يفشل، نجلب الحلقة باستعلام منفصل
       const [cRes, rRes, aRes] = await Promise.all([
-        (supabase as any).from('companions').select('*, circles(circle_name, branches(branch_name))').eq('id', id).single(),
+        (supabase as any).from('companions').select('*').eq('id', id).single(),
         (supabase as any).from('recitation_log').select('*').eq('companion_id', id).eq('is_deleted', false).order('date', { ascending: false }).limit(50),
         (supabase as any).from('attendance').select('*').eq('companion_id', id).order('date', { ascending: false }).limit(50),
       ]);
-      setCompanion(cRes.data);
+      let comp = cRes.data;
+      if (comp?.circle_id) {
+        const { data: circle } = await supabase.from('circles').select('circle_name, branches(branch_name)').eq('id', comp.circle_id).single();
+        comp = { ...comp, circles: circle };
+      }
+      setCompanion(comp);
       setRecitations(rRes.data || []);
       setAttendance(aRes.data || []);
       setLoading(false);
