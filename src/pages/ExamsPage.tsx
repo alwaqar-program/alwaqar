@@ -128,6 +128,7 @@ export default function ExamsPage() {
   const [circles, setCircles] = useState<Circle[]>([]);
   const [coverageCircle, setCoverageCircle] = useState('');
   const [filterCircleType, setFilterCircleType] = useState<'' | CircleType>('');
+  const [filterMissingType, setFilterMissingType] = useState(''); // '' | exam type → show only those not tested for it
   const [coverageCohort, setCoverageCohort] = useState<'' | Cohort>('');
   // فلاتر تبويب «السجل» (مستقلة عن تبويب التغطية).
   const [logCircle, setLogCircle] = useState('');
@@ -311,13 +312,18 @@ export default function ExamsPage() {
     return sortRows(coverage, acc[sortKey], sortDir, 'text');
   })();
 
+  // Clickable «لم تُختبر» filter: show only those not tested for the chosen type.
+  const filteredCoverage = filterMissingType
+    ? sortedCoverage.filter(r => !r.types[filterMissingType])
+    : sortedCoverage;
+
   // Pagination — coverage tab and log tab paginate independently.
   const PAGE_SIZE = 25;
   const [covPage, setCovPage] = useState(1);
-  const covPageCount = Math.max(1, Math.ceil(sortedCoverage.length / PAGE_SIZE));
+  const covPageCount = Math.max(1, Math.ceil(filteredCoverage.length / PAGE_SIZE));
   const covSafePage = Math.min(covPage, covPageCount);
-  useEffect(() => { setCovPage(1); }, [coverageCircle, filterCircleType, coverageCohort, sortKey, sortDir]);
-  const pagedCoverage = sortedCoverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
+  useEffect(() => { setCovPage(1); }, [coverageCircle, filterCircleType, coverageCohort, filterMissingType, sortKey, sortDir]);
+  const pagedCoverage = filteredCoverage.slice((covSafePage - 1) * PAGE_SIZE, covSafePage * PAGE_SIZE);
 
   const [logPage, setLogPage] = useState(1);
   const logPageCount = Math.max(1, Math.ceil(sortedExams.length / PAGE_SIZE));
@@ -461,12 +467,29 @@ export default function ExamsPage() {
                 options={[{ value: '', label: 'كل الحلقات' }, ...circles.map(c => ({ value: c.id, label: c.circle_name }))]}
                 value={coverageCircle} onValueChange={setCoverageCircle}
                 placeholder="كل الحلقات" searchPlaceholder="ابحث عن حلقة..." allowClear />
-              <div className="flex gap-2 flex-wrap">
-                {newExamTypes.map(t => (
-                  <Badge key={t} variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
-                    {examTypes[t]} — لم تُختبر: {missingCount(t)}
-                  </Badge>
-                ))}
+              <div className="flex gap-2 flex-wrap items-center">
+                {newExamTypes.map(t => {
+                  const active = filterMissingType === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setFilterMissingType(active ? '' : t)}
+                      title={active ? 'إلغاء التصفية' : 'عرض من لم تُختبر في هذا الاختبار فقط'}
+                      className={`rounded-full transition ${active ? 'ring-2 ring-primary ring-offset-1' : 'opacity-90 hover:opacity-100'}`}
+                    >
+                      <Badge variant="outline" className="cursor-pointer bg-destructive/10 text-destructive border-destructive/20">
+                        {examTypes[t]} — لم تُختبر: {missingCount(t)}
+                      </Badge>
+                    </button>
+                  );
+                })}
+                {filterMissingType && (
+                  <button type="button" onClick={() => setFilterMissingType('')}
+                    className="text-xs text-muted-foreground underline hover:text-foreground">
+                    إظهار الكل
+                  </button>
+                )}
               </div>
             </div>
             <Card>
@@ -512,7 +535,7 @@ export default function ExamsPage() {
                   ))}
                 </TableBody>
               </Table>
-              <TablePagination page={covSafePage} pageSize={PAGE_SIZE} total={coverage.length} onPageChange={setCovPage} />
+              <TablePagination page={covSafePage} pageSize={PAGE_SIZE} total={filteredCoverage.length} onPageChange={setCovPage} />
             </Card>
           </TabsContent>
 
