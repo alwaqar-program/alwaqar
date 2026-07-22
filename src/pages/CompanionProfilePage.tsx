@@ -17,6 +17,17 @@ const ageCategoryLabel: Record<string, string> = {
   under_16: 'أقل من 16', over_35: 'أكثر من 35',
 };
 
+const statusLabels: Record<string, string> = {
+  candidate: 'مرشحة', interview_scheduled: 'مقابلة مجدولة', preliminary_accepted: 'قبول مبدئي',
+  preliminary_evaluation: 'تقييم مبدئي', conditionally_accepted: 'مقبولة مشروطة', on_hold: 'معلقة',
+  final_accepted: 'قبول نهائي', final_evaluation: 'تقييم نهائي', registered: 'مسجلة',
+  withdrawn: 'منسحبة', expelled: 'مفصولة', rejected: 'مرفوضة',
+};
+
+const moveReasonLabel: Record<string, string> = {
+  not_16_to_35: 'خارج الفئة العمرية 16–35', unknown_age: 'عمر غير معروف', added_directly: 'أُضيفت مباشرة',
+};
+
 export default function CompanionProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [companion, setCompanion] = useState<any>(null);
@@ -59,6 +70,7 @@ export default function CompanionProfilePage() {
           <h1 className="text-2xl font-display text-foreground">{companion.full_name}</h1>
           <div className="flex flex-wrap gap-2 mt-1">
             <Badge variant="outline">مرافِقة</Badge>
+            {companion.admission_status && <Badge variant="outline">{statusLabels[companion.admission_status] ?? companion.admission_status}</Badge>}
             {companion.age_category && <Badge variant="secondary">{ageCategoryLabel[companion.age_category] ?? companion.age_category}</Badge>}
             {companion.circles && <Badge variant="secondary">{companion.circles.circle_name}</Badge>}
             {companion.circles?.branches && <Badge variant="secondary">{companion.circles.branches.branch_name}</Badge>}
@@ -102,12 +114,21 @@ export default function CompanionProfilePage() {
               {[
                 ['رقم الهوية', companion.national_id],
                 ['الهاتف', companion.phone],
+                ['البريد', companion.email],
                 ['هاتف ولي الأمر', companion.guardian_phone],
                 ['الجنسية', companion.nationality],
+                ['المؤهل', companion.qualification],
                 ['من سورة', companion.from_surah],
                 ['إلى سورة', companion.to_surah],
+                ['صفحة بدء الحفظ', companion.memorization_start_page],
+                ['تاريخ التسجيل', companion.registration_date],
+                ['التعهد', companion.agreement_signed ? 'تم التوقيع' : 'لم يتم'],
+                ['معها مرافقون', companion.has_companions == null ? null : (companion.has_companions ? 'نعم' : 'لا')],
+                ['عدد الأطفال المرافقين', companion.companion_count_children],
+                ['عدد البالغات المرافقات', companion.companion_count_adults],
                 ['تاريخ الانتقال', companion.moved_at ? String(companion.moved_at).slice(0, 10) : null],
-                ['سبب الانتقال', companion.move_reason],
+                ['سبب الانتقال', companion.move_reason ? (moveReasonLabel[companion.move_reason] ?? companion.move_reason) : null],
+                ['ملاحظات', companion.notes],
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <span className="text-muted-foreground">{label}:</span>
