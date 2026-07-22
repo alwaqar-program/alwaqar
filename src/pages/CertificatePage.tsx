@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import CertificateView, { CertificateData } from '@/components/CertificateView';
+import CelebrationOverlay from '@/components/CelebrationOverlay';
 import logoImg from '@/assets/logo.png';
 
 // عرض الشهادة الحقيقي بالبكسل (297mm × 96dpi) لتصغير المعاينة على الشاشة
@@ -217,6 +218,19 @@ export default function CertificatePage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* تهنئة + ألعاب نارية عند ظهور الشهادة */}
+        {certificate && (
+          <>
+            <CelebrationOverlay key={`${certificate.name}-${certificate.type}`} />
+            <div className="rounded-lg border-2 border-[#C9A96A] bg-gradient-to-l from-[#045E63] to-[#0E8388] px-6 py-5 text-center text-white shadow-sm print:hidden">
+              <p className="text-2xl font-bold" style={{ fontFamily: "'Doran ExtraBold', 'Amiri', serif" }}>
+                الحمدلله على التمام
+              </p>
+              <p className="mt-1 text-lg text-[#E3C88F]">مبارك لكنّ 🎉</p>
+            </div>
+          </>
         )}
 
         {/* معاينة مصغّرة تحافظ على مقاس A4 الحقيقي عند الطباعة */}
