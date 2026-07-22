@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ const csvColumns: CsvColumnDef[] = [
 
 export default function CompanionsPage() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,7 +187,7 @@ export default function CompanionsPage() {
               </TableHeader>
               <TableBody>
                 {paged.map(c => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/companions/${c.id}`)}>
                     <TableCell className="font-medium">{c.full_name}</TableCell>
                     <TableCell dir="ltr" className="text-right">{c.national_id || '-'}</TableCell>
                     <TableCell dir="ltr" className="text-right">{c.phone || '-'}</TableCell>
