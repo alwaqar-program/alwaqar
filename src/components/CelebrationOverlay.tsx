@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 
 // ألعاب نارية خفيفة بلا مكتبات: انفجارات دورية بألوان الهوية ثم تتوقف تلقائيًا.
-const COLORS = ['#045E63', '#0E8388', '#C9A96A', '#E3C88F', '#FFFFFF'];
+// ذهبي وعاجي وتركوازي فاتح — مرئية فوق الخلفية الداكنة.
+const COLORS = ['#C9A96A', '#E9D8AF', '#7FC7CC', '#FFFFFF', '#0E8388'];
 const DURATION_MS = 6500;
 
 interface Particle {
@@ -15,6 +16,7 @@ export default function CelebrationOverlay() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
