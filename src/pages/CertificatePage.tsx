@@ -21,16 +21,14 @@ const C = {
   goldPale: '#E5D5AE',
 };
 
-// صف الدالة get_certificate (هجرة 49)
+// صف الدالة get_certificate (هجرة 50 — تقرأ من جدول certificates المعتمد من الإدارة)
 interface CertificateRow {
-  cohort: 'student' | 'companion' | 'beginner';
-  full_name: string;
-  pages: number | null;
-  portion: number | null;
-  juz_count: number | null;
-  from_surah: string | null;
-  to_surah: string | null;
+  display_name: string;
   cert_type: 'completion' | 'participation';
+  from_surah: string | null;
+  from_verse: number | null;
+  to_surah: string | null;
+  to_verse: number | null;
   juz_text: string | null;
   score: string | null;
   grade: string | null;
@@ -45,11 +43,12 @@ type LookupState =
 
 const rowToCertificate = (row: CertificateRow): CertificateData => ({
   type: row.cert_type,
-  name: row.full_name,
-  fromSurah: row.from_surah ?? '',
-  toSurah: row.to_surah ?? '',
-  juzText:
-    row.juz_text ?? (row.juz_count && row.juz_count > 0 ? `${row.juz_count} جزءًا` : undefined),
+  name: row.display_name,
+  fromSurah: row.from_surah ?? undefined,
+  fromVerse: row.from_verse ?? undefined,
+  toSurah: row.to_surah ?? undefined,
+  toVerse: row.to_verse ?? undefined,
+  juzText: row.juz_text ?? undefined,
   score: row.score ?? undefined,
   grade: row.grade ?? undefined,
 });
@@ -68,7 +67,7 @@ const SAMPLE: Record<'participation' | 'completion', CertificateData> = {
     fromSurah: 'الفاتحة',
     toSurah: 'الإخلاص',
     juzText: '30 جزءًا',
-    score: '95%',
+    score: '95',
     grade: 'ممتاز',
   },
 };

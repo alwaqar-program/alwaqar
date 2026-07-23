@@ -6,11 +6,14 @@ export type CertificateType = 'participation' | 'completion';
 export interface CertificateData {
   type: CertificateType;
   name: string;
-  fromSurah: string;
-  toSurah: string;
-  /** نص الأجزاء المنجزة في شهادة الإتمام، مثل «ثلاثين جزءًا» أو «٣٠ جزءًا» */
+  fromSurah?: string;
+  /** رقم آية البداية إن حُدد في بيانات الشهادات */
+  fromVerse?: number;
+  toSurah?: string;
+  toVerse?: number;
+  /** نص الأجزاء المنجزة في شهادة الإتمام، مثل «30 جزءًا» أو «5 أجزاء» */
   juzText?: string;
-  /** المعدل — يُعرض كما هو (تُزوَّد به الإدارة لاحقًا) */
+  /** درجة الاختبار النهائي من 100 — تُعرض متبوعة بـ ٪ */
   score?: string;
   /** التقدير، مثل «ممتاز» */
   grade?: string;
@@ -41,8 +44,18 @@ const V = ({ children }: { children: React.ReactNode }) => (
  * الأحجام بالنقاط مطابقة لقالب Word: العنوان Doran ExtraBold ‏30pt،
  * والمتن Alyamama ‏20pt. للمعاينة على الشاشة يُصغَّر بـ transform خارجيًا.
  */
+/** اسم السورة مع رقم الآية إن وُجد، مثل «التوبة - الآية ٩٤» */
+const surahRef = (surah?: string, verse?: number) =>
+  surah ? (verse ? `${surah} - الآية ${ar(verse)}` : surah) : '';
+
 export default function CertificateView({ data }: { data: CertificateData }) {
   const isCompletion = data.type === 'completion';
+  // حلقات المبتدئات: إتمام حفظ سورة النور — نموذج خاص بلا نطاق سور
+  const isNour =
+    isCompletion && data.fromSurah === 'النور' && data.toSurah === 'النور';
+  const hasRange = !!(data.fromSurah && data.toSurah);
+  const fromRef = surahRef(data.fromSurah, data.fromVerse);
+  const toRef = surahRef(data.toSurah, data.toVerse);
 
   return (
     <div
@@ -102,20 +115,37 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         <p style={{ margin: 0 }}>
           {isCompletion ? (
             <>
-              أتمت برنامج الوقار وأنجزت (<V>{ar(data.juzText ?? '')}</V>) من سورة (
-              <V>{data.fromSurah}</V>) الى سورة (<V>{data.toSurah}</V>) {ar(DAYS_TEXT)}{' '}
-              {VENUE_TEXT}{' '}
+              أتمت برنامج الوقار وأنجزت{' '}
+              {isNour ? (
+                <>
+                  حفظ سورة <V>النور</V>
+                </>
+              ) : (
+                <>
+                  {data.juzText ? (
+                    <>
+                      (<V>{ar(data.juzText)}</V>){' '}
+                    </>
+                  ) : null}
+                  من سورة (<V>{ar(fromRef)}</V>) الى سورة (<V>{ar(toRef)}</V>)
+                </>
+              )}{' '}
+              {ar(DAYS_TEXT)} {VENUE_TEXT}{' '}
               {data.score && data.grade ? (
                 <>
-                  بمعدل (<V>{ar(data.score)}</V>) وبتقدير (<V>{data.grade}</V>){' '}
+                  بمعدل (<V>{ar(data.score)}٪</V>) وبتقدير (<V>{data.grade}</V>){' '}
                 </>
               ) : null}
               {ar(SESSION_COMPLETION)}
             </>
+          ) : hasRange ? (
+            <>
+              شاركت في برنامج الوقار من سورة (<V>{ar(fromRef)}</V>) الى سورة (
+              <V>{ar(toRef)}</V>) {ar(DAYS_TEXT)} {VENUE_TEXT} {ar(SESSION_PARTICIPATION)}
+            </>
           ) : (
             <>
-              شاركت في برنامج الوقار من سورة (<V>{data.fromSurah}</V>) الى سورة (
-              <V>{data.toSurah}</V>) {ar(DAYS_TEXT)} {VENUE_TEXT} {ar(SESSION_PARTICIPATION)}
+              شاركت في برنامج الوقار {VENUE_TEXT} {ar(SESSION_PARTICIPATION)}
             </>
           )}
         </p>
