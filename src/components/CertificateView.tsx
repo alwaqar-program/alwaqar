@@ -158,9 +158,9 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         alt=""
         style={{
           position: 'absolute',
-          top: '168mm',
-          left: '130mm',
-          height: '25mm',
+          top: '162mm',
+          left: '126mm',
+          height: '37.5mm',
           width: 'auto',
           opacity: 0.9,
           mixBlendMode: 'multiply',
