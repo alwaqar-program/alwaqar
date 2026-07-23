@@ -9,27 +9,20 @@ import { useToast } from '@/hooks/use-toast';
 import logoImg from '@/assets/logo.png';
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (isSignUp) {
-        await signUp(email, password, fullName);
-        toast({ title: 'تم إنشاء الحساب بنجاح', description: 'يرجى تفعيل البريد الإلكتروني' });
-      } else {
-        await signIn(email, password);
-        toast({ title: 'تم تسجيل الدخول بنجاح' });
-        navigate('/', { replace: true });
-      }
+      await signIn(email, password);
+      toast({ title: 'تم تسجيل الدخول بنجاح' });
+      navigate('/', { replace: true });
     } catch (error: any) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
     } finally {
@@ -49,12 +42,6 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">الاسم الكامل</Label>
-                <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} required />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required dir="ltr" />
@@ -64,23 +51,14 @@ export default function LoginPage() {
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required dir="ltr" minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '...' : isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول'}
+              {loading ? '...' : 'تسجيل الدخول'}
             </Button>
-            {!isSignUp && (
-              <Link
-                to="/forgot-password"
-                className="block text-center text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                نسيت كلمة المرور؟
-              </Link>
-            )}
-            <button
-              type="button"
-              className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsSignUp(!isSignUp)}
+            <Link
+              to="/forgot-password"
+              className="block text-center text-sm text-muted-foreground hover:text-primary transition-colors"
             >
-              {isSignUp ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب جديد'}
-            </button>
+              نسيت كلمة المرور؟
+            </Link>
           </form>
         </CardContent>
       </Card>

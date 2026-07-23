@@ -10,7 +10,6 @@ interface AuthContextType {
   roles: AppRole[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isAdmin: boolean;
@@ -65,15 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } }
-    });
-    if (error) throw error;
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
@@ -83,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = hasRole('admin');
 
   return (
-    <AuthContext.Provider value={{ user, session, roles, loading, signIn, signUp, signOut, hasRole, isAdmin }}>
+    <AuthContext.Provider value={{ user, session, roles, loading, signIn, signOut, hasRole, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
