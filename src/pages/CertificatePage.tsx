@@ -43,7 +43,8 @@ type LookupState =
 
 const rowToCertificate = (row: CertificateRow): CertificateData => ({
   type: row.cert_type,
-  name: row.display_name,
+  // full_name: توافق مع دالة الهجرة 49 القديمة إلى أن تُشغَّل هجرة 50
+  name: row.display_name ?? (row as unknown as { full_name?: string }).full_name ?? '',
   fromSurah: row.from_surah ?? undefined,
   fromVerse: row.from_verse ?? undefined,
   toSurah: row.to_surah ?? undefined,
@@ -183,7 +184,7 @@ export default function CertificatePage() {
       });
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210);
-      pdf.save(`شهادة برنامج الوقار - ${certificate?.name ?? ''}.pdf`);
+      pdf.save(`شهادة ${certificate?.name ?? ''}.pdf`.trim());
     } catch (e) {
       console.error('PDF generation failed, falling back to print', e);
       window.print();

@@ -79,7 +79,7 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         style={{
           position: 'absolute',
           top: '52mm',
-          right: '47mm',
+          right: '40mm',
           width: '244mm',
           textAlign: 'center',
           fontFamily: "'Doran ExtraBold', 'Amiri', serif",
@@ -96,7 +96,7 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         style={{
           position: 'absolute',
           top: '66mm',
-          right: '68mm',
+          right: '61mm',
           width: '200mm',
           height: '76mm',
           display: 'flex',
@@ -158,7 +158,7 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         alt=""
         style={{
           position: 'absolute',
-          top: '148mm',
+          top: '150mm',
           left: '130mm',
           height: '25mm',
           width: 'auto',
