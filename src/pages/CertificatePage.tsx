@@ -233,8 +233,9 @@ export default function CertificatePage() {
         }}
       />
 
-      {/* لا print:hidden هنا — إخفاء الطباعة يتم عبر visibility حتى تبقى الشهادة قابلة للطباعة */}
-      <div className="mr-10 sm:mr-16 md:mr-20">
+      {/* لا print:hidden هنا — إخفاء الطباعة يتم عبر visibility حتى تبقى الشهادة قابلة للطباعة.
+          الهامش متساوٍ من الجهتين حتى يتوسّط المحتوى الشاشة رغم شريط الزخرفة الأيمن */}
+      <div className="mx-10 sm:mx-16 md:mx-20">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14 space-y-8">
           {/* الترويسة — علامة الوقار ثم العنوان بخط الشهادة */}
           <header className="text-center space-y-3">
