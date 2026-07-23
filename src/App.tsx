@@ -47,6 +47,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import CertificatePage from "./pages/CertificatePage";
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
+import AccessGate from "./components/AccessGate";
 import logoImg from "@/assets/logo.png";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <AccessGate>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -124,6 +126,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </AccessGate>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
