@@ -38,6 +38,7 @@ const csvColumns: CsvColumnDef[] = [
 
 export default function MubtadiatPage() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [beginners, setBeginners] = useState<Beginner[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [loading, setLoading] = useState(true);
