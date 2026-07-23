@@ -431,7 +431,7 @@ export default function CertificatePage() {
                     className="text-sm underline underline-offset-4"
                     style={{ color: `${C.tealInk}99` }}
                   >
-                    البحث برقم هوية آخر
+                    العودة
                   </button>
                 )}
               </div>
