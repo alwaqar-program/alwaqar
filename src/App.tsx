@@ -15,6 +15,7 @@ import StudentProfilePage from "./pages/StudentProfilePage";
 import CompanionsPage from "./pages/CompanionsPage";
 import CompanionProfilePage from "./pages/CompanionProfilePage";
 import MubtadiatPage from "./pages/MubtadiatPage";
+import BeginnerProfilePage from "./pages/BeginnerProfilePage";
 import StaffPage from "./pages/StaffPage";
 import RoomsPage from "./pages/RoomsPage";
 import RecitationPage from "./pages/RecitationPage";
@@ -109,6 +110,7 @@ const App = () => (
             <Route path="/companions" element={<ProtectedRoute><CompanionsPage /></ProtectedRoute>} />
             <Route path="/companions/:id" element={<ProtectedRoute><CompanionProfilePage /></ProtectedRoute>} />
             <Route path="/mubtadiat" element={<ProtectedRoute><MubtadiatPage /></ProtectedRoute>} />
+            <Route path="/mubtadiat/:id" element={<ProtectedRoute><BeginnerProfilePage /></ProtectedRoute>} />
             <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
             <Route path="/rooms" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
             <Route path="/recitation" element={<ProtectedRoute><RecitationPage /></ProtectedRoute>} />
