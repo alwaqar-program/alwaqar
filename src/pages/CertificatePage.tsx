@@ -64,9 +64,9 @@ const SAMPLE: Record<'participation' | 'completion', CertificateData> = {
   },
   completion: {
     type: 'completion',
-    name: 'نورة بنت عبدالله المحمد',
-    fromSurah: 'البقرة',
-    toSurah: 'الناس',
+    name: 'نورة بنت عبدالله بن محمد آل عبدالعزيز',
+    fromSurah: 'الفاتحة',
+    toSurah: 'الإخلاص',
     juzText: '30 جزءًا',
     score: '95%',
     grade: 'ممتاز',

@@ -28,6 +28,13 @@ const ar = (s: string | number) =>
 
 const TEAL = '#045E63';
 
+/** كل القيم المتغيرة في الشهادة بنفس تنسيق الاسم: Alyamama ExtraBold تركوازي */
+const V = ({ children }: { children: React.ReactNode }) => (
+  <span style={{ fontFamily: "'Alyamama ExtraBold', 'Alyamama', serif", color: TEAL }}>
+    {children}
+  </span>
+);
+
 /**
  * الشهادة بمقاس A4 أفقي حقيقي (297×210 ملم) فوق خلفية الجمعية.
  * الأحجام بالنقاط مطابقة لقالب Word: العنوان Doran ExtraBold ‏30pt،
@@ -69,40 +76,45 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         {isCompletion ? 'إتمـــام برنامـــج الوقـــار' : 'مشاركة في برنامج الوقار'}
       </div>
 
-      {/* المتن */}
+      {/* المتن — منطقة ثابتة بين العنوان والتواقيع، والنص يتوسّطها عموديًا
+          حتى لا يطغى على التواقيع مهما طالت الأسماء أو أسماء السور */}
       <div
         style={{
           position: 'absolute',
-          top: '78mm',
+          top: '66mm',
           right: '32mm',
           width: '200mm',
+          height: '76mm',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
           textAlign: 'center',
           fontFamily: "'Alyamama', 'Amiri', serif",
-          fontSize: '20pt',
-          lineHeight: 1.9,
+          fontSize: '18pt',
+          lineHeight: 1.7,
           color: '#222',
         }}
       >
         <p style={{ margin: 0 }}>
-          تشهد جمعية تعلم للقرآن وعلومه أن الطالبة:{' '}
-          <span style={{ fontFamily: "'Alyamama ExtraBold', 'Alyamama', serif", color: TEAL }}>
-            {data.name}
-          </span>
+          تشهد جمعية تعلم للقرآن وعلومه أن الطالبة: <V>{data.name}</V>
         </p>
         <p style={{ margin: 0 }}>
           {isCompletion ? (
             <>
-              أتمت برنامج الوقار وأنجزت ({ar(data.juzText ?? '')}) من سورة ({data.fromSurah}) الى
-              سورة ({data.toSurah}) {ar(DAYS_TEXT)} {VENUE_TEXT}{' '}
+              أتمت برنامج الوقار وأنجزت (<V>{ar(data.juzText ?? '')}</V>) من سورة (
+              <V>{data.fromSurah}</V>) الى سورة (<V>{data.toSurah}</V>) {ar(DAYS_TEXT)}{' '}
+              {VENUE_TEXT}{' '}
               {data.score && data.grade ? (
-                <>بمعدل ({ar(data.score)}) وبتقدير ({data.grade}) </>
+                <>
+                  بمعدل (<V>{ar(data.score)}</V>) وبتقدير (<V>{data.grade}</V>){' '}
+                </>
               ) : null}
               {ar(SESSION_COMPLETION)}
             </>
           ) : (
             <>
-              شاركت في برنامج الوقار من سورة ({data.fromSurah}) الى سورة ({data.toSurah}){' '}
-              {ar(DAYS_TEXT)} {VENUE_TEXT} {ar(SESSION_PARTICIPATION)}
+              شاركت في برنامج الوقار من سورة (<V>{data.fromSurah}</V>) الى سورة (
+              <V>{data.toSurah}</V>) {ar(DAYS_TEXT)} {VENUE_TEXT} {ar(SESSION_PARTICIPATION)}
             </>
           )}
         </p>
