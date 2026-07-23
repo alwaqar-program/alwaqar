@@ -130,3 +130,20 @@
   /* لا تقطع الصفوف بين الصفحات قدر الإمكان */
   #daily-report tr { break-inside: avoid; }
 }
+
+/* خطوط شهادات الجمعية (مستخرجة من قالب Word الرسمي) */
+@font-face {
+  font-family: 'Alyamama';
+  src: url('./assets/fonts/Alyamama-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Alyamama ExtraBold';
+  src: url('./assets/fonts/Alyamama-ExtraBold.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Doran ExtraBold';
+  src: url('./assets/fonts/Doran-ExtraBold.ttf') format('truetype');
+  font-display: swap;
+}
