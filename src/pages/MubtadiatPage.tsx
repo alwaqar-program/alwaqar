@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -168,7 +169,7 @@ export default function MubtadiatPage() {
               </TableHeader>
               <TableBody>
                 {paged.map(b => (
-                  <TableRow key={b.id}>
+                  <TableRow key={b.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/mubtadiat/${b.id}`)}>
                     <TableCell className="font-medium">{b.full_name}</TableCell>
                     <TableCell dir="ltr" className="text-right">{b.national_id || '-'}</TableCell>
                     <TableCell dir="ltr" className="text-right">{b.phone || '-'}</TableCell>
