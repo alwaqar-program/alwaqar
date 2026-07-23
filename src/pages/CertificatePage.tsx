@@ -111,17 +111,20 @@ export default function CertificatePage() {
     };
   }, []);
 
-  // بحث تلقائي عند اكتمال 10 أرقام (نفس سلوك صفحة رقم المستخدم)
+  // بحث تلقائي عند اكتمال الرقم (10-11 خانة — بعض أرقام الإقامة/الحدود 11)
+  // مع مهلة قصيرة حتى لا يُبحث برقم ناقص أثناء الكتابة
   useEffect(() => {
     const trimmed = nationalId.trim();
-    if (trimmed.length !== 10) {
+    if (trimmed.length < 10) {
       setLookup({ kind: 'idle' });
       return;
     }
     let cancelled = false;
-    setLookup({ kind: 'searching' });
-    (supabase as any)
-      .rpc('get_certificate', { p_national_id: trimmed })
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      setLookup({ kind: 'searching' });
+      (supabase as any)
+        .rpc('get_certificate', { p_national_id: trimmed })
       .then(({ data, error }: { data: CertificateRow[] | null; error: { message: string } | null }) => {
         if (cancelled) return;
         if (error) {
@@ -135,8 +138,10 @@ export default function CertificatePage() {
         }
         setLookup({ kind: 'found', data: rowToCertificate(row) });
       });
+    }, 500);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [nationalId]);
 
@@ -339,7 +344,7 @@ export default function CertificatePage() {
                     id="cert-id-input"
                     dir="ltr"
                     inputMode="numeric"
-                    maxLength={10}
+                    maxLength={11}
                     autoFocus
                     placeholder="رقم الهوية"
                     value={nationalId}
