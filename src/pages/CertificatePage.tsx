@@ -99,7 +99,9 @@ export default function CertificatePage() {
   const [demoType, setDemoType] = useState<'participation' | 'completion'>('completion');
 
   const wrapRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
+  const [downloading, setDownloading] = useState(false);
 
   useLayoutEffect(() => {
     const previous = document.title;
@@ -157,6 +159,38 @@ export default function CertificatePage() {
   const resetSearch = () => {
     setNationalId('');
     setLookup({ kind: 'idle' });
+  };
+
+  // تحميل مباشر لملف PDF — نرسم نسخة غير مصغّرة من الشهادة ثم نحوّلها لصفحة A4 عرضية.
+  // أوثق من window.print لأن سفاري يتجاهل الاتجاه العرضي ويفرض هوامش.
+  const downloadPdf = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+      await document.fonts.ready;
+      // ننتظر تركيب نسخة التصدير خلف شاشة الانتظار
+      await new Promise((r) => setTimeout(r, 250));
+      if (!exportRef.current) throw new Error('export node not mounted');
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 1400,
+        windowHeight: 1000,
+      });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210);
+      pdf.save(`شهادة برنامج الوقار - ${certificate?.name ?? ''}.pdf`);
+    } catch (e) {
+      console.error('PDF generation failed, falling back to print', e);
+      window.print();
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -372,15 +406,24 @@ export default function CertificatePage() {
 
               <div className="flex flex-col items-center gap-2">
                 <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-lg transition-transform hover:scale-[1.02]"
+                  onClick={downloadPdf}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-full px-8 py-3 text-lg transition-transform hover:scale-[1.02] disabled:opacity-70"
                   style={{
                     background: C.teal,
                     color: C.paper,
                     boxShadow: `0 0 0 1px ${C.gold}, 0 8px 20px rgba(4, 94, 99, 0.25)`,
                   }}
                 >
-                  <Download size={20} /> تحميل الشهادة PDF
+                  {downloading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" /> جارٍ تجهيز الشهادة…
+                    </>
+                  ) : (
+                    <>
+                      <Download size={20} /> تحميل الشهادة PDF
+                    </>
+                  )}
                 </button>
                 {!demoMode && (
                   <button
@@ -400,6 +443,47 @@ export default function CertificatePage() {
           </footer>
         </div>
       </div>
+
+      {/* أثناء التجهيز: نسخة تصدير بالحجم الكامل داخل نافذة العرض (شرط html2canvas)
+          مغطاة بشاشة انتظار فلا تظهر للمستخدمة */}
+      {certificate && downloading && (
+        <>
+          <div
+            ref={exportRef}
+            aria-hidden="true"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              zIndex: 9998,
+              width: '297mm',
+              height: '210mm',
+              overflow: 'hidden',
+              background: '#fff',
+            }}
+          >
+            <CertificateView data={certificate} />
+          </div>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              background: C.paper,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+            }}
+          >
+            <Loader2 size={32} className="animate-spin" style={{ color: C.teal }} />
+            <p className="text-lg" style={{ color: C.teal }}>
+              جارٍ تجهيز الشهادة…
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
