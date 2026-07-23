@@ -47,6 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // إخلاء أمني: أول فتح للصفحة بعد هذا الإصدار يُسجِّل خروج أي جلسة قائمة
+    // ويُلغي توكناتها من السيرفر لكل الأجهزة. لتكرار الإخلاء مستقبلاً غيّري التاريخ.
+    const FORCE_LOGOUT_KEY = 'alwaqar-force-logout-2026-07-23';
+    if (!localStorage.getItem(FORCE_LOGOUT_KEY)) {
+      supabase.auth.signOut({ scope: 'global' })
+        .catch(() => {})
+        .then(() => localStorage.setItem(FORCE_LOGOUT_KEY, '1'));
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
