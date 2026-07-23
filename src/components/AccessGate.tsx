@@ -1,4 +1,5 @@
 import { ReactNode, useState, FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,9 @@ import logoImg from '@/assets/logo.png';
 const ACCESS_HASH = 'a6277c42d22ff2052eb68392828fb6a00c8fdb37a79f2a24db1cfbc9aa3eff04';
 const STORAGE_KEY = 'alwaqar_gate';
 
+// مسارات مفتوحة للعموم بدون رمز.
+const OPEN_PATHS = ['/certificate'];
+
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -24,11 +28,12 @@ async function sha256Hex(text: string): Promise<string> {
  */
 export default function AccessGate({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { pathname } = useLocation();
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(STORAGE_KEY) === ACCESS_HASH);
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
 
-  if (unlocked) return <>{children}</>;
+  if (unlocked || OPEN_PATHS.includes(pathname)) return <>{children}</>;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
