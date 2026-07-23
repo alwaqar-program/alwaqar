@@ -170,12 +170,17 @@ export default function CertificatePage() {
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 0; }
+          /* قفل ارتفاع الصفحة حتى لا يولّد المحتوى المخفي صفحات فارغة إضافية */
+          html, body { height: 100% !important; overflow: hidden !important; }
+          /* أي transform على الآباء يكسر التموضع المطلق للشهادة عند الطباعة */
+          .cert-reveal { animation: none !important; transform: none !important; }
           body * { visibility: hidden !important; }
           #certificate-print, #certificate-print * { visibility: visible !important; }
           #certificate-print {
             position: absolute;
             top: 0;
-            right: 0;
+            right: auto;
+            left: 0;
             transform: none !important;
           }
           #certificate-print, #certificate-print * {
@@ -183,6 +188,13 @@ export default function CertificatePage() {
             print-color-adjust: exact;
           }
           #cert-side-band { display: none !important; }
+        }
+        /* سفاري يتجاهل size: landscape — عند طباعة الصفحة طوليًا نُدير الشهادة 90 درجة لتملأ الورقة */
+        @media print and (orientation: portrait) {
+          #certificate-print {
+            transform: rotate(90deg) translate(0, -210mm) scale(0.995) !important;
+            transform-origin: top left !important;
+          }
         }
         #cert-id-input {
           font-family: 'Cairo', sans-serif;
@@ -221,7 +233,8 @@ export default function CertificatePage() {
         }}
       />
 
-      <div className="mr-10 sm:mr-16 md:mr-20 print:hidden">
+      {/* لا print:hidden هنا — إخفاء الطباعة يتم عبر visibility حتى تبقى الشهادة قابلة للطباعة */}
+      <div className="mr-10 sm:mr-16 md:mr-20">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14 space-y-8">
           {/* الترويسة — علامة الوقار ثم العنوان بخط الشهادة */}
           <header className="text-center space-y-3">
@@ -326,6 +339,8 @@ export default function CertificatePage() {
           {/* الشهادة */}
           {certificate && (
             <section className="cert-reveal space-y-5">
+              {/* دفعة قصاصات جديدة كلما ظهرت شهادة (المفتاح يعيد تركيب المكوّن) */}
+              <ConfettiBurst key={`${certificate.name}-${certificate.type}`} />
               <div className="text-center space-y-1">
                 <p className="text-2xl" style={{ fontFamily: "'Alyamama ExtraBold', serif", color: C.teal }}>
                   {certificate.type === 'completion' ? 'شهادة إتمام البرنامج' : 'شهادة المشاركة في البرنامج'}
