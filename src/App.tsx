@@ -42,6 +42,7 @@ import CommitteeMemberProfilePage from "./pages/CommitteeMemberProfilePage";
 import InterviewsListPage from "./pages/InterviewsListPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import CertificatePage from "./pages/CertificatePage";
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
 import logoImg from "@/assets/logo.png";
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/attend" element={<PublicAttendancePage circleType="regular" />} />
             <Route path="/recite-haram" element={<PublicRecitationPage circleType="sponsor" />} />
             <Route path="/attend-haram" element={<PublicAttendancePage circleType="sponsor" />} />
+            <Route path="/certificate" element={<CertificatePage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/daily-report" element={<ProtectedRoute><DailyReportPage /></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
