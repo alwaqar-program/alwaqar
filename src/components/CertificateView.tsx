@@ -1,4 +1,5 @@
 import bg from '@/assets/certificate-bg.jpg';
+import stamp from '@/assets/cert-stamp.jpg';
 
 export type CertificateType = 'participation' | 'completion';
 
@@ -60,12 +61,12 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       />
 
-      {/* العنوان */}
+      {/* العنوان — مُوسَّط داخل المساحة البيضاء (بدون شريط الزخرفة الأيمن ~40mm) */}
       <div
         style={{
           position: 'absolute',
           top: '52mm',
-          right: '10mm',
+          right: '47mm',
           width: '244mm',
           textAlign: 'center',
           fontFamily: "'Doran ExtraBold', 'Amiri', serif",
@@ -82,7 +83,7 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         style={{
           position: 'absolute',
           top: '66mm',
-          right: '32mm',
+          right: '68mm',
           width: '200mm',
           height: '76mm',
           display: 'flex',
@@ -120,6 +121,21 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         </p>
         <p style={{ margin: '4mm 0 0' }}>{DUA_TEXT}</p>
       </div>
+
+      {/* الختم — فوق كلمة «الختم» في منتصف منطقة التواقيع */}
+      <img
+        src={stamp}
+        alt=""
+        style={{
+          position: 'absolute',
+          top: '148mm',
+          left: '130mm',
+          height: '25mm',
+          width: 'auto',
+          opacity: 0.9,
+          mixBlendMode: 'multiply',
+        }}
+      />
     </div>
   );
 }
