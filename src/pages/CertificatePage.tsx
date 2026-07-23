@@ -421,7 +421,7 @@ export default function CertificatePage() {
                     </>
                   ) : (
                     <>
-                      <Download size={20} /> تحميل الشهادة PDF
+                      <Download size={20} /> تحميل الشهادة
                     </>
                   )}
                 </button>
