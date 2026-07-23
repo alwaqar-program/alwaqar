@@ -96,8 +96,8 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         style={{
           position: 'absolute',
           top: '66mm',
-          right: '61mm',
-          width: '200mm',
+          right: '51mm',
+          width: '220mm',
           height: '76mm',
           display: 'flex',
           flexDirection: 'column',
@@ -158,7 +158,7 @@ export default function CertificateView({ data }: { data: CertificateData }) {
         alt=""
         style={{
           position: 'absolute',
-          top: '150mm',
+          top: '156mm',
           left: '130mm',
           height: '25mm',
           width: 'auto',
